@@ -1,7 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    id("com.google.devtools.ksp") version "1.9.22-1.0.17"
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -18,6 +18,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -31,6 +32,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    kotlinOptions {
+        jvmTarget = "11"
+    }
 }
 
 dependencies {
@@ -38,15 +42,19 @@ dependencies {
     implementation(libs.appcompat)
     implementation(libs.material)
 
+    // Room
     implementation(libs.room.runtime)
-    ksp(libs.room.compiler) // Use ksp for the compiler
+    ksp(libs.room.compiler) // We are keeping this one
 
     // ViewModel and LiveData
     implementation(libs.lifecycle.viewmodel)
     implementation(libs.lifecycle.livedata)
 
+    // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
-    annotationProcessor(libs.room.compiler)
+
+    // REMOVE THIS LINE - This was the cause of the error
+    // annotationProcessor(libs.room.compiler)
 }

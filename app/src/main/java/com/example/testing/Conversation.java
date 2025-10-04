@@ -1,6 +1,7 @@
 package com.example.testing;
 
 import androidx.room.Entity;
+import androidx.room.Ignore;
 import androidx.room.PrimaryKey;
 import androidx.room.ColumnInfo;
 import java.io.Serializable;
@@ -37,7 +38,9 @@ public class Conversation implements Serializable {
     // Constructor required by Room for creating an object from a database row
     public Conversation() { }
 
+
     // Constructor for creating a NEW conversation (Updated to include isActive)
+    @Ignore
     public Conversation(int characterId, String title) {
         this.characterId = characterId;
         this.title = title;

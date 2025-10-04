@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    tools:context=".AddEditCharacterActivity">
+
+    <EditText
+        android:id="@+id/edit_text_character_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/character_name"
+        android:inputType="text" />
+
+    <EditText
+        android:id="@+id/edit_text_character_personality"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:hint="@string/character_personality"
+        android:inputType="textMultiLine"
+        android:minLines="3"
+        android:gravity="top"/>
+
+    <EditText
+        android:id="@+id/edit_text_character_model"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:hint="@string/character_model"
+        android:inputType="text" />
+
+    <EditText
+        android:id="@+id/edit_text_character_first_message"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:hint="@string/character_first_message"
+        android:inputType="textMultiLine"
+        android:minLines="2"
+        android:gravity="top"/>
+
+</LinearLayout>

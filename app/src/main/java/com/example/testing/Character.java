@@ -1,6 +1,7 @@
 package com.example.testing;
 
 import androidx.room.Entity;
+import androidx.room.Ignore;
 import androidx.room.PrimaryKey;
 import androidx.room.ColumnInfo;
 
@@ -46,6 +47,7 @@ public class Character {
     public Character() { }
 
     // Constructor for creating a NEW character
+    @Ignore
     public Character(String name, String personality, String firstMessage,
                      String model,
                      String characterProfileImagePath,

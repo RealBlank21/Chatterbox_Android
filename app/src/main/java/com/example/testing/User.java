@@ -1,6 +1,7 @@
 package com.example.testing;
 
 import androidx.room.Entity;
+import androidx.room.Ignore;
 import androidx.room.PrimaryKey;
 import androidx.room.ColumnInfo;
 import java.io.Serializable;
@@ -42,7 +43,7 @@ public class User implements Serializable {
     // -----------------------------------------------------------------
     // CONSTRUCTOR (For easy object creation)
     // -----------------------------------------------------------------
-
+    @Ignore
     public User(String username, String email, String profileImagePath,
                 String apiKey, String preferredModel, String globalSystemPrompt) {
         // We do NOT set configId here; Room handles the PK
