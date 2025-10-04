@@ -2,6 +2,7 @@ package com.example.testing;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -18,9 +19,11 @@ public class AddEditCharacterActivity extends AppCompatActivity {
     private EditText editTextPersonality;
     private EditText editTextModel;
     private EditText editTextFirstMessage;
+    private EditText editTextTemperature; // Added
+    private EditText editTextMaxTokens;   // Added
 
     private CharacterViewModel characterViewModel;
-    private int currentCharacterId = -1; // To check if we are editing or adding
+    private int currentCharacterId = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,20 +34,33 @@ public class AddEditCharacterActivity extends AppCompatActivity {
         editTextPersonality = findViewById(R.id.edit_text_character_personality);
         editTextModel = findViewById(R.id.edit_text_character_model);
         editTextFirstMessage = findViewById(R.id.edit_text_character_first_message);
+        editTextTemperature = findViewById(R.id.edit_text_temperature); // Added
+        editTextMaxTokens = findViewById(R.id.edit_text_max_tokens);   // Added
 
         characterViewModel = new ViewModelProvider(this).get(CharacterViewModel.class);
 
         getSupportActionBar().setHomeAsUpIndicator(android.R.drawable.ic_menu_close_clear_cancel);
 
-        // --- Check if we are editing or adding ---
         Intent intent = getIntent();
         if (intent.hasExtra("CHARACTER_ID")) {
             setTitle("Edit Character");
             currentCharacterId = intent.getIntExtra("CHARACTER_ID", -1);
-            editTextName.setText(intent.getStringExtra("CHARACTER_NAME"));
-            editTextPersonality.setText(intent.getStringExtra("CHARACTER_PERSONALITY"));
-            editTextModel.setText(intent.getStringExtra("CHARACTER_MODEL"));
-            editTextFirstMessage.setText(intent.getStringExtra("CHARACTER_FIRST_MESSAGE"));
+            // We will fetch the full character from the DB to populate the fields
+            characterViewModel.getCharacterById(currentCharacterId).observe(this, character -> {
+                if (character != null) {
+                    editTextName.setText(character.getName());
+                    editTextPersonality.setText(character.getPersonality());
+                    editTextModel.setText(character.getModel());
+                    editTextFirstMessage.setText(character.getFirstMessage());
+                    if (character.getTemperature() != null) {
+                        editTextTemperature.setText(String.valueOf(character.getTemperature()));
+                    }
+                    if (character.getMaxTokens() != null) {
+                        editTextMaxTokens.setText(String.valueOf(character.getMaxTokens()));
+                    }
+                }
+            });
+
         } else {
             setTitle("Add Character");
         }
@@ -55,20 +71,40 @@ public class AddEditCharacterActivity extends AppCompatActivity {
         String personality = editTextPersonality.getText().toString();
         String model = editTextModel.getText().toString();
         String firstMessage = editTextFirstMessage.getText().toString();
+        String tempStr = editTextTemperature.getText().toString();
+        String maxTokensStr = editTextMaxTokens.getText().toString();
 
-        if (name.trim().isEmpty() || personality.trim().isEmpty()) {
-            Toast.makeText(this, "Please insert a name and personality", Toast.LENGTH_SHORT).show();
+        if (name.trim().isEmpty()) {
+            Toast.makeText(this, "Please insert a name", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        Character character = new Character(name, personality, firstMessage, model, "", "", "");
+        Float temperature = null;
+        if (!TextUtils.isEmpty(tempStr)) {
+            try {
+                temperature = Float.parseFloat(tempStr);
+            } catch (NumberFormatException e) {
+                Toast.makeText(this, "Invalid temperature format", Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+
+        Integer maxTokens = null;
+        if (!TextUtils.isEmpty(maxTokensStr)) {
+            try {
+                maxTokens = Integer.parseInt(maxTokensStr);
+            } catch (NumberFormatException e) {
+                Toast.makeText(this, "Invalid max tokens format", Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+
+        Character character = new Character(name, personality, firstMessage, model, "", "", "", temperature, maxTokens);
 
         if (currentCharacterId != -1) {
-            // We are in edit mode, so we need to set the ID for the update
             character.setId(currentCharacterId);
             characterViewModel.update(character);
         } else {
-            // We are in add mode
             characterViewModel.insert(character);
         }
 

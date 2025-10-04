@@ -42,6 +42,10 @@ public class CharacterRepository {
         return characterDao.getAllCharacters();
     }
 
+    public LiveData<Character> getCharacterById(int id) {
+        return characterDao.getCharacterById(id);
+    }
+
     /*
      Note: Methods that retrieve data are more complex because the UI
      needs a way to get the result back from the background thread.

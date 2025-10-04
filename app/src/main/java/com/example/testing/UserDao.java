@@ -1,5 +1,6 @@
 package com.example.testing;
 
+import androidx.lifecycle.LiveData;
 import androidx.room.Dao;
 import androidx.room.Insert;
 import androidx.room.Query;
@@ -16,5 +17,5 @@ public interface UserDao {
     void update(User user);
 
     @Query("SELECT * FROM user_config WHERE config_id = 1")
-    User getUser();
+    LiveData<User> getUser(); // Change return type to LiveData
 }

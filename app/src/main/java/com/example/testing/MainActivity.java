@@ -2,9 +2,13 @@ package com.example.testing;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.PopupMenu;
 import android.widget.Toast;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
@@ -29,22 +33,60 @@ public class MainActivity extends AppCompatActivity {
 
         RecyclerView recyclerView = findViewById(R.id.character_recyclerview);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        recyclerView.setHasFixedSize(true);
-
         final CharacterAdapter adapter = new CharacterAdapter();
         recyclerView.setAdapter(adapter);
 
         characterViewModel = new ViewModelProvider(this).get(CharacterViewModel.class);
         characterViewModel.getAllCharacters().observe(this, adapter::setCharacters);
 
-        // --- Set the Long-Press Listener ---
+        // --- SETUP LISTENERS ---
         adapter.setOnItemLongClickListener(this::showCharacterOptionsMenu);
+
+        adapter.setOnItemClickListener(character -> {
+            // Tell the ViewModel to start creating a new conversation
+            characterViewModel.startNewConversation(character);
+        });
+
+        // --- OBSERVE FOR NAVIGATION ---
+        characterViewModel.getNavigateToConversation().observe(this, conversationInfo -> {
+            if (conversationInfo != null) {
+                Intent intent = new Intent(MainActivity.this, ConversationActivity.class);
+                intent.putExtra("CHARACTER_ID", conversationInfo.characterId);
+                intent.putExtra("CONVERSATION_ID", conversationInfo.conversationId);
+                startActivity(intent);
+
+                // Reset the event so it doesn't fire again on screen rotation
+                characterViewModel.doneNavigating();
+            }
+        });
+    }
+
+    // ... The rest of your MainActivity methods (onCreateOptionsMenu, showCharacterOptionsMenu, etc.) remain the same
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.main_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        int itemId = item.getItemId();
+        if (itemId == R.id.action_settings) {
+            Intent intent = new Intent(this, SettingsActivity.class);
+            startActivity(intent);
+            return true;
+        } else if (itemId == R.id.action_history) { // ADD THIS ELSE-IF BLOCK
+            Intent intent = new Intent(this, ConversationHistoryActivity.class);
+            startActivity(intent);
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     private void showCharacterOptionsMenu(Character character, View anchorView) {
         PopupMenu popup = new PopupMenu(this, anchorView);
         popup.getMenuInflater().inflate(R.menu.character_options_menu, popup.getMenu());
-
         popup.setOnMenuItemClickListener(item -> {
             int itemId = item.getItemId();
             if (itemId == R.id.option_edit) {
@@ -56,17 +98,12 @@ public class MainActivity extends AppCompatActivity {
             }
             return false;
         });
-
         popup.show();
     }
 
     private void editCharacter(Character character) {
         Intent intent = new Intent(MainActivity.this, AddEditCharacterActivity.class);
         intent.putExtra("CHARACTER_ID", character.getId());
-        intent.putExtra("CHARACTER_NAME", character.getName());
-        intent.putExtra("CHARACTER_PERSONALITY", character.getPersonality());
-        intent.putExtra("CHARACTER_MODEL", character.getModel());
-        intent.putExtra("CHARACTER_FIRST_MESSAGE", character.getFirstMessage());
         startActivity(intent);
     }
 

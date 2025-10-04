@@ -5,7 +5,7 @@ import androidx.room.Database;
 import androidx.room.Room;       // Import Room
 import androidx.room.RoomDatabase;
 
-@Database(entities = {User.class, Character.class, Conversation.class, Message.class}, version = 1, exportSchema = false)
+@Database(entities = {User.class, Character.class, Conversation.class, Message.class}, version = 2, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
 
     // --- DAOs ---
@@ -29,6 +29,7 @@ public abstract class AppDatabase extends RoomDatabase {
                     // 4. Building the database
                     INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
                                     AppDatabase.class, DATABASE_NAME)
+                            .fallbackToDestructiveMigration()
                             .build();
                 }
             }

@@ -1,5 +1,6 @@
 package com.example.testing;
 
+import androidx.lifecycle.LiveData;
 import androidx.room.Dao;
 import androidx.room.Insert;
 import androidx.room.Query;
@@ -20,5 +21,8 @@ public interface MessageDao {
     void delete(Message message);
 
     @Query("SELECT * FROM chat_message WHERE conversation_fk = :conversationId ORDER BY timestamp ASC")
-    List<Message> getMessagesForConversation(int conversationId);
+    LiveData<List<Message>> getMessagesForConversation(int conversationId); // Change return type
+
+    @Query("SELECT * FROM chat_message WHERE conversation_fk = :conversationId ORDER BY timestamp ASC")
+    List<Message> getMessagesForConversationSync(int conversationId);
 }

@@ -14,6 +14,7 @@ public class CharacterAdapter extends RecyclerView.Adapter<CharacterAdapter.Char
 
     private List<Character> characters = new ArrayList<>();
     private OnItemLongClickListener longClickListener;
+    private OnItemClickListener clickListener; // ADDED THIS LINE
 
     @NonNull
     @Override
@@ -50,10 +51,20 @@ public class CharacterAdapter extends RecyclerView.Adapter<CharacterAdapter.Char
             textViewName = itemView.findViewById(R.id.text_view_name);
             imageViewProfile = itemView.findViewById(R.id.image_view_profile);
 
+            // --- START OF ADDED CODE ---
+            // Set the simple click listener
+            itemView.setOnClickListener(v -> {
+                int position = getAdapterPosition();
+                if (clickListener != null && position != RecyclerView.NO_POSITION) {
+                    clickListener.onItemClick(characters.get(position));
+                }
+            });
+            // --- END OF ADDED CODE ---
+
+            // Set the long click listener
             itemView.setOnLongClickListener(v -> {
                 int position = getAdapterPosition();
                 if (longClickListener != null && position != RecyclerView.NO_POSITION) {
-                    // Pass the character AND the view that was clicked
                     longClickListener.onItemLongClick(characters.get(position), v);
                 }
                 return true;
@@ -63,11 +74,21 @@ public class CharacterAdapter extends RecyclerView.Adapter<CharacterAdapter.Char
 
     // --- Interface for the long click listener ---
     public interface OnItemLongClickListener {
-        // Updated interface to include the View
         void onItemLongClick(Character character, View anchorView);
     }
 
     public void setOnItemLongClickListener(OnItemLongClickListener listener) {
         this.longClickListener = listener;
     }
+
+    // --- START OF ADDED CODE ---
+    // --- Interface for the simple click listener ---
+    public interface OnItemClickListener {
+        void onItemClick(Character character);
+    }
+
+    public void setOnItemClickListener(OnItemClickListener listener) {
+        this.clickListener = listener;
+    }
+    // --- END OF ADDED CODE ---
 }

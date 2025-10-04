@@ -1,6 +1,10 @@
 package com.example.testing;
 
 import android.app.Application;
+
+import androidx.lifecycle.LiveData;
+
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -25,5 +29,13 @@ public class MessageRepository {
 
     public void delete(Message message) {
         executorService.execute(() -> messageDao.delete(message));
+    }
+
+    public LiveData<List<Message>> getMessagesForConversation(int conversationId) {
+        return messageDao.getMessagesForConversation(conversationId);
+    }
+
+    public List<Message> getMessagesForConversationSync(int conversationId) {
+        return messageDao.getMessagesForConversationSync(conversationId);
     }
 }

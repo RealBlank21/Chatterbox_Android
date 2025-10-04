@@ -1,46 +1,73 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp"
-    tools:context=".AddEditCharacterActivity">
+    android:layout_height="match_parent">
 
-    <EditText
-        android:id="@+id/edit_text_character_name"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="@string/character_name"
-        android:inputType="text" />
+        android:orientation="vertical"
+        android:padding="16dp"
+        tools:context=".AddEditCharacterActivity">
 
-    <EditText
-        android:id="@+id/edit_text_character_personality"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:hint="@string/character_personality"
-        android:inputType="textMultiLine"
-        android:minLines="3"
-        android:gravity="top"/>
+        <EditText
+            android:id="@+id/edit_text_character_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/character_name"
+            android:inputType="text" />
 
-    <EditText
-        android:id="@+id/edit_text_character_model"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:hint="@string/character_model"
-        android:inputType="text" />
+        <EditText
+            android:id="@+id/edit_text_character_personality"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="top"
+            android:hint="@string/character_personality"
+            android:inputType="textMultiLine"
+            android:minLines="3" />
 
-    <EditText
-        android:id="@+id/edit_text_character_first_message"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:hint="@string/character_first_message"
-        android:inputType="textMultiLine"
-        android:minLines="2"
-        android:gravity="top"/>
+        <EditText
+            android:id="@+id/edit_text_character_model"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="@string/character_model"
+            android:inputType="text" />
 
-</LinearLayout>
+        <EditText
+            android:id="@+id/edit_text_character_first_message"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="top"
+            android:hint="@string/character_first_message"
+            android:inputType="textMultiLine"
+            android:minLines="2" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/edit_text_temperature"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/temperature"
+                android:inputType="numberDecimal" />
+
+            <EditText
+                android:id="@+id/edit_text_max_tokens"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:hint="@string/max_tokens"
+                android:inputType="number" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>
