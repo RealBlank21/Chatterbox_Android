@@ -2,7 +2,7 @@
 
 An open source alternative to C.AI based around OpenRouter API. I got tired looking for an alternative of C.AI that is open source, runs on a phone and doens't cost a whole server. It's really bare for now, but I'm working on it. The goal of this project is to have something as simple on the front like C.AI but extremely customizable like SillyTavern.
 
-I made Chatterbox (C.AI Clone), previously but servers are expensive, so here's another clone but its an android app now.
+I made Chatterbox (C.AI Web-based Clone), previously but servers are expensive, so here's another clone but its an android app now.
 
 **An OpenRouter API Key is required:** https://openrouter.ai
 
