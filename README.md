@@ -38,7 +38,7 @@ The application is built using modern Android architecture components, including
 
 1.  **Clone the repository:**
     ```bash
-    git clone [repository-url] chatterbox_android
+    git clone github.com/RealBlank21/Chatterbox_Android chatterbox_android
     ```
 2.  **Open in Android Studio:**
     Open the cloned `chatterbox_android` directory in Android Studio.
