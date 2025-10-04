@@ -55,10 +55,17 @@ dependencies {
     implementation(libs.converter.gson)
     implementation(libs.gson)
 
+    // Markdown Rendering
+    implementation(libs.markwon.core)
+    implementation(libs.markwon.ext.tables)
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
+
+    // Image Loading
+    implementation(libs.glide)
 
     // REMOVE THIS LINE - This was the cause of the error
     // annotationProcessor(libs.room.compiler)

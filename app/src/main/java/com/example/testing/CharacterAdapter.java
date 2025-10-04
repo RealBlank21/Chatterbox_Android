@@ -1,5 +1,6 @@
 package com.example.testing;
 
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -7,6 +8,9 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.bumptech.glide.Glide;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,7 +32,19 @@ public class CharacterAdapter extends RecyclerView.Adapter<CharacterAdapter.Char
     public void onBindViewHolder(@NonNull CharacterViewHolder holder, int position) {
         Character currentCharacter = characters.get(position);
         holder.textViewName.setText(currentCharacter.getName());
-        holder.imageViewProfile.setImageResource(R.mipmap.ic_launcher_round);
+
+        // --- THIS IS THE CHANGE ---
+        String imagePath = currentCharacter.getCharacterProfileImagePath();
+        if (!TextUtils.isEmpty(imagePath)) {
+            Glide.with(holder.itemView.getContext())
+                    .load(imagePath)
+                    .circleCrop() // Make the image circular
+                    .into(holder.imageViewProfile);
+        } else {
+            // If there's no image, show the default placeholder
+            holder.imageViewProfile.setImageResource(R.mipmap.ic_launcher_round);
+        }
+        // -------------------------
     }
 
     @Override

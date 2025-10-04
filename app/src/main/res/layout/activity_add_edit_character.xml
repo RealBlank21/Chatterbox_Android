@@ -11,10 +11,26 @@
         android:padding="16dp"
         tools:context=".AddEditCharacterActivity">
 
+        <ImageView
+            android:id="@+id/image_view_profile_preview"
+            android:layout_width="100dp"
+            android:layout_height="100dp"
+            android:layout_gravity="center_horizontal"
+            android:src="@mipmap/ic_launcher_round" />
+
+        <Button
+            android:id="@+id/button_select_image"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            android:text="@string/select_image" />
+
         <EditText
             android:id="@+id/edit_text_character_name"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
             android:hint="@string/character_name"
             android:inputType="text" />
 
@@ -69,5 +85,6 @@
                 android:hint="@string/max_tokens"
                 android:inputType="number" />
         </LinearLayout>
+
     </LinearLayout>
 </ScrollView>

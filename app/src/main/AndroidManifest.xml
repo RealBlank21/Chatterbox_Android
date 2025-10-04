@@ -29,7 +29,8 @@
 
         <activity
             android:name=".ConversationActivity"
-            android:parentActivityName=".MainActivity" />
+            android:parentActivityName=".MainActivity"
+            android:windowSoftInputMode="adjustResize"/>
 
         <activity
             android:name=".SettingsActivity"

@@ -1,73 +1,135 @@
 package com.example.testing;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.PickVisualMediaRequest;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 
+import com.bumptech.glide.Glide;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.UUID;
+
 public class AddEditCharacterActivity extends AppCompatActivity {
 
-    private EditText editTextName;
-    private EditText editTextPersonality;
-    private EditText editTextModel;
-    private EditText editTextFirstMessage;
-    private EditText editTextTemperature; // Added
-    private EditText editTextMaxTokens;   // Added
+    private ImageView imageViewProfilePreview;
+    private Button buttonSelectImage;
+    private EditText editTextName, editTextPersonality, editTextModel, editTextFirstMessage, editTextTemperature, editTextMaxTokens;
 
     private CharacterViewModel characterViewModel;
     private int currentCharacterId = -1;
+    private String currentProfileImagePath = ""; // To store the path of the selected image
+
+    // The modern way to handle activity results (like picking a photo)
+    private final ActivityResultLauncher<PickVisualMediaRequest> pickMedia =
+            registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
+                if (uri != null) {
+                    // Photo was selected
+                    saveImageToInternalStorage(uri);
+                    Glide.with(this).load(currentProfileImagePath).into(imageViewProfilePreview);
+                } else {
+                    // No photo was selected
+                    Toast.makeText(this, "No image selected.", Toast.LENGTH_SHORT).show();
+                }
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_edit_character);
 
+        // Find all views
+        imageViewProfilePreview = findViewById(R.id.image_view_profile_preview);
+        buttonSelectImage = findViewById(R.id.button_select_image);
         editTextName = findViewById(R.id.edit_text_character_name);
+        // ... (find other EditTexts)
         editTextPersonality = findViewById(R.id.edit_text_character_personality);
         editTextModel = findViewById(R.id.edit_text_character_model);
         editTextFirstMessage = findViewById(R.id.edit_text_character_first_message);
-        editTextTemperature = findViewById(R.id.edit_text_temperature); // Added
-        editTextMaxTokens = findViewById(R.id.edit_text_max_tokens);   // Added
+        editTextTemperature = findViewById(R.id.edit_text_temperature);
+        editTextMaxTokens = findViewById(R.id.edit_text_max_tokens);
 
         characterViewModel = new ViewModelProvider(this).get(CharacterViewModel.class);
 
         getSupportActionBar().setHomeAsUpIndicator(android.R.drawable.ic_menu_close_clear_cancel);
 
+        // Set up the button to launch the photo picker
+        buttonSelectImage.setOnClickListener(v -> {
+            pickMedia.launch(new PickVisualMediaRequest.Builder()
+                    .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                    .build());
+        });
+
+        // Check if we are editing and populate fields
         Intent intent = getIntent();
         if (intent.hasExtra("CHARACTER_ID")) {
             setTitle("Edit Character");
             currentCharacterId = intent.getIntExtra("CHARACTER_ID", -1);
-            // We will fetch the full character from the DB to populate the fields
             characterViewModel.getCharacterById(currentCharacterId).observe(this, character -> {
                 if (character != null) {
                     editTextName.setText(character.getName());
                     editTextPersonality.setText(character.getPersonality());
+                    // ... (set other text fields)
                     editTextModel.setText(character.getModel());
                     editTextFirstMessage.setText(character.getFirstMessage());
-                    if (character.getTemperature() != null) {
-                        editTextTemperature.setText(String.valueOf(character.getTemperature()));
-                    }
-                    if (character.getMaxTokens() != null) {
-                        editTextMaxTokens.setText(String.valueOf(character.getMaxTokens()));
+                    if (character.getTemperature() != null) editTextTemperature.setText(String.valueOf(character.getTemperature()));
+                    if (character.getMaxTokens() != null) editTextMaxTokens.setText(String.valueOf(character.getMaxTokens()));
+
+                    currentProfileImagePath = character.getCharacterProfileImagePath();
+                    if (!TextUtils.isEmpty(currentProfileImagePath)) {
+                        Glide.with(this).load(currentProfileImagePath).into(imageViewProfilePreview);
                     }
                 }
             });
-
         } else {
             setTitle("Add Character");
         }
     }
 
+    // This helper method copies the selected image to a private directory in your app
+    private void saveImageToInternalStorage(Uri uri) {
+        try {
+            InputStream inputStream = getContentResolver().openInputStream(uri);
+            File directory = new File(getFilesDir(), "profile_images");
+            if (!directory.exists()) {
+                directory.mkdirs();
+            }
+            File file = new File(directory, UUID.randomUUID().toString() + ".jpg");
+            OutputStream outputStream = new FileOutputStream(file);
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = inputStream.read(buffer)) > 0) {
+                outputStream.write(buffer, 0, length);
+            }
+            outputStream.close();
+            inputStream.close();
+            currentProfileImagePath = file.getAbsolutePath(); // Store the path
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Failed to save image", Toast.LENGTH_SHORT).show();
+        }
+    }
+
     private void saveCharacter() {
         String name = editTextName.getText().toString();
+        // ... (get text from other fields)
         String personality = editTextPersonality.getText().toString();
         String model = editTextModel.getText().toString();
         String firstMessage = editTextFirstMessage.getText().toString();
@@ -79,27 +141,14 @@ public class AddEditCharacterActivity extends AppCompatActivity {
             return;
         }
 
+        // ... (parsing for temperature and maxTokens remains the same)
         Float temperature = null;
-        if (!TextUtils.isEmpty(tempStr)) {
-            try {
-                temperature = Float.parseFloat(tempStr);
-            } catch (NumberFormatException e) {
-                Toast.makeText(this, "Invalid temperature format", Toast.LENGTH_SHORT).show();
-                return;
-            }
-        }
-
+        if (!TextUtils.isEmpty(tempStr)) temperature = Float.parseFloat(tempStr);
         Integer maxTokens = null;
-        if (!TextUtils.isEmpty(maxTokensStr)) {
-            try {
-                maxTokens = Integer.parseInt(maxTokensStr);
-            } catch (NumberFormatException e) {
-                Toast.makeText(this, "Invalid max tokens format", Toast.LENGTH_SHORT).show();
-                return;
-            }
-        }
+        if (!TextUtils.isEmpty(maxTokensStr)) maxTokens = Integer.parseInt(maxTokensStr);
 
-        Character character = new Character(name, personality, firstMessage, model, "", "", "", temperature, maxTokens);
+        // Create the character with the saved image path
+        Character character = new Character(name, personality, firstMessage, model, currentProfileImagePath, "", "", temperature, maxTokens);
 
         if (currentCharacterId != -1) {
             character.setId(currentCharacterId);
@@ -111,10 +160,10 @@ public class AddEditCharacterActivity extends AppCompatActivity {
         finish();
     }
 
+    // ... (onCreateOptionsMenu and onOptionsItemSelected remain the same)
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        MenuInflater menuInflater = getMenuInflater();
-        menuInflater.inflate(R.menu.add_character_menu, menu);
+        getMenuInflater().inflate(R.menu.add_character_menu, menu);
         return true;
     }
 

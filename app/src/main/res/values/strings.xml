@@ -29,4 +29,8 @@
     <string name="max_tokens">Max Tokens (e.g., 1024)</string>
 
     <string name="history">History</string>
+
+    <string name="select_image">Select Image</string>
+    <string name="regenerate">Regenerate</string>
+    <string name="edit_message">Edit Message</string>
 </resources>
