@@ -45,12 +45,13 @@
             android:text="@string/preferred_model"
             android:textAppearance="?attr/textAppearanceListItem" />
 
-        <EditText
+        <AutoCompleteTextView
             android:id="@+id/edit_text_preferred_model"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="@string/e_g_mistralai_mistral_7b_instruct"
-            android:inputType="text" />
+            android:inputType="text"
+            android:completionThreshold="1" />
 
         <TextView
             android:layout_width="wrap_content"

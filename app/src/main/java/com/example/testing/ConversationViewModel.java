@@ -154,4 +154,8 @@ public class ConversationViewModel extends AndroidViewModel {
             });
         });
     }
+
+    public void update(Message message) {
+        messageRepository.update(message);
+    }
 }

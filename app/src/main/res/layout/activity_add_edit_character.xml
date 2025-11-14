@@ -44,13 +44,14 @@
             android:inputType="textMultiLine"
             android:minLines="3" />
 
-        <EditText
+        <AutoCompleteTextView
             android:id="@+id/edit_text_character_model"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:hint="@string/character_model"
-            android:inputType="text" />
+            android:inputType="text"
+            android:completionThreshold="1" />
 
         <EditText
             android:id="@+id/edit_text_character_first_message"

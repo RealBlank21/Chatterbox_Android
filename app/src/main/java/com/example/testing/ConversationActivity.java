@@ -1,5 +1,10 @@
 package com.example.testing;
 
+// Imports for new features (Clipboard)
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
+
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -8,10 +13,6 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.PopupMenu;
 import android.widget.Toast;
-
-import android.content.ClipData;
-import android.content.ClipboardManager;
-import android.content.Context;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
@@ -30,7 +31,6 @@ public class ConversationActivity extends AppCompatActivity {
 
     private User currentUser;
     private Character currentCharacter;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -92,20 +92,24 @@ public class ConversationActivity extends AppCompatActivity {
             }
         });
 
-        messageAdapter.setOnMessageLongClickListener((message, anchorView) -> {
+        // Updated long click listener to include position for editing
+        messageAdapter.setOnMessageLongClickListener((message, anchorView, position) -> {
             // Check the role of the message
             if ("assistant".equals(message.getRole())) {
-                showCharacterMessageOptions(message, anchorView);
+                showCharacterMessageOptions(message, anchorView, position);
             } else {
-                // For now, we'll just show a toast for user messages
-                Toast.makeText(this, "Long-pressed your message!", Toast.LENGTH_SHORT).show();
+                showUserMessageOptions(message, anchorView, position);
             }
+        });
+
+        // Add the listener for when an edit is saved
+        messageAdapter.setOnMessageEditListener(message -> {
+            conversationViewModel.update(message); // Call the new VM method
         });
 
         buttonSend.setOnClickListener(v -> sendMessage());
     }
 
-    // ... (checkIfReadyToSend and sendMessage methods are unchanged)
     private void checkIfReadyToSend() {
         if (currentUser != null && currentCharacter != null) {
             buttonSend.setEnabled(true);
@@ -126,7 +130,8 @@ public class ConversationActivity extends AppCompatActivity {
         }
     }
 
-    private void showCharacterMessageOptions(Message message, View anchorView) {
+    // Updated method to handle all 3 options: Regenerate, Copy, and Edit
+    private void showCharacterMessageOptions(Message message, View anchorView, int position) {
         PopupMenu popup = new PopupMenu(this, anchorView);
         popup.getMenuInflater().inflate(R.menu.message_options_menu, popup.getMenu());
 
@@ -134,17 +139,18 @@ public class ConversationActivity extends AppCompatActivity {
             int itemId = item.getItemId();
 
             if (itemId == R.id.option_regenerate) {
-                // This is the regenerate feature
+                // 1. Regenerate
                 conversationViewModel.regenerateLastResponse(conversationId, currentUser, currentCharacter);
                 return true;
 
             } else if (itemId == R.id.option_copy_message) {
-                // This is the new copy feature
+                // 2. Copy
                 copyMessageToClipboard(message);
                 return true;
 
             } else if (itemId == R.id.option_edit_message) {
-                Toast.makeText(this, "Edit feature coming soon!", Toast.LENGTH_SHORT).show();
+                // 3. Edit
+                messageAdapter.setEditingPosition(position);
                 return true;
             }
             return false;
@@ -153,23 +159,24 @@ public class ConversationActivity extends AppCompatActivity {
         popup.show();
     }
 
-    // --- ADD THIS NEW HELPER METHOD for user messages ---
-    // (User messages can only be copied or edited, not regenerated)
-    private void showUserMessageOptions(Message message, View anchorView) {
+    // Updated method for user messages (no regenerate)
+    private void showUserMessageOptions(Message message, View anchorView, int position) {
         PopupMenu popup = new PopupMenu(this, anchorView);
-        // We can reuse the same menu, but we'll hide the "regenerate" option
         popup.getMenuInflater().inflate(R.menu.message_options_menu, popup.getMenu());
+        // Hide the "regenerate" option for user messages
         popup.getMenu().findItem(R.id.option_regenerate).setVisible(false);
 
         popup.setOnMenuItemClickListener(item -> {
             int itemId = item.getItemId();
 
             if (itemId == R.id.option_copy_message) {
+                // 1. Copy
                 copyMessageToClipboard(message);
                 return true;
 
             } else if (itemId == R.id.option_edit_message) {
-                Toast.makeText(this, "Edit feature coming soon!", Toast.LENGTH_SHORT).show();
+                // 2. Edit
+                messageAdapter.setEditingPosition(position);
                 return true;
             }
             return false;
@@ -178,7 +185,7 @@ public class ConversationActivity extends AppCompatActivity {
         popup.show();
     }
 
-    // --- ADD THIS NEW HELPER METHOD ---
+    // Helper method for copying text
     private void copyMessageToClipboard(Message message) {
         ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         ClipData clip = ClipData.newPlainText("Chat Message", message.getContent());

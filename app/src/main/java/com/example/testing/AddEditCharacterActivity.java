@@ -7,6 +7,10 @@ import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+// --- ADD THESE IMPORTS ---
+import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
+// -------------------------
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -31,7 +35,10 @@ public class AddEditCharacterActivity extends AppCompatActivity {
 
     private ImageView imageViewProfilePreview;
     private Button buttonSelectImage;
-    private EditText editTextName, editTextPersonality, editTextModel, editTextFirstMessage, editTextTemperature, editTextMaxTokens;
+    // --- CHANGE THE TYPE FOR EDITTEXTMODEL ---
+    private EditText editTextName, editTextPersonality, editTextFirstMessage, editTextTemperature, editTextMaxTokens;
+    private AutoCompleteTextView editTextModel;
+    // ---------------------------------------
 
     private CharacterViewModel characterViewModel;
     private int currentCharacterId = -1;
@@ -59,12 +66,23 @@ public class AddEditCharacterActivity extends AppCompatActivity {
         imageViewProfilePreview = findViewById(R.id.image_view_profile_preview);
         buttonSelectImage = findViewById(R.id.button_select_image);
         editTextName = findViewById(R.id.edit_text_character_name);
-        // ... (find other EditTexts)
         editTextPersonality = findViewById(R.id.edit_text_character_personality);
+        // --- THIS ID IS NOW AN AUTOCOMPLETETEXTVIEW ---
         editTextModel = findViewById(R.id.edit_text_character_model);
+        // ---------------------------------------------
         editTextFirstMessage = findViewById(R.id.edit_text_character_first_message);
         editTextTemperature = findViewById(R.id.edit_text_temperature);
         editTextMaxTokens = findViewById(R.id.edit_text_max_tokens);
+
+        // --- ADD THIS BLOCK TO SET UP THE ADAPTER ---
+        // Get the string array from resources
+        String[] models = getResources().getStringArray(R.array.ai_model_suggestions);
+        // Create the adapter
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_list_item_1, models);
+        // Set the adapter to the AutoCompleteTextView
+        editTextModel.setAdapter(adapter);
+        // ------------------------------------------
 
         characterViewModel = new ViewModelProvider(this).get(CharacterViewModel.class);
 

@@ -1,6 +1,10 @@
 package com.example.testing;
 
 import android.os.Bundle;
+// --- ADD THESE IMPORTS ---
+import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
+// -------------------------
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -12,7 +16,9 @@ public class SettingsActivity extends AppCompatActivity {
 
     private EditText editTextUsername;
     private EditText editTextApiKey;
-    private EditText editTextPreferredModel;
+    // --- CHANGE THIS TYPE ---
+    private AutoCompleteTextView editTextPreferredModel;
+    // ------------------------
     private EditText editTextGlobalPrompt;
     private Button buttonSave;
     private SettingsViewModel settingsViewModel;
@@ -26,9 +32,21 @@ public class SettingsActivity extends AppCompatActivity {
 
         editTextUsername = findViewById(R.id.edit_text_username);
         editTextApiKey = findViewById(R.id.edit_text_api_key);
+        // --- THIS ID IS NOW AN AUTOCOMPLETETEXTVIEW ---
         editTextPreferredModel = findViewById(R.id.edit_text_preferred_model);
+        // ---------------------------------------------
         editTextGlobalPrompt = findViewById(R.id.edit_text_global_system_prompt);
         buttonSave = findViewById(R.id.button_save_settings);
+
+        // --- ADD THIS BLOCK TO SET UP THE ADAPTER ---
+        // Get the string array from resources
+        String[] models = getResources().getStringArray(R.array.ai_model_suggestions);
+        // Create the adapter
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_list_item_1, models);
+        // Set the adapter to the AutoCompleteTextView
+        editTextPreferredModel.setAdapter(adapter);
+        // ------------------------------------------
 
         settingsViewModel = new ViewModelProvider(this).get(SettingsViewModel.class);
 
