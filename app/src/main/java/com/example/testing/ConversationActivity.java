@@ -9,6 +9,10 @@ import android.widget.EditText;
 import android.widget.PopupMenu;
 import android.widget.Toast;
 
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
+
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -26,6 +30,7 @@ public class ConversationActivity extends AppCompatActivity {
 
     private User currentUser;
     private Character currentCharacter;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -127,9 +132,17 @@ public class ConversationActivity extends AppCompatActivity {
 
         popup.setOnMenuItemClickListener(item -> {
             int itemId = item.getItemId();
+
             if (itemId == R.id.option_regenerate) {
+                // This is the regenerate feature
                 conversationViewModel.regenerateLastResponse(conversationId, currentUser, currentCharacter);
                 return true;
+
+            } else if (itemId == R.id.option_copy_message) {
+                // This is the new copy feature
+                copyMessageToClipboard(message);
+                return true;
+
             } else if (itemId == R.id.option_edit_message) {
                 Toast.makeText(this, "Edit feature coming soon!", Toast.LENGTH_SHORT).show();
                 return true;
@@ -138,5 +151,38 @@ public class ConversationActivity extends AppCompatActivity {
         });
 
         popup.show();
+    }
+
+    // --- ADD THIS NEW HELPER METHOD for user messages ---
+    // (User messages can only be copied or edited, not regenerated)
+    private void showUserMessageOptions(Message message, View anchorView) {
+        PopupMenu popup = new PopupMenu(this, anchorView);
+        // We can reuse the same menu, but we'll hide the "regenerate" option
+        popup.getMenuInflater().inflate(R.menu.message_options_menu, popup.getMenu());
+        popup.getMenu().findItem(R.id.option_regenerate).setVisible(false);
+
+        popup.setOnMenuItemClickListener(item -> {
+            int itemId = item.getItemId();
+
+            if (itemId == R.id.option_copy_message) {
+                copyMessageToClipboard(message);
+                return true;
+
+            } else if (itemId == R.id.option_edit_message) {
+                Toast.makeText(this, "Edit feature coming soon!", Toast.LENGTH_SHORT).show();
+                return true;
+            }
+            return false;
+        });
+
+        popup.show();
+    }
+
+    // --- ADD THIS NEW HELPER METHOD ---
+    private void copyMessageToClipboard(Message message) {
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        ClipData clip = ClipData.newPlainText("Chat Message", message.getContent());
+        clipboard.setPrimaryClip(clip);
+        Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show();
     }
 }

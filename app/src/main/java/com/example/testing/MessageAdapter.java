@@ -73,9 +73,23 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
             super(itemView);
             textViewMessage = itemView.findViewById(R.id.text_view_message);
 
+            // This listener handles long-clicks on the empty space in the row
             itemView.setOnLongClickListener(v -> {
                 int position = getAdapterPosition();
                 if (longClickListener != null && position != RecyclerView.NO_POSITION) {
+                    longClickListener.onMessageLongClick(messages.get(position), v);
+                }
+                return true;
+            });
+
+            // --- THIS IS THE FIX ---
+            // Add the same listener to the TextView itself.
+            // This ensures that long-clicking the bubble works,
+            // as the TextView might consume the event otherwise.
+            textViewMessage.setOnLongClickListener(v -> {
+                int position = getAdapterPosition();
+                if (longClickListener != null && position != RecyclerView.NO_POSITION) {
+                    // Pass the TextView 'v' as the anchor for the popup
                     longClickListener.onMessageLongClick(messages.get(position), v);
                 }
                 return true;
