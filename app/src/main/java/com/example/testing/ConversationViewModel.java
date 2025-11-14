@@ -15,6 +15,12 @@ import com.example.testing.network.request.ApiRequest;
 import com.example.testing.network.request.RequestMessage;
 import com.example.testing.network.response.ApiResponse;
 
+// --- IMPORTS FOR TIME ARE STILL NEEDED ---
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+// ------------------------------------
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -32,6 +38,11 @@ public class ConversationViewModel extends AndroidViewModel {
     private final ApiService apiService;
     private final ExecutorService executorService;
 
+    // --- WE NOW NEED TWO FORMATTERS ---
+    private final SimpleDateFormat dayFormatter;
+    private final SimpleDateFormat timeFormatter;
+    // ---------------------------------
+
     private LiveData<List<Message>> messages;
     private LiveData<Character> currentCharacter;
     private LiveData<User> currentUser;
@@ -43,6 +54,11 @@ public class ConversationViewModel extends AndroidViewModel {
         userRepository = new UserRepository(application);
         apiService = ApiClient.getClient().create(ApiService.class);
         executorService = Executors.newSingleThreadExecutor();
+
+        // --- INITIALIZE BOTH FORMATTERS ---
+        dayFormatter = new SimpleDateFormat("EEE, MMM dd, yyyy", Locale.getDefault());
+        timeFormatter = new SimpleDateFormat("h:mm a", Locale.getDefault());
+        // ----------------------------------
     }
 
     public void loadData(int characterId, int conversationId) {
@@ -82,6 +98,11 @@ public class ConversationViewModel extends AndroidViewModel {
         });
     }
 
+    // --- This method is for the "Edit" feature ---
+    public void update(Message message) {
+        messageRepository.update(message);
+    }
+
     // --- PRIVATE method that contains the core API logic ---
     private void triggerApiCall(String content, int conversationId, User user, Character character, boolean isRegeneration) {
         if (user == null || character == null) {
@@ -99,23 +120,62 @@ public class ConversationViewModel extends AndroidViewModel {
             List<Message> messageHistory = messageRepository.getMessagesForConversationSync(conversationId);
             List<RequestMessage> requestMessages = new ArrayList<>();
 
+            // --- THIS IS THE NEW LOGIC YOU REQUESTED ---
+            // 1. Get the conversation creation timestamp
+            long creationTimestamp;
+            if (!messageHistory.isEmpty()) {
+                // Get timestamp from the *first* message in history
+                creationTimestamp = messageHistory.get(0).getTimestamp();
+            } else {
+                // Fallback for a brand new conversation (this msg is the first)
+                creationTimestamp = System.currentTimeMillis();
+            }
+            Date creationDate = new Date(creationTimestamp);
+
+            // 2. Format the Day and Time
+            String formattedDay = dayFormatter.format(creationDate);
+            String formattedTime = timeFormatter.format(creationDate);
+
+            // 3. Get the prompts
             String globalPrompt = user.getGlobalSystemPrompt() != null ? user.getGlobalSystemPrompt() : "";
             String characterPersonality = character.getPersonality() != null ? character.getPersonality() : "";
+
+            // 4. Perform replacements if the tags exist
+            // (Using String.replace(), not regex, for simplicity)
+            if (globalPrompt.contains("{day}")) {
+                globalPrompt = globalPrompt.replace("{day}", formattedDay);
+            }
+            if (globalPrompt.contains("{time}")) {
+                globalPrompt = globalPrompt.replace("{time}", formattedTime);
+            }
+            if (characterPersonality.contains("{day}")) {
+                characterPersonality = characterPersonality.replace("{day}", formattedDay);
+            }
+            if (characterPersonality.contains("{time}")) {
+                characterPersonality = characterPersonality.replace("{time}", formattedTime);
+            }
+
+            // 5. Build the final prompt
             String finalSystemPrompt = globalPrompt + "\n" + characterPersonality;
+            // -------------------------------------------
 
             if (!TextUtils.isEmpty(finalSystemPrompt.trim())) {
                 requestMessages.add(new RequestMessage("system", finalSystemPrompt.trim()));
             }
 
+            // --- THIS LOOP IS BACK TO NORMAL ---
+            // It does not add timestamps to each message
             for (Message msg : messageHistory) {
                 requestMessages.add(new RequestMessage(msg.getRole(), msg.getContent()));
             }
+            // ---------------------------------
 
-            // If this is a new message (not a regen), we need to add it to the API request list manually
-            // because the database fetch might not have caught it yet.
+            // --- THIS BLOCK IS BACK TO NORMAL ---
+            // It does not add a timestamp to the new message
             if (!isRegeneration && !content.isEmpty()) {
                 requestMessages.add(new RequestMessage("user", content));
             }
+            // ----------------------------------
 
             String model = character.getModel();
             if (TextUtils.isEmpty(model)) {
@@ -153,9 +213,5 @@ public class ConversationViewModel extends AndroidViewModel {
                 }
             });
         });
-    }
-
-    public void update(Message message) {
-        messageRepository.update(message);
     }
 }

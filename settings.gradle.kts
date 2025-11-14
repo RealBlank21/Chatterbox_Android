@@ -7,6 +7,7 @@ pluginManagement {
                 includeGroupByRegex("androidx.*")
             }
         }
+
         mavenCentral()
         gradlePluginPortal()
     }
@@ -19,6 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Testing"
+rootProject.name = "Chatterbox"
 include(":app")
- 
