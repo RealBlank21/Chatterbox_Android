@@ -179,15 +179,33 @@ public class ConversationViewModel extends AndroidViewModel {
 
             String finalSystemPrompt = globalPrompt + "\n" + characterPersonality;
 
+            // --- NEW: Time Awareness - Initial System Prompt Injection ---
+            if (character.isTimeAware()) {
+                finalSystemPrompt += "\nThis conversation was started on " + formattedDay + " at " + formattedTime + ".";
+            }
+
             if (!TextUtils.isEmpty(finalSystemPrompt.trim())) {
                 requestMessages.add(new RequestMessage("system", finalSystemPrompt.trim()));
             }
 
             for (Message msg : messageHistory) {
+                // --- NEW: Time Awareness - Historical User Message Injection ---
+                if (character.isTimeAware() && "user".equals(msg.getRole())) {
+                    Date msgDate = new Date(msg.getTimestamp());
+                    String msgTime = dayFormatter.format(msgDate) + " at " + timeFormatter.format(msgDate);
+                    requestMessages.add(new RequestMessage("system", "Current time: " + msgTime));
+                }
                 requestMessages.add(new RequestMessage(msg.getRole(), msg.getContent()));
             }
 
             if (!isRegeneration && !content.isEmpty()) {
+                // --- NEW: Time Awareness - Current User Message Injection ---
+                if (character.isTimeAware()) {
+                    long now = System.currentTimeMillis();
+                    Date nowDate = new Date(now);
+                    String nowTime = dayFormatter.format(nowDate) + " at " + timeFormatter.format(nowDate);
+                    requestMessages.add(new RequestMessage("system", "Current time: " + nowTime));
+                }
                 requestMessages.add(new RequestMessage("user", content));
             }
 

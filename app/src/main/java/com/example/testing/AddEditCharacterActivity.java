@@ -7,10 +7,8 @@ import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
-// --- ADD THESE IMPORTS ---
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
-// -------------------------
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -24,6 +22,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.bumptech.glide.Glide;
+import com.google.android.material.switchmaterial.SwitchMaterial; // UPDATED IMPORT
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -35,10 +34,9 @@ public class AddEditCharacterActivity extends AppCompatActivity {
 
     private ImageView imageViewProfilePreview;
     private Button buttonSelectImage;
-    // --- CHANGE THE TYPE FOR EDITTEXTMODEL ---
     private EditText editTextName, editTextPersonality, editTextFirstMessage, editTextTemperature, editTextMaxTokens;
     private AutoCompleteTextView editTextModel;
-    // ---------------------------------------
+    private SwitchMaterial switchTimeAwareness; // UPDATED TYPE
 
     private CharacterViewModel characterViewModel;
     private int currentCharacterId = -1;
@@ -67,14 +65,12 @@ public class AddEditCharacterActivity extends AppCompatActivity {
         buttonSelectImage = findViewById(R.id.button_select_image);
         editTextName = findViewById(R.id.edit_text_character_name);
         editTextPersonality = findViewById(R.id.edit_text_character_personality);
-        // --- THIS ID IS NOW AN AUTOCOMPLETETEXTVIEW ---
         editTextModel = findViewById(R.id.edit_text_character_model);
-        // ---------------------------------------------
         editTextFirstMessage = findViewById(R.id.edit_text_character_first_message);
         editTextTemperature = findViewById(R.id.edit_text_temperature);
         editTextMaxTokens = findViewById(R.id.edit_text_max_tokens);
+        switchTimeAwareness = findViewById(R.id.switch_time_awareness);
 
-        // --- ADD THIS BLOCK TO SET UP THE ADAPTER ---
         // Get the string array from resources
         String[] models = getResources().getStringArray(R.array.ai_model_suggestions);
         // Create the adapter
@@ -82,7 +78,6 @@ public class AddEditCharacterActivity extends AppCompatActivity {
                 android.R.layout.simple_list_item_1, models);
         // Set the adapter to the AutoCompleteTextView
         editTextModel.setAdapter(adapter);
-        // ------------------------------------------
 
         characterViewModel = new ViewModelProvider(this).get(CharacterViewModel.class);
 
@@ -104,11 +99,11 @@ public class AddEditCharacterActivity extends AppCompatActivity {
                 if (character != null) {
                     editTextName.setText(character.getName());
                     editTextPersonality.setText(character.getPersonality());
-                    // ... (set other text fields)
                     editTextModel.setText(character.getModel());
                     editTextFirstMessage.setText(character.getFirstMessage());
                     if (character.getTemperature() != null) editTextTemperature.setText(String.valueOf(character.getTemperature()));
                     if (character.getMaxTokens() != null) editTextMaxTokens.setText(String.valueOf(character.getMaxTokens()));
+                    switchTimeAwareness.setChecked(character.isTimeAware());
 
                     currentProfileImagePath = character.getCharacterProfileImagePath();
                     if (!TextUtils.isEmpty(currentProfileImagePath)) {
@@ -147,26 +142,25 @@ public class AddEditCharacterActivity extends AppCompatActivity {
 
     private void saveCharacter() {
         String name = editTextName.getText().toString();
-        // ... (get text from other fields)
         String personality = editTextPersonality.getText().toString();
         String model = editTextModel.getText().toString();
         String firstMessage = editTextFirstMessage.getText().toString();
         String tempStr = editTextTemperature.getText().toString();
         String maxTokensStr = editTextMaxTokens.getText().toString();
+        boolean isTimeAware = switchTimeAwareness.isChecked();
 
         if (name.trim().isEmpty()) {
             Toast.makeText(this, "Please insert a name", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // ... (parsing for temperature and maxTokens remains the same)
         Float temperature = null;
         if (!TextUtils.isEmpty(tempStr)) temperature = Float.parseFloat(tempStr);
         Integer maxTokens = null;
         if (!TextUtils.isEmpty(maxTokensStr)) maxTokens = Integer.parseInt(maxTokensStr);
 
-        // Create the character with the saved image path
-        Character character = new Character(name, personality, firstMessage, model, currentProfileImagePath, "", "", temperature, maxTokens);
+        // Create the character with the saved image path and time awareness setting
+        Character character = new Character(name, personality, firstMessage, model, currentProfileImagePath, "", "", temperature, maxTokens, isTimeAware);
 
         if (currentCharacterId != -1) {
             character.setId(currentCharacterId);
@@ -178,7 +172,6 @@ public class AddEditCharacterActivity extends AppCompatActivity {
         finish();
     }
 
-    // ... (onCreateOptionsMenu and onOptionsItemSelected remain the same)
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.add_character_menu, menu);

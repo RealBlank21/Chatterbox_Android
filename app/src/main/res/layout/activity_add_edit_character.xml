@@ -87,5 +87,12 @@
                 android:inputType="number" />
         </LinearLayout>
 
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/switch_time_awareness"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Time Awareness" />
+
     </LinearLayout>
 </ScrollView>

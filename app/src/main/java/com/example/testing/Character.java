@@ -52,6 +52,10 @@ public class Character {
     @ColumnInfo(name = "is_hidden")
     private boolean isHidden;
 
+    // Added defaultValue = "0" (false) to ensure safety for old/migrated data
+    @ColumnInfo(name = "is_time_aware", defaultValue = "0")
+    private boolean isTimeAware;
+
     // -----------------------------------------------------------------
     // CONSTRUCTORS
     // -----------------------------------------------------------------
@@ -62,7 +66,7 @@ public class Character {
     public Character(String name, String personality, String firstMessage,
                      String model, String characterProfileImagePath,
                      String voiceReferenceId, String voiceReferenceName,
-                     Float temperature, Integer maxTokens) {
+                     Float temperature, Integer maxTokens, boolean isTimeAware) {
         this.createdAt = System.currentTimeMillis();
         this.name = name;
         this.personality = personality;
@@ -74,16 +78,17 @@ public class Character {
         this.voiceReferenceName = voiceReferenceName;
         this.temperature = temperature;
         this.maxTokens = maxTokens;
-        this.isFavorite = false; // Default false
-        this.isHidden = false;   // Default false
+        this.isFavorite = false;
+        this.isHidden = false;
+        this.isTimeAware = isTimeAware;
     }
 
-    // Overloaded constructor for convenience
+    // Overloaded constructor for convenience (Defaults isTimeAware to false)
     @Ignore
     public Character(String name, String personality, String firstMessage,
                      String model, String characterProfileImagePath,
                      String voiceReferenceId, String voiceReferenceName) {
-        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, null, null);
+        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, null, null, false);
     }
 
 
@@ -103,8 +108,9 @@ public class Character {
     public String getVoiceReferenceName() { return voiceReferenceName; }
     public Float getTemperature() { return temperature; }
     public Integer getMaxTokens() { return maxTokens; }
-    public boolean isFavorite() { return isFavorite; } // New getter
-    public boolean isHidden() { return isHidden; }     // New getter
+    public boolean isFavorite() { return isFavorite; }
+    public boolean isHidden() { return isHidden; }
+    public boolean isTimeAware() { return isTimeAware; }
 
     // -----------------------------------------------------------------
     // SETTERS
@@ -122,6 +128,7 @@ public class Character {
     public void setVoiceReferenceName(String voiceReferenceName) { this.voiceReferenceName = voiceReferenceName; }
     public void setTemperature(Float temperature) { this.temperature = temperature; }
     public void setMaxTokens(Integer maxTokens) { this.maxTokens = maxTokens; }
-    public void setFavorite(boolean favorite) { isFavorite = favorite; } // New setter
-    public void setHidden(boolean hidden) { isHidden = hidden; }         // New setter
+    public void setFavorite(boolean favorite) { isFavorite = favorite; }
+    public void setHidden(boolean hidden) { isHidden = hidden; }
+    public void setTimeAware(boolean timeAware) { isTimeAware = timeAware; }
 }
