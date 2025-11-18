@@ -35,17 +35,13 @@ public class ConversationRepository {
         insert(conversation, null);
     }
 
-    // --- ADD THIS METHOD ---
     public void updateLastUpdated(int conversationId, long timestamp) {
         executorService.execute(() -> conversationDao.updateLastUpdated(conversationId, timestamp));
     }
-    // -----------------------
 
     public void update(Conversation conversation) {
         executorService.execute(() -> conversationDao.update(conversation));
     }
-
-    // ... (Keep other methods: insertAll, deleteAll, delete, getConversationById, getAllConversationsWithCharacter) ...
 
     public void insertAll(List<Conversation> conversations) {
         executorService.execute(() -> conversationDao.insertAll(conversations));
@@ -62,6 +58,12 @@ public class ConversationRepository {
     public void delete(Conversation conversation) {
         executorService.execute(() -> conversationDao.delete(conversation));
     }
+
+    // --- ADD THIS METHOD ---
+    public void deleteConversations(List<Integer> ids) {
+        executorService.execute(() -> conversationDao.deleteConversationsByIds(ids));
+    }
+    // -----------------------
 
     public LiveData<Conversation> getConversationById(int conversationId) {
         return conversationDao.getConversationById(conversationId);

@@ -10,6 +10,42 @@
         android:id="@+id/recycler_view_conversation_history"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_above="@id/layout_delete_controls"
         tools:listitem="@layout/conversation_history_item" />
+
+    <!-- NEW DELETE CONTROLS -->
+    <LinearLayout
+        android:id="@+id/layout_delete_controls"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:background="?attr/colorSurface"
+        android:elevation="8dp"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <Button
+            android:id="@+id/button_select_all"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Select All"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
+
+        <View
+            android:layout_width="16dp"
+            android:layout_height="1dp"/>
+
+        <Button
+            android:id="@+id/button_delete_selected"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Delete (0)"
+            android:textColor="@android:color/white"
+            android:backgroundTint="#D32F2F"/>
+    </LinearLayout>
 
 </RelativeLayout>

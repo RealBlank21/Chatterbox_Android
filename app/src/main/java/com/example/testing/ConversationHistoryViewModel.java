@@ -9,15 +9,20 @@ import java.util.List;
 public class ConversationHistoryViewModel extends AndroidViewModel {
 
     private final ConversationRepository repository;
-    private final LiveData<List<ConversationWithCharacter>> allConversations; // Change the type here
+    private final LiveData<List<ConversationWithCharacter>> allConversations;
 
     public ConversationHistoryViewModel(@NonNull Application application) {
         super(application);
         repository = new ConversationRepository(application);
-        allConversations = repository.getAllConversationsWithCharacter(); // Call the new method
+        allConversations = repository.getAllConversationsWithCharacter();
     }
 
-    public LiveData<List<ConversationWithCharacter>> getAllConversations() { // Change the return type here
+    public LiveData<List<ConversationWithCharacter>> getAllConversations() {
         return allConversations;
+    }
+
+    // --- ADD THIS METHOD ---
+    public void deleteConversations(List<Integer> conversationIds) {
+        repository.deleteConversations(conversationIds);
     }
 }

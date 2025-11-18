@@ -28,13 +28,16 @@ public interface ConversationDao {
     @Update
     void update(Conversation conversation);
 
-    // --- ADD THIS METHOD ---
     @Query("UPDATE conversation SET last_updated = :timestamp WHERE conversation_id = :id")
     void updateLastUpdated(int id, long timestamp);
-    // -----------------------
 
     @Delete
     void delete(Conversation conversation);
+
+    // --- ADD THIS METHOD ---
+    @Query("DELETE FROM conversation WHERE conversation_id IN (:conversationIds)")
+    void deleteConversationsByIds(List<Integer> conversationIds);
+    // -----------------------
 
     @Query("SELECT * FROM conversation WHERE conversation_id = :id")
     LiveData<Conversation> getConversationById(int id);

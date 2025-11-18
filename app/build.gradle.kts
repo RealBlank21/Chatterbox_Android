@@ -44,7 +44,7 @@ dependencies {
 
     // Room
     implementation(libs.room.runtime)
-    ksp(libs.room.compiler) // We are keeping this one
+    ksp(libs.room.compiler)
 
     // ViewModel and LiveData
     implementation(libs.lifecycle.viewmodel)
@@ -58,6 +58,8 @@ dependencies {
     // Markdown Rendering
     implementation(libs.markwon.core)
     implementation(libs.markwon.ext.tables)
+    implementation(libs.markwon.ext.latex)
+    implementation(libs.markwon.inline.parser) // ADD THIS
 
     // Testing
     testImplementation(libs.junit)
@@ -66,7 +68,4 @@ dependencies {
 
     // Image Loading
     implementation(libs.glide)
-
-    // REMOVE THIS LINE - This was the cause of the error
-    // annotationProcessor(libs.room.compiler)
 }

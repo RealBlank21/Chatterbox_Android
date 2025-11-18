@@ -2,6 +2,12 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
+    <!-- Hidden Bots Dropdown -->
+    <item
+        android:id="@+id/action_hidden_bots"
+        android:title="Hidden Bots"
+        app:showAsAction="never" />
+
     <item
         android:id="@+id/action_history"
         android:title="@string/history"

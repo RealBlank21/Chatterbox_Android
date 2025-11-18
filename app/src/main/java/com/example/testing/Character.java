@@ -39,26 +39,30 @@ public class Character {
     @ColumnInfo(name = "voice_reference_name")
     private String voiceReferenceName;
 
-    // --- NEW FIELDS ---
     @ColumnInfo(name = "temperature")
-    private Float temperature; // Use Float to allow for null values
+    private Float temperature;
 
     @ColumnInfo(name = "max_tokens")
-    private Integer maxTokens; // Use Integer to allow for null values
+    private Integer maxTokens;
+
+    // --- NEW FIELDS ---
+    @ColumnInfo(name = "is_favorite")
+    private boolean isFavorite;
+
+    @ColumnInfo(name = "is_hidden")
+    private boolean isHidden;
 
     // -----------------------------------------------------------------
     // CONSTRUCTORS
     // -----------------------------------------------------------------
 
-    // Constructor required by Room
     public Character() { }
 
-    // Updated constructor for creating a NEW character
     @Ignore
     public Character(String name, String personality, String firstMessage,
                      String model, String characterProfileImagePath,
                      String voiceReferenceId, String voiceReferenceName,
-                     Float temperature, Integer maxTokens) { // Added new params
+                     Float temperature, Integer maxTokens) {
         this.createdAt = System.currentTimeMillis();
         this.name = name;
         this.personality = personality;
@@ -68,11 +72,13 @@ public class Character {
         this.characterProfileImagePath = characterProfileImagePath;
         this.voiceReferenceId = voiceReferenceId;
         this.voiceReferenceName = voiceReferenceName;
-        this.temperature = temperature; // Set new field
-        this.maxTokens = maxTokens;     // Set new field
+        this.temperature = temperature;
+        this.maxTokens = maxTokens;
+        this.isFavorite = false; // Default false
+        this.isHidden = false;   // Default false
     }
 
-    // Overloaded constructor for convenience without the new fields
+    // Overloaded constructor for convenience
     @Ignore
     public Character(String name, String personality, String firstMessage,
                      String model, String characterProfileImagePath,
@@ -95,8 +101,10 @@ public class Character {
     public String getCharacterProfileImagePath() { return characterProfileImagePath; }
     public String getVoiceReferenceId() { return voiceReferenceId; }
     public String getVoiceReferenceName() { return voiceReferenceName; }
-    public Float getTemperature() { return temperature; } // New getter
-    public Integer getMaxTokens() { return maxTokens; }   // New getter
+    public Float getTemperature() { return temperature; }
+    public Integer getMaxTokens() { return maxTokens; }
+    public boolean isFavorite() { return isFavorite; } // New getter
+    public boolean isHidden() { return isHidden; }     // New getter
 
     // -----------------------------------------------------------------
     // SETTERS
@@ -112,6 +120,8 @@ public class Character {
     public void setCharacterProfileImagePath(String characterProfileImagePath) { this.characterProfileImagePath = characterProfileImagePath; }
     public void setVoiceReferenceId(String voiceReferenceId) { this.voiceReferenceId = voiceReferenceId; }
     public void setVoiceReferenceName(String voiceReferenceName) { this.voiceReferenceName = voiceReferenceName; }
-    public void setTemperature(Float temperature) { this.temperature = temperature; } // New setter
-    public void setMaxTokens(Integer maxTokens) { this.maxTokens = maxTokens; }       // New setter
+    public void setTemperature(Float temperature) { this.temperature = temperature; }
+    public void setMaxTokens(Integer maxTokens) { this.maxTokens = maxTokens; }
+    public void setFavorite(boolean favorite) { isFavorite = favorite; } // New setter
+    public void setHidden(boolean hidden) { isHidden = hidden; }         // New setter
 }

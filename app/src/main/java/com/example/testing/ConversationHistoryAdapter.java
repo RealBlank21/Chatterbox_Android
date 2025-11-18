@@ -3,6 +3,7 @@ package com.example.testing;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.CheckBox;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -10,13 +11,29 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public class ConversationHistoryAdapter extends RecyclerView.Adapter<ConversationHistoryAdapter.ConversationViewHolder> {
 
     private List<ConversationWithCharacter> conversations = new ArrayList<>();
     private OnItemClickListener listener;
+
+    // --- Selection Fields ---
+    private boolean isDeleteMode = false;
+    private final Set<Integer> selectedIds = new HashSet<>();
+    private OnSelectionChangedListener selectionListener;
+
+    public interface OnSelectionChangedListener {
+        void onSelectionChanged(int count);
+    }
+
+    public void setOnSelectionChangedListener(OnSelectionChangedListener listener) {
+        this.selectionListener = listener;
+    }
+    // ------------------------
 
     @NonNull
     @Override
@@ -29,12 +46,27 @@ public class ConversationHistoryAdapter extends RecyclerView.Adapter<Conversatio
     @Override
     public void onBindViewHolder(@NonNull ConversationViewHolder holder, int position) {
         ConversationWithCharacter currentItem = conversations.get(position);
+
         holder.textViewCharacterName.setText(currentItem.characterName);
 
-        // Format the timestamp into a readable date and time
+        String title = currentItem.conversation.getTitle();
+        if (title == null || title.isEmpty()) {
+            holder.textViewTitle.setText("New Chat");
+        } else {
+            holder.textViewTitle.setText(title);
+        }
+
         Date date = new Date(currentItem.conversation.getLastUpdated());
         SimpleDateFormat formatter = new SimpleDateFormat("MMM dd, yyyy h:mm a", Locale.getDefault());
         holder.textViewTimestamp.setText(formatter.format(date));
+
+        // --- Handle Selection Visuals ---
+        if (isDeleteMode) {
+            holder.checkBox.setVisibility(View.VISIBLE);
+            holder.checkBox.setChecked(selectedIds.contains(currentItem.conversation.getId()));
+        } else {
+            holder.checkBox.setVisibility(View.GONE);
+        }
     }
 
     @Override
@@ -47,20 +79,67 @@ public class ConversationHistoryAdapter extends RecyclerView.Adapter<Conversatio
         notifyDataSetChanged();
     }
 
+    // --- Selection Helper Methods ---
+    public void setDeleteMode(boolean enabled) {
+        this.isDeleteMode = enabled;
+        this.selectedIds.clear();
+        notifyDataSetChanged();
+        if (selectionListener != null) selectionListener.onSelectionChanged(0);
+    }
+
+    public boolean isDeleteMode() {
+        return isDeleteMode;
+    }
+
+    public void toggleSelectAll() {
+        if (selectedIds.size() == conversations.size()) {
+            selectedIds.clear();
+        } else {
+            for (ConversationWithCharacter c : conversations) {
+                selectedIds.add(c.conversation.getId());
+            }
+        }
+        notifyDataSetChanged();
+        if (selectionListener != null) selectionListener.onSelectionChanged(selectedIds.size());
+    }
+
+    public List<Integer> getSelectedIds() {
+        return new ArrayList<>(selectedIds);
+    }
+    // --------------------------------
+
     class ConversationViewHolder extends RecyclerView.ViewHolder {
         private final TextView textViewCharacterName;
+        private final TextView textViewTitle;
         private final TextView textViewTimestamp;
+        private final CheckBox checkBox; // New Field
 
         public ConversationViewHolder(@NonNull View itemView) {
             super(itemView);
             textViewCharacterName = itemView.findViewById(R.id.text_view_character_name);
+            textViewTitle = itemView.findViewById(R.id.text_view_conversation_title);
             textViewTimestamp = itemView.findViewById(R.id.text_view_timestamp);
+            checkBox = itemView.findViewById(R.id.checkbox_select);
 
             itemView.setOnClickListener(v -> {
                 int position = getAdapterPosition();
-                if (listener != null && position != RecyclerView.NO_POSITION) {
-                    // Pass the conversation object from our combined data holder
-                    listener.onItemClick(conversations.get(position).conversation);
+                if (position != RecyclerView.NO_POSITION) {
+                    if (isDeleteMode) {
+                        // Toggle Selection
+                        int id = conversations.get(position).conversation.getId();
+                        if (selectedIds.contains(id)) {
+                            selectedIds.remove(id);
+                        } else {
+                            selectedIds.add(id);
+                        }
+                        notifyItemChanged(position);
+                        if (selectionListener != null) selectionListener.onSelectionChanged(selectedIds.size());
+                    } else {
+                        // Normal Click
+                        if (listener != null) {
+                            listener.onItemClick(conversations.get(position).conversation);
+                        }
+                    }
                 }
             });
         }

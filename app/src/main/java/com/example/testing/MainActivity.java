@@ -37,35 +37,42 @@ public class MainActivity extends AppCompatActivity {
         recyclerView.setAdapter(adapter);
 
         characterViewModel = new ViewModelProvider(this).get(CharacterViewModel.class);
-        characterViewModel.getAllCharacters().observe(this, adapter::setCharacters);
 
-        // --- SETUP LISTENERS ---
+        // Observe the dynamically switched list
+        characterViewModel.getDisplayedCharacters().observe(this, adapter::setCharacters);
+
         adapter.setOnItemLongClickListener(this::showCharacterOptionsMenu);
 
         adapter.setOnItemClickListener(character -> {
-            // Tell the ViewModel to start creating a new conversation
-            characterViewModel.startNewConversation(character);
+            Intent intent = new Intent(MainActivity.this, ConversationActivity.class);
+            intent.putExtra("CHARACTER_ID", character.getId());
+            intent.putExtra("CONVERSATION_ID", -1);
+            startActivity(intent);
         });
 
-        // --- OBSERVE FOR NAVIGATION ---
         characterViewModel.getNavigateToConversation().observe(this, conversationInfo -> {
             if (conversationInfo != null) {
                 Intent intent = new Intent(MainActivity.this, ConversationActivity.class);
                 intent.putExtra("CHARACTER_ID", conversationInfo.characterId);
                 intent.putExtra("CONVERSATION_ID", conversationInfo.conversationId);
                 startActivity(intent);
-
-                // Reset the event so it doesn't fire again on screen rotation
                 characterViewModel.doneNavigating();
             }
         });
     }
 
-    // ... The rest of your MainActivity methods (onCreateOptionsMenu, showCharacterOptionsMenu, etc.) remain the same
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.main_menu, menu);
+
+        // Change text based on state
+        MenuItem hiddenItem = menu.findItem(R.id.action_hidden_bots);
+        if (characterViewModel.isShowingHidden()) {
+            hiddenItem.setTitle("Show All Bots");
+        } else {
+            hiddenItem.setTitle("Hidden Bots");
+        }
         return true;
     }
 
@@ -76,9 +83,18 @@ public class MainActivity extends AppCompatActivity {
             Intent intent = new Intent(this, SettingsActivity.class);
             startActivity(intent);
             return true;
-        } else if (itemId == R.id.action_history) { // ADD THIS ELSE-IF BLOCK
+        } else if (itemId == R.id.action_history) {
             Intent intent = new Intent(this, ConversationHistoryActivity.class);
             startActivity(intent);
+            return true;
+        } else if (itemId == R.id.action_hidden_bots) {
+            // Toggle View Mode
+            boolean currentlyHidden = characterViewModel.isShowingHidden();
+            characterViewModel.setShowHidden(!currentlyHidden);
+            invalidateOptionsMenu(); // Refresh menu text
+
+            String msg = !currentlyHidden ? "Showing Hidden Bots" : "Showing All Bots";
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -87,6 +103,14 @@ public class MainActivity extends AppCompatActivity {
     private void showCharacterOptionsMenu(Character character, View anchorView) {
         PopupMenu popup = new PopupMenu(this, anchorView);
         popup.getMenuInflater().inflate(R.menu.character_options_menu, popup.getMenu());
+
+        // Configure Dynamic Menu Items
+        MenuItem favItem = popup.getMenu().findItem(R.id.option_favorite);
+        favItem.setTitle(character.isFavorite() ? "Unfavorite" : "Favorite");
+
+        MenuItem hideItem = popup.getMenu().findItem(R.id.option_hide);
+        hideItem.setTitle(character.isHidden() ? "Unhide" : "Hide");
+
         popup.setOnMenuItemClickListener(item -> {
             int itemId = item.getItemId();
             if (itemId == R.id.option_edit) {
@@ -94,6 +118,19 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             } else if (itemId == R.id.option_delete) {
                 showDeleteConfirmationDialog(character);
+                return true;
+            } else if (itemId == R.id.option_favorite) {
+                // Toggle Favorite
+                character.setFavorite(!character.isFavorite());
+                characterViewModel.update(character);
+                return true;
+            } else if (itemId == R.id.option_hide) {
+                // Toggle Hide
+                character.setHidden(!character.isHidden());
+                characterViewModel.update(character);
+
+                String msg = character.isHidden() ? "Bot Hidden" : "Bot Unhidden";
+                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
                 return true;
             }
             return false;

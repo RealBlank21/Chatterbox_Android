@@ -18,7 +18,7 @@ public class CharacterAdapter extends RecyclerView.Adapter<CharacterAdapter.Char
 
     private List<Character> characters = new ArrayList<>();
     private OnItemLongClickListener longClickListener;
-    private OnItemClickListener clickListener; // ADDED THIS LINE
+    private OnItemClickListener clickListener;
 
     @NonNull
     @Override
@@ -31,20 +31,23 @@ public class CharacterAdapter extends RecyclerView.Adapter<CharacterAdapter.Char
     @Override
     public void onBindViewHolder(@NonNull CharacterViewHolder holder, int position) {
         Character currentCharacter = characters.get(position);
-        holder.textViewName.setText(currentCharacter.getName());
 
-        // --- THIS IS THE CHANGE ---
+        // Append a star if favorite
+        String displayName = currentCharacter.getName();
+        if (currentCharacter.isFavorite()) {
+            displayName = "★ " + displayName;
+        }
+        holder.textViewName.setText(displayName);
+
         String imagePath = currentCharacter.getCharacterProfileImagePath();
         if (!TextUtils.isEmpty(imagePath)) {
             Glide.with(holder.itemView.getContext())
                     .load(imagePath)
-                    .circleCrop() // Make the image circular
+                    .circleCrop()
                     .into(holder.imageViewProfile);
         } else {
-            // If there's no image, show the default placeholder
             holder.imageViewProfile.setImageResource(R.mipmap.ic_launcher_round);
         }
-        // -------------------------
     }
 
     @Override
@@ -57,7 +60,6 @@ public class CharacterAdapter extends RecyclerView.Adapter<CharacterAdapter.Char
         notifyDataSetChanged();
     }
 
-    // ViewHolder class
     class CharacterViewHolder extends RecyclerView.ViewHolder {
         private final TextView textViewName;
         private final ImageView imageViewProfile;
@@ -67,17 +69,13 @@ public class CharacterAdapter extends RecyclerView.Adapter<CharacterAdapter.Char
             textViewName = itemView.findViewById(R.id.text_view_name);
             imageViewProfile = itemView.findViewById(R.id.image_view_profile);
 
-            // --- START OF ADDED CODE ---
-            // Set the simple click listener
             itemView.setOnClickListener(v -> {
                 int position = getAdapterPosition();
                 if (clickListener != null && position != RecyclerView.NO_POSITION) {
                     clickListener.onItemClick(characters.get(position));
                 }
             });
-            // --- END OF ADDED CODE ---
 
-            // Set the long click listener
             itemView.setOnLongClickListener(v -> {
                 int position = getAdapterPosition();
                 if (longClickListener != null && position != RecyclerView.NO_POSITION) {
@@ -88,7 +86,6 @@ public class CharacterAdapter extends RecyclerView.Adapter<CharacterAdapter.Char
         }
     }
 
-    // --- Interface for the long click listener ---
     public interface OnItemLongClickListener {
         void onItemLongClick(Character character, View anchorView);
     }
@@ -97,8 +94,6 @@ public class CharacterAdapter extends RecyclerView.Adapter<CharacterAdapter.Char
         this.longClickListener = listener;
     }
 
-    // --- START OF ADDED CODE ---
-    // --- Interface for the simple click listener ---
     public interface OnItemClickListener {
         void onItemClick(Character character);
     }
@@ -106,5 +101,4 @@ public class CharacterAdapter extends RecyclerView.Adapter<CharacterAdapter.Char
     public void setOnItemClickListener(OnItemClickListener listener) {
         this.clickListener = listener;
     }
-    // --- END OF ADDED CODE ---
 }

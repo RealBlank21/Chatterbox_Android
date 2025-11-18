@@ -4,6 +4,7 @@ import android.app.Application;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
+import androidx.lifecycle.Transformations;
 import java.util.List;
 
 public class CharacterViewModel extends AndroidViewModel {
@@ -11,7 +12,11 @@ public class CharacterViewModel extends AndroidViewModel {
     private final CharacterRepository characterRepository;
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
-    private final LiveData<List<Character>> allCharacters;
+
+    // --- SWITCHING LOGIC ---
+    private final MutableLiveData<Boolean> showHiddenInput = new MutableLiveData<>(false);
+    private final LiveData<List<Character>> displayedCharacters;
+    // -----------------------
 
     private final MutableLiveData<ConversationInfo> navigateToConversation = new MutableLiveData<>();
 
@@ -20,11 +25,17 @@ public class CharacterViewModel extends AndroidViewModel {
         characterRepository = new CharacterRepository(application);
         conversationRepository = new ConversationRepository(application);
         messageRepository = new MessageRepository(application);
-        allCharacters = characterRepository.getAllCharacters();
+
+        // Logic to switch between normal list and hidden list
+        displayedCharacters = Transformations.switchMap(showHiddenInput, showHidden -> {
+            if (showHidden) {
+                return characterRepository.getHiddenCharacters();
+            } else {
+                return characterRepository.getAllCharacters();
+            }
+        });
     }
 
-    // --- THIS IS THE FIX ---
-    // The constructor was missing from this inner class.
     public static class ConversationInfo {
         public final int characterId;
         public final int conversationId;
@@ -34,11 +45,20 @@ public class CharacterViewModel extends AndroidViewModel {
             this.conversationId = conversationId;
         }
     }
-    // -----------------------
 
-    public LiveData<List<Character>> getAllCharacters() { return allCharacters; }
+    public LiveData<List<Character>> getDisplayedCharacters() { return displayedCharacters; }
     public LiveData<Character> getCharacterById(int id) { return characterRepository.getCharacterById(id); }
     public LiveData<ConversationInfo> getNavigateToConversation() { return navigateToConversation; }
+
+    // --- NEW HELPERS ---
+    public void setShowHidden(boolean show) {
+        showHiddenInput.setValue(show);
+    }
+
+    public boolean isShowingHidden() {
+        return Boolean.TRUE.equals(showHiddenInput.getValue());
+    }
+    // -------------------
 
     public void insert(Character character) { characterRepository.insert(character); }
     public void update(Character character) { characterRepository.update(character); }
