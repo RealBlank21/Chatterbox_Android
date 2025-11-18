@@ -17,5 +17,9 @@ public interface UserDao {
     void update(User user);
 
     @Query("SELECT * FROM user_config WHERE config_id = 1")
-    LiveData<User> getUser(); // Change return type to LiveData
+    LiveData<User> getUser();
+
+    // --- ADD THIS ---
+    @Query("SELECT * FROM user_config WHERE config_id = 1")
+    User getUserSync();
 }

@@ -34,6 +34,7 @@
     <string name="regenerate">Regenerate</string>
     <string name="edit_message">Edit Message</string>
     <string name="copy_message">Copy Message</string>
+    <string name="loading_credits">Loading credits...</string>
 
     <string-array name="ai_model_suggestions">
         <item>openai/gpt-5.1-chat</item>

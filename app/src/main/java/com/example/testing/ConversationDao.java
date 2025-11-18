@@ -7,6 +7,7 @@ import androidx.room.Query;
 import androidx.room.Transaction;
 import androidx.room.Update;
 import androidx.room.Delete;
+import androidx.room.OnConflictStrategy;
 import java.util.List;
 
 @Dao
@@ -15,14 +16,28 @@ public interface ConversationDao {
     @Insert
     long insert(Conversation conversation);
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    void insertAll(List<Conversation> conversations);
+
+    @Query("SELECT * FROM conversation")
+    List<Conversation> getAllConversationsSync();
+
+    @Query("DELETE FROM conversation")
+    void deleteAll();
+
     @Update
     void update(Conversation conversation);
+
+    // --- ADD THIS METHOD ---
+    @Query("UPDATE conversation SET last_updated = :timestamp WHERE conversation_id = :id")
+    void updateLastUpdated(int id, long timestamp);
+    // -----------------------
 
     @Delete
     void delete(Conversation conversation);
 
     @Query("SELECT * FROM conversation WHERE conversation_id = :id")
-    LiveData<Conversation> getConversationById(int id); // Change return type
+    LiveData<Conversation> getConversationById(int id);
 
     @Query("SELECT * FROM conversation WHERE character_fk = :characterId ORDER BY last_updated DESC")
     List<Conversation> getConversationsForCharacter(int characterId);

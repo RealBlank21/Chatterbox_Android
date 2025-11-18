@@ -12,7 +12,6 @@ public class ConversationRepository {
     private final ConversationDao conversationDao;
     private final ExecutorService executorService;
 
-    // A simple interface we can use for a callback
     public interface InsertCallback {
         void onInsertFinished(Long newId);
     }
@@ -23,27 +22,41 @@ public class ConversationRepository {
         this.executorService = Executors.newSingleThreadExecutor();
     }
 
-    // --- MODIFIED INSERT METHOD ---
     public void insert(Conversation conversation, InsertCallback callback) {
         executorService.execute(() -> {
-            // The insert method returns the ID of the new row
             long newId = conversationDao.insert(conversation);
-            // If a callback was provided, run it on the main thread
             if (callback != null) {
-                // We need to ensure the callback runs on the UI thread if it updates UI
-                // For now, this is fine as LiveData handles the thread switch.
                 callback.onInsertFinished(newId);
             }
         });
     }
 
-    // Overloaded method for when we don't need the ID back
     public void insert(Conversation conversation) {
         insert(conversation, null);
     }
 
+    // --- ADD THIS METHOD ---
+    public void updateLastUpdated(int conversationId, long timestamp) {
+        executorService.execute(() -> conversationDao.updateLastUpdated(conversationId, timestamp));
+    }
+    // -----------------------
+
     public void update(Conversation conversation) {
         executorService.execute(() -> conversationDao.update(conversation));
+    }
+
+    // ... (Keep other methods: insertAll, deleteAll, delete, getConversationById, getAllConversationsWithCharacter) ...
+
+    public void insertAll(List<Conversation> conversations) {
+        executorService.execute(() -> conversationDao.insertAll(conversations));
+    }
+
+    public List<Conversation> getAllConversationsSync() {
+        return conversationDao.getAllConversationsSync();
+    }
+
+    public void deleteAll() {
+        executorService.execute(() -> conversationDao.deleteAll());
     }
 
     public void delete(Conversation conversation) {

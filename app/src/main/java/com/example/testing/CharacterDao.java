@@ -6,6 +6,7 @@ import androidx.room.Insert;
 import androidx.room.Query;
 import androidx.room.Update;
 import androidx.room.Delete;
+import androidx.room.OnConflictStrategy; // Import this
 import java.util.List;
 
 @Dao
@@ -13,6 +14,17 @@ public interface CharacterDao {
 
     @Insert
     void insert(Character character);
+
+    // --- ADD THESE METHODS ---
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    void insertAll(List<Character> characters);
+
+    @Query("SELECT * FROM character")
+    List<Character> getAllCharactersSync();
+
+    @Query("DELETE FROM character")
+    void deleteAll();
+    // ------------------------
 
     @Update
     void update(Character character);
@@ -24,5 +36,5 @@ public interface CharacterDao {
     LiveData<Character> getCharacterById(int id);
 
     @Query("SELECT * FROM character ORDER BY name ASC")
-    LiveData<List<Character>> getAllCharacters(); // Change the return type here
+    LiveData<List<Character>> getAllCharacters();
 }
