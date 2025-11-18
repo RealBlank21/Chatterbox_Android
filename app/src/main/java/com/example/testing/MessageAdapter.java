@@ -166,8 +166,18 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
         }
 
         public void showDisplayMode(Message message, Markwon markwon) {
-            // Use the passed 'markwon' instance (User or Character) to render
-            markwon.setMarkdown(textViewMessage, message.getContent());
+            String content = message.getContent();
+
+            // Pre-process content to replace AI delimiters with Markwon delimiters
+            if (content != null) {
+                // 1. Replace \[ and \] with $$ (double backslash needed for Java string escaping)
+                content = content.replace("\\[", "$$").replace("\\]", "$$");
+
+                // 2. Replace \( and \) with $
+                content = content.replace("\\(", "$").replace("\\)", "$");
+            }
+
+            markwon.setMarkdown(textViewMessage, content);
             textViewMessage.setVisibility(View.VISIBLE);
             layoutEditMessage.setVisibility(View.GONE);
         }
