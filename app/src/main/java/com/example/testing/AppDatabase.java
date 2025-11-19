@@ -6,7 +6,7 @@ import androidx.room.Room;
 import androidx.room.RoomDatabase;
 
 // Incremented version to 4 to support new columns
-@Database(entities = {User.class, Character.class, Conversation.class, Message.class}, version = 5, exportSchema = false)
+@Database(entities = {User.class, Character.class, Conversation.class, Message.class}, version = 6, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
 
     public abstract UserDao userDao();

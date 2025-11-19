@@ -32,13 +32,28 @@ public class CharacterAdapter extends RecyclerView.Adapter<CharacterAdapter.Char
     public void onBindViewHolder(@NonNull CharacterViewHolder holder, int position) {
         Character currentCharacter = characters.get(position);
 
-        // Append a star if favorite
+        // Name with Favorite Star
         String displayName = currentCharacter.getName();
         if (currentCharacter.isFavorite()) {
             displayName = "★ " + displayName;
         }
         holder.textViewName.setText(displayName);
 
+        // First Message Preview
+        String firstMessage = currentCharacter.getFirstMessage();
+        if (!TextUtils.isEmpty(firstMessage)) {
+            holder.textViewFirstMessage.setText(firstMessage);
+            holder.textViewFirstMessage.setVisibility(View.VISIBLE);
+        } else {
+            holder.textViewFirstMessage.setVisibility(View.GONE);
+        }
+
+        // Conversation Count
+        int count = currentCharacter.getConversationCount();
+        String countText = count + (count == 1 ? " Conversation" : " Conversations");
+        holder.textViewConversationCount.setText(countText);
+
+        // Image
         String imagePath = currentCharacter.getCharacterProfileImagePath();
         if (!TextUtils.isEmpty(imagePath)) {
             Glide.with(holder.itemView.getContext())
@@ -62,11 +77,15 @@ public class CharacterAdapter extends RecyclerView.Adapter<CharacterAdapter.Char
 
     class CharacterViewHolder extends RecyclerView.ViewHolder {
         private final TextView textViewName;
+        private final TextView textViewFirstMessage;
+        private final TextView textViewConversationCount;
         private final ImageView imageViewProfile;
 
         public CharacterViewHolder(@NonNull View itemView) {
             super(itemView);
             textViewName = itemView.findViewById(R.id.text_view_name);
+            textViewFirstMessage = itemView.findViewById(R.id.text_view_first_message);
+            textViewConversationCount = itemView.findViewById(R.id.text_view_conversation_count);
             imageViewProfile = itemView.findViewById(R.id.image_view_profile);
 
             itemView.setOnClickListener(v -> {

@@ -81,7 +81,7 @@ public class ConversationViewModel extends AndroidViewModel {
     public LiveData<User> getCurrentUser() { return currentUser; }
     public LiveData<Integer> getConversationId() { return conversationIdInput; }
 
-    // --- UPDATED: Create Conversation with Title from Content ---
+    // --- Create Conversation with Title from Content ---
     public void createConversationAndSendMessage(String content, User user, Character character) {
         // 1. Determine the title from the first message content
         String title = "New Chat";
@@ -124,21 +124,15 @@ public class ConversationViewModel extends AndroidViewModel {
         triggerApiCall(content, conversationId, user, character, false);
     }
 
-    public void regenerateLastResponse(int conversationId, User user, Character character) {
+    // FIX: Updated to accept the specific message object to regenerate
+    public void regenerateResponse(Message messageToRegenerate, User user, Character character) {
         executorService.execute(() -> {
-            List<Message> messageHistory = messageRepository.getMessagesForConversationSync(conversationId);
-            Message lastAssistantMessage = null;
-            for (int i = messageHistory.size() - 1; i >= 0; i--) {
-                if ("assistant".equals(messageHistory.get(i).getRole())) {
-                    lastAssistantMessage = messageHistory.get(i);
-                    break;
-                }
+            // Delete the specific message passed from the UI
+            if (messageToRegenerate != null) {
+                messageRepository.delete(messageToRegenerate);
             }
-
-            if (lastAssistantMessage != null) {
-                messageRepository.delete(lastAssistantMessage);
-                triggerApiCall("", conversationId, user, character, true);
-            }
+            // Trigger API call with empty content (since it's a regen) and regeneration flag
+            triggerApiCall("", messageToRegenerate.getConversationId(), user, character, true);
         });
     }
 
@@ -149,6 +143,8 @@ public class ConversationViewModel extends AndroidViewModel {
     private void triggerApiCall(String content, int conversationId, User user, Character character, boolean isRegeneration) {
         if (user == null || character == null) return;
 
+        // 1. Insert User Message if this is a new message (not regeneration)
+        // Note: This happens on a separate thread from the subsequent history fetch
         if (!isRegeneration) {
             Message userMessage = new Message("user", content, conversationId);
             messageRepository.insert(userMessage);
@@ -156,6 +152,7 @@ public class ConversationViewModel extends AndroidViewModel {
         }
 
         executorService.execute(() -> {
+            // 2. Fetch History (Thread B)
             List<Message> messageHistory = messageRepository.getMessagesForConversationSync(conversationId);
             List<RequestMessage> requestMessages = new ArrayList<>();
 
@@ -179,7 +176,7 @@ public class ConversationViewModel extends AndroidViewModel {
 
             String finalSystemPrompt = globalPrompt + "\n" + characterPersonality;
 
-            // --- NEW: Time Awareness - Initial System Prompt Injection ---
+            // --- Time Awareness - Initial System Prompt Injection ---
             if (character.isTimeAware()) {
                 finalSystemPrompt += "\nThis conversation was started on " + formattedDay + " at " + formattedTime + ".";
             }
@@ -189,7 +186,7 @@ public class ConversationViewModel extends AndroidViewModel {
             }
 
             for (Message msg : messageHistory) {
-                // --- NEW: Time Awareness - Historical User Message Injection ---
+                // --- Time Awareness - Historical User Message Injection ---
                 if (character.isTimeAware() && "user".equals(msg.getRole())) {
                     Date msgDate = new Date(msg.getTimestamp());
                     String msgTime = dayFormatter.format(msgDate) + " at " + timeFormatter.format(msgDate);
@@ -198,15 +195,29 @@ public class ConversationViewModel extends AndroidViewModel {
                 requestMessages.add(new RequestMessage(msg.getRole(), msg.getContent()));
             }
 
+            // FIX: Handle Race Condition for Double Message Sending
+            // Only add the current message manually if it's NOT already in the fetched history.
+            // Since insert() runs on a different thread, it might or might not be in messageHistory yet.
             if (!isRegeneration && !content.isEmpty()) {
-                // --- NEW: Time Awareness - Current User Message Injection ---
-                if (character.isTimeAware()) {
-                    long now = System.currentTimeMillis();
-                    Date nowDate = new Date(now);
-                    String nowTime = dayFormatter.format(nowDate) + " at " + timeFormatter.format(nowDate);
-                    requestMessages.add(new RequestMessage("system", "Current time: " + nowTime));
+                boolean alreadyInHistory = false;
+                if (!messageHistory.isEmpty()) {
+                    Message lastMsg = messageHistory.get(messageHistory.size() - 1);
+                    // Check if the last message matches the one we are trying to send
+                    if ("user".equals(lastMsg.getRole()) && content.equals(lastMsg.getContent())) {
+                        alreadyInHistory = true;
+                    }
                 }
-                requestMessages.add(new RequestMessage("user", content));
+
+                if (!alreadyInHistory) {
+                    // --- Time Awareness - Current User Message Injection ---
+                    if (character.isTimeAware()) {
+                        long now = System.currentTimeMillis();
+                        Date nowDate = new Date(now);
+                        String nowTime = dayFormatter.format(nowDate) + " at " + timeFormatter.format(nowDate);
+                        requestMessages.add(new RequestMessage("system", "Current time: " + nowTime));
+                    }
+                    requestMessages.add(new RequestMessage("user", content));
+                }
             }
 
             String model = character.getModel();

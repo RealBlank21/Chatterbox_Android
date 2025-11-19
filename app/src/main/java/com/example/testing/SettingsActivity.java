@@ -1,10 +1,13 @@
 package com.example.testing;
 
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.view.View;
@@ -12,11 +15,14 @@ import android.view.View;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 import com.example.testing.network.ApiClient;
 import com.example.testing.network.ApiService;
+import com.example.testing.network.response.Model;
 import okhttp3.ResponseBody;
 import org.json.JSONObject;
 import retrofit2.Call;
@@ -32,6 +38,8 @@ public class SettingsActivity extends AppCompatActivity {
     private EditText editTextUsername;
     private EditText editTextApiKey;
     private AutoCompleteTextView editTextPreferredModel;
+    private ImageButton buttonRefreshModels;
+    private TextView textViewModelInfo;
     private EditText editTextGlobalPrompt;
     private TextView textViewCredits;
     private Button buttonSave;
@@ -40,8 +48,9 @@ public class SettingsActivity extends AppCompatActivity {
     private Button buttonImport;
 
     private SettingsViewModel settingsViewModel;
+    private ArrayAdapter<String> modelsAdapter;
+    private List<String> modelIds = new ArrayList<>();
 
-    // --- Activity Result Launchers ---
     private final ActivityResultLauncher<String> createDocumentLauncher =
             registerForActivityResult(new ActivityResultContracts.CreateDocument("application/json"), uri -> {
                 if (uri != null) {
@@ -59,7 +68,6 @@ public class SettingsActivity extends AppCompatActivity {
                     Toast.makeText(this, "Import cancelled", Toast.LENGTH_SHORT).show();
                 }
             });
-    // ---------------------------------
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,16 +80,50 @@ public class SettingsActivity extends AppCompatActivity {
         editTextApiKey = findViewById(R.id.edit_text_api_key);
         textViewCredits = findViewById(R.id.text_view_credits);
         editTextPreferredModel = findViewById(R.id.edit_text_preferred_model);
+        buttonRefreshModels = findViewById(R.id.button_refresh_models);
+        textViewModelInfo = findViewById(R.id.text_view_model_info);
         editTextGlobalPrompt = findViewById(R.id.edit_text_global_system_prompt);
         buttonSave = findViewById(R.id.button_save_settings);
 
         buttonExport = findViewById(R.id.button_export_data);
         buttonImport = findViewById(R.id.button_import_data);
 
-        String[] models = getResources().getStringArray(R.array.ai_model_suggestions);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_list_item_1, models);
-        editTextPreferredModel.setAdapter(adapter);
+        // Initialize Adapter for Models
+        modelsAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, modelIds);
+        editTextPreferredModel.setAdapter(modelsAdapter);
+
+        // Load Models from Repository
+        ModelRepository.getInstance().getModels().observe(this, models -> {
+            if (models != null) {
+                modelIds.clear();
+                for (Model m : models) {
+                    modelIds.add(m.getId());
+                }
+                modelsAdapter.notifyDataSetChanged();
+            }
+        });
+
+        // Manual Refresh
+        buttonRefreshModels.setOnClickListener(v -> {
+            Toast.makeText(this, "Refreshing models...", Toast.LENGTH_SHORT).show();
+            ModelRepository.getInstance().refreshModels();
+        });
+
+        // Show model info on selection
+        editTextPreferredModel.setOnItemClickListener((parent, view, position, id) -> {
+            String selectedId = modelsAdapter.getItem(position);
+            updateModelInfo(selectedId);
+        });
+
+        // Also try to show info if user types exactly a known model ID
+        editTextPreferredModel.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override
+            public void afterTextChanged(Editable s) {
+                updateModelInfo(s.toString());
+            }
+        });
 
         settingsViewModel = new ViewModelProvider(this).get(SettingsViewModel.class);
 
@@ -94,28 +136,39 @@ public class SettingsActivity extends AppCompatActivity {
                         fetchCredits(user.getApiKey());
                     }
                 }
-                if (user.getPreferredModel() != null) editTextPreferredModel.setText(user.getPreferredModel());
+                if (user.getPreferredModel() != null) {
+                    editTextPreferredModel.setText(user.getPreferredModel());
+                    updateModelInfo(user.getPreferredModel()); // Show info for saved model
+                }
                 if (user.getGlobalSystemPrompt() != null) editTextGlobalPrompt.setText(user.getGlobalSystemPrompt());
             }
         });
 
         buttonSave.setOnClickListener(v -> saveSettings());
 
-        // --- Set Listeners for Export/Import with DEBUG TOASTS ---
         buttonExport.setOnClickListener(v -> {
-            Toast.makeText(SettingsActivity.this, "Debug: Export Clicked", Toast.LENGTH_SHORT).show();
-
             String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
             String fileName = "chatterbox_backup_" + timeStamp + ".json";
             createDocumentLauncher.launch(fileName);
         });
 
         buttonImport.setOnClickListener(v -> {
-            Toast.makeText(SettingsActivity.this, "Debug: Import Clicked", Toast.LENGTH_SHORT).show();
-
             openDocumentLauncher.launch(new String[]{"application/json"});
         });
-        // ---------------------------------------
+    }
+
+    private void updateModelInfo(String modelId) {
+        Model model = ModelRepository.getInstance().getModelById(modelId);
+        if (model != null) {
+            textViewModelInfo.setVisibility(View.VISIBLE);
+            String info = "Name: " + model.getName() + "\n" +
+                    "Context: " + model.getContextLength() + "\n" +
+                    model.getFormattedPricing() + "\n\n" +
+                    (model.getDescription() != null ? model.getDescription() : "No description available.");
+            textViewModelInfo.setText(info);
+        } else {
+            textViewModelInfo.setVisibility(View.GONE);
+        }
     }
 
     private void fetchCredits(String apiKey) {

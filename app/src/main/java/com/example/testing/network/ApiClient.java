@@ -1,6 +1,8 @@
-// In network/ApiClient.java
 package com.example.testing.network;
 
+import java.util.concurrent.TimeUnit;
+
+import okhttp3.OkHttpClient;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
@@ -10,8 +12,16 @@ public class ApiClient {
 
     public static Retrofit getClient() {
         if (retrofit == null) {
+            // FIX: Configure OkHttpClient with increased timeouts
+            OkHttpClient client = new OkHttpClient.Builder()
+                    .connectTimeout(60, TimeUnit.SECONDS) // Fix for initial connection timeout
+                    .readTimeout(90, TimeUnit.SECONDS)    // Fix for slow generation/cold boot
+                    .writeTimeout(60, TimeUnit.SECONDS)
+                    .build();
+
             retrofit = new Retrofit.Builder()
                     .baseUrl(BASE_URL)
+                    .client(client) // Attach the custom client
                     .addConverterFactory(GsonConverterFactory.create())
                     .build();
         }

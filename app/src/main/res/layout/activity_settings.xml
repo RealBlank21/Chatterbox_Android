@@ -57,13 +57,40 @@
             android:text="@string/preferred_model"
             android:textAppearance="?attr/textAppearanceListItem" />
 
-        <AutoCompleteTextView
-            android:id="@+id/edit_text_preferred_model"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="@string/e_g_mistralai_mistral_7b_instruct"
-            android:inputType="text"
-            android:completionThreshold="1" />
+            android:orientation="horizontal">
+
+            <AutoCompleteTextView
+                android:id="@+id/edit_text_preferred_model"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/e_g_mistralai_mistral_7b_instruct"
+                android:inputType="text"
+                android:completionThreshold="1" />
+
+            <ImageButton
+                android:id="@+id/button_refresh_models"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/ic_popup_sync"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Refresh Models" />
+        </LinearLayout>
+
+        <!-- NEW: Model Details Section -->
+        <TextView
+            android:id="@+id/text_view_model_info"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="#1A000000"
+            android:padding="8dp"
+            android:text="Select a model to see details"
+            android:textSize="12sp"
+            android:visibility="gone" />
 
         <TextView
             android:layout_width="wrap_content"

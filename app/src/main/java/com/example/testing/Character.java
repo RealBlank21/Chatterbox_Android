@@ -45,16 +45,19 @@ public class Character {
     @ColumnInfo(name = "max_tokens")
     private Integer maxTokens;
 
-    // --- NEW FIELDS ---
     @ColumnInfo(name = "is_favorite")
     private boolean isFavorite;
 
     @ColumnInfo(name = "is_hidden")
     private boolean isHidden;
 
-    // Added defaultValue = "0" (false) to ensure safety for old/migrated data
     @ColumnInfo(name = "is_time_aware", defaultValue = "0")
     private boolean isTimeAware;
+
+    // --- Transient Field for UI (Not a real column in 'character' table) ---
+    // We use @ColumnInfo so Room matches the query result column "conversation_count" to this field.
+    @ColumnInfo(name = "conversation_count")
+    private int conversationCount;
 
     // -----------------------------------------------------------------
     // CONSTRUCTORS
@@ -83,7 +86,6 @@ public class Character {
         this.isTimeAware = isTimeAware;
     }
 
-    // Overloaded constructor for convenience (Defaults isTimeAware to false)
     @Ignore
     public Character(String name, String personality, String firstMessage,
                      String model, String characterProfileImagePath,
@@ -111,6 +113,7 @@ public class Character {
     public boolean isFavorite() { return isFavorite; }
     public boolean isHidden() { return isHidden; }
     public boolean isTimeAware() { return isTimeAware; }
+    public int getConversationCount() { return conversationCount; }
 
     // -----------------------------------------------------------------
     // SETTERS
@@ -131,4 +134,5 @@ public class Character {
     public void setFavorite(boolean favorite) { isFavorite = favorite; }
     public void setHidden(boolean hidden) { isHidden = hidden; }
     public void setTimeAware(boolean timeAware) { isTimeAware = timeAware; }
+    public void setConversationCount(int conversationCount) { this.conversationCount = conversationCount; }
 }

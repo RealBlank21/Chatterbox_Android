@@ -3,15 +3,19 @@ package com.example.testing;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.view.Menu;
-import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -22,12 +26,15 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.bumptech.glide.Glide;
-import com.google.android.material.switchmaterial.SwitchMaterial; // UPDATED IMPORT
+import com.example.testing.network.response.Model;
+import com.google.android.material.switchmaterial.SwitchMaterial;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public class AddEditCharacterActivity extends AppCompatActivity {
@@ -36,21 +43,23 @@ public class AddEditCharacterActivity extends AppCompatActivity {
     private Button buttonSelectImage;
     private EditText editTextName, editTextPersonality, editTextFirstMessage, editTextTemperature, editTextMaxTokens;
     private AutoCompleteTextView editTextModel;
-    private SwitchMaterial switchTimeAwareness; // UPDATED TYPE
+    private ImageButton buttonRefreshModels;
+    private TextView textViewModelInfo;
+    private SwitchMaterial switchTimeAwareness;
 
     private CharacterViewModel characterViewModel;
     private int currentCharacterId = -1;
-    private String currentProfileImagePath = ""; // To store the path of the selected image
+    private String currentProfileImagePath = "";
 
-    // The modern way to handle activity results (like picking a photo)
+    private ArrayAdapter<String> modelsAdapter;
+    private List<String> modelIds = new ArrayList<>();
+
     private final ActivityResultLauncher<PickVisualMediaRequest> pickMedia =
             registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
                 if (uri != null) {
-                    // Photo was selected
                     saveImageToInternalStorage(uri);
                     Glide.with(this).load(currentProfileImagePath).into(imageViewProfilePreview);
                 } else {
-                    // No photo was selected
                     Toast.makeText(this, "No image selected.", Toast.LENGTH_SHORT).show();
                 }
             });
@@ -60,37 +69,64 @@ public class AddEditCharacterActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_edit_character);
 
-        // Find all views
         imageViewProfilePreview = findViewById(R.id.image_view_profile_preview);
         buttonSelectImage = findViewById(R.id.button_select_image);
         editTextName = findViewById(R.id.edit_text_character_name);
         editTextPersonality = findViewById(R.id.edit_text_character_personality);
         editTextModel = findViewById(R.id.edit_text_character_model);
+        buttonRefreshModels = findViewById(R.id.button_refresh_models);
+        textViewModelInfo = findViewById(R.id.text_view_model_info);
         editTextFirstMessage = findViewById(R.id.edit_text_character_first_message);
         editTextTemperature = findViewById(R.id.edit_text_temperature);
         editTextMaxTokens = findViewById(R.id.edit_text_max_tokens);
         switchTimeAwareness = findViewById(R.id.switch_time_awareness);
 
-        // Get the string array from resources
-        String[] models = getResources().getStringArray(R.array.ai_model_suggestions);
-        // Create the adapter
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_list_item_1, models);
-        // Set the adapter to the AutoCompleteTextView
-        editTextModel.setAdapter(adapter);
+        // Initialize Adapter for Models
+        modelsAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, modelIds);
+        editTextModel.setAdapter(modelsAdapter);
+
+        // Load Models from Repository
+        ModelRepository.getInstance().getModels().observe(this, models -> {
+            if (models != null) {
+                modelIds.clear();
+                for (Model m : models) {
+                    modelIds.add(m.getId());
+                }
+                modelsAdapter.notifyDataSetChanged();
+            }
+        });
+
+        // Manual Refresh
+        buttonRefreshModels.setOnClickListener(v -> {
+            Toast.makeText(this, "Refreshing models...", Toast.LENGTH_SHORT).show();
+            ModelRepository.getInstance().refreshModels();
+        });
+
+        // Show model info on selection
+        editTextModel.setOnItemClickListener((parent, view, position, id) -> {
+            String selectedId = modelsAdapter.getItem(position);
+            updateModelInfo(selectedId);
+        });
+
+        // Text watcher to update info if typed manually
+        editTextModel.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                updateModelInfo(s.toString());
+            }
+        });
 
         characterViewModel = new ViewModelProvider(this).get(CharacterViewModel.class);
 
         getSupportActionBar().setHomeAsUpIndicator(android.R.drawable.ic_menu_close_clear_cancel);
 
-        // Set up the button to launch the photo picker
         buttonSelectImage.setOnClickListener(v -> {
             pickMedia.launch(new PickVisualMediaRequest.Builder()
                     .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
                     .build());
         });
 
-        // Check if we are editing and populate fields
         Intent intent = getIntent();
         if (intent.hasExtra("CHARACTER_ID")) {
             setTitle("Edit Character");
@@ -99,7 +135,10 @@ public class AddEditCharacterActivity extends AppCompatActivity {
                 if (character != null) {
                     editTextName.setText(character.getName());
                     editTextPersonality.setText(character.getPersonality());
+
                     editTextModel.setText(character.getModel());
+                    updateModelInfo(character.getModel()); // Show info for loaded model
+
                     editTextFirstMessage.setText(character.getFirstMessage());
                     if (character.getTemperature() != null) editTextTemperature.setText(String.valueOf(character.getTemperature()));
                     if (character.getMaxTokens() != null) editTextMaxTokens.setText(String.valueOf(character.getMaxTokens()));
@@ -116,7 +155,20 @@ public class AddEditCharacterActivity extends AppCompatActivity {
         }
     }
 
-    // This helper method copies the selected image to a private directory in your app
+    private void updateModelInfo(String modelId) {
+        Model model = ModelRepository.getInstance().getModelById(modelId);
+        if (model != null) {
+            textViewModelInfo.setVisibility(View.VISIBLE);
+            String info = "Name: " + model.getName() + "\n" +
+                    "Context: " + model.getContextLength() + "\n" +
+                    model.getFormattedPricing() + "\n\n" +
+                    (model.getDescription() != null ? model.getDescription() : "No description available.");
+            textViewModelInfo.setText(info);
+        } else {
+            textViewModelInfo.setVisibility(View.GONE);
+        }
+    }
+
     private void saveImageToInternalStorage(Uri uri) {
         try {
             InputStream inputStream = getContentResolver().openInputStream(uri);
@@ -133,7 +185,7 @@ public class AddEditCharacterActivity extends AppCompatActivity {
             }
             outputStream.close();
             inputStream.close();
-            currentProfileImagePath = file.getAbsolutePath(); // Store the path
+            currentProfileImagePath = file.getAbsolutePath();
         } catch (Exception e) {
             e.printStackTrace();
             Toast.makeText(this, "Failed to save image", Toast.LENGTH_SHORT).show();
@@ -155,11 +207,25 @@ public class AddEditCharacterActivity extends AppCompatActivity {
         }
 
         Float temperature = null;
-        if (!TextUtils.isEmpty(tempStr)) temperature = Float.parseFloat(tempStr);
-        Integer maxTokens = null;
-        if (!TextUtils.isEmpty(maxTokensStr)) maxTokens = Integer.parseInt(maxTokensStr);
+        if (!TextUtils.isEmpty(tempStr)) {
+            try {
+                temperature = Float.parseFloat(tempStr);
+            } catch (NumberFormatException e) {
+                Toast.makeText(this, "Invalid Temperature format", Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
 
-        // Create the character with the saved image path and time awareness setting
+        Integer maxTokens = null;
+        if (!TextUtils.isEmpty(maxTokensStr)) {
+            try {
+                maxTokens = Integer.parseInt(maxTokensStr);
+            } catch (NumberFormatException e) {
+                Toast.makeText(this, "Invalid Max Tokens format", Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+
         Character character = new Character(name, personality, firstMessage, model, currentProfileImagePath, "", "", temperature, maxTokens, isTimeAware);
 
         if (currentCharacterId != -1) {
