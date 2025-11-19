@@ -11,43 +11,83 @@
         android:id="@+id/recycler_view_messages"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@id/layout_chatbox"
+        android:layout_above="@id/layout_chatbox_container"
         android:padding="8dp"
         android:paddingBottom="16dp"
         android:clipToPadding="false" />
 
-    <ProgressBar
-        android:id="@+id/progress_bar_loading"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:layout_above="@id/layout_chatbox"
-        android:layout_centerHorizontal="true"
-        android:layout_marginBottom="8dp"
-        android:visibility="gone"
-        android:indeterminateTint="@color/teal_200" />
-
     <LinearLayout
-        android:id="@+id/layout_chatbox"
+        android:id="@+id/layout_chatbox_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
-        android:orientation="horizontal"
-        android:padding="8dp">
+        android:orientation="vertical"
+        android:background="?android:attr/colorBackground">
 
-        <EditText
-            android:id="@+id/edit_text_message"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:hint="@string/hint_type_message"
-            android:inputType="textMultiLine"
-            android:maxLines="4" />
-
-        <Button
-            android:id="@+id/button_send"
+        <androidx.cardview.widget.CardView
+            android:id="@+id/card_view_image_preview"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/send" />
+            android:layout_margin="8dp"
+            app:cardCornerRadius="8dp"
+            android:visibility="gone">
+
+            <RelativeLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
+
+                <ImageView
+                    android:id="@+id/image_view_preview"
+                    android:layout_width="100dp"
+                    android:layout_height="100dp"
+                    android:scaleType="centerCrop"
+                    android:src="@mipmap/ic_launcher" />
+
+                <ImageButton
+                    android:id="@+id/button_remove_image"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_alignParentEnd="true"
+                    android:layout_alignParentTop="true"
+                    android:background="#80000000"
+                    android:src="@android:drawable/ic_menu_close_clear_cancel"
+                    android:padding="4dp"/>
+            </RelativeLayout>
+
+        </androidx.cardview.widget.CardView>
+
+        <LinearLayout
+            android:id="@+id/layout_chatbox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="8dp"
+            android:gravity="center_vertical">
+
+            <ImageButton
+                android:id="@+id/button_attach_image"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_gallery"
+                android:visibility="gone"/>
+
+            <EditText
+                android:id="@+id/edit_text_message"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/hint_type_message"
+                android:inputType="textMultiLine"
+                android:maxLines="4" />
+
+            <Button
+                android:id="@+id/button_send"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/send" />
+        </LinearLayout>
     </LinearLayout>
 
 </RelativeLayout>

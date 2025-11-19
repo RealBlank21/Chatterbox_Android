@@ -68,7 +68,6 @@
                 android:contentDescription="Refresh Models" />
         </LinearLayout>
 
-        <!-- NEW: Model Details Section -->
         <TextView
             android:id="@+id/text_view_model_info"
             android:layout_width="match_parent"
@@ -120,6 +119,13 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="Time Awareness" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/switch_allow_image_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Allow Image Input (Multimodal)" />
 
     </LinearLayout>
 </ScrollView>

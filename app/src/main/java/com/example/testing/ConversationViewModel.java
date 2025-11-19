@@ -1,7 +1,10 @@
 package com.example.testing;
 
 import android.app.Application;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.text.TextUtils;
+import android.util.Base64;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -13,21 +16,24 @@ import androidx.lifecycle.Transformations;
 import com.example.testing.network.ApiClient;
 import com.example.testing.network.ApiService;
 import com.example.testing.network.request.ApiRequest;
+import com.example.testing.network.request.ContentPart;
+import com.example.testing.network.request.ImageUrl;
 import com.example.testing.network.request.RequestMessage;
+import com.example.testing.network.response.ApiResponse;
 
-import org.json.JSONObject;
-
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -44,14 +50,8 @@ public class ConversationViewModel extends AndroidViewModel {
     private final SimpleDateFormat dayFormatter;
     private final SimpleDateFormat timeFormatter;
 
-    // Use SwitchMap for dynamic conversation ID
     private final MutableLiveData<Integer> conversationIdInput = new MutableLiveData<>();
-    private final LiveData<List<Message>> dbMessages; // Messages from DB
-
-    // UI States
-    private final MutableLiveData<Boolean> isLoading = new MutableLiveData<>(false);
-    // Holds the temporary content of the message currently being streamed
-    private final MutableLiveData<String> streamingContent = new MutableLiveData<>(null);
+    private final LiveData<List<Message>> messages;
 
     private LiveData<Character> currentCharacter;
     private LiveData<User> currentUser;
@@ -68,8 +68,7 @@ public class ConversationViewModel extends AndroidViewModel {
         dayFormatter = new SimpleDateFormat("EEE, MMM dd, yyyy", Locale.getDefault());
         timeFormatter = new SimpleDateFormat("h:mm a", Locale.getDefault());
 
-        // SwitchMap for DB messages
-        dbMessages = Transformations.switchMap(conversationIdInput, id -> {
+        messages = Transformations.switchMap(conversationIdInput, id -> {
             if (id == -1) {
                 return new MutableLiveData<>(new ArrayList<>());
             } else {
@@ -84,15 +83,12 @@ public class ConversationViewModel extends AndroidViewModel {
         conversationIdInput.setValue(conversationId);
     }
 
-    public LiveData<List<Message>> getDbMessages() { return dbMessages; }
+    public LiveData<List<Message>> getMessages() { return messages; }
     public LiveData<Character> getCurrentCharacter() { return currentCharacter; }
     public LiveData<User> getCurrentUser() { return currentUser; }
     public LiveData<Integer> getConversationId() { return conversationIdInput; }
-    public LiveData<Boolean> getIsLoading() { return isLoading; }
-    public LiveData<String> getStreamingContent() { return streamingContent; }
 
-    // --- Create Conversation with Title from Content ---
-    public void createConversationAndSendMessage(String content, User user, Character character) {
+    public void createConversationAndSendMessage(String content, String imagePath, User user, Character character) {
         String title = "New Chat";
         if (content != null && !content.trim().isEmpty()) {
             String cleanContent = content.trim().replace("\n", " ");
@@ -101,27 +97,32 @@ public class ConversationViewModel extends AndroidViewModel {
             } else {
                 title = cleanContent;
             }
+        } else if (imagePath != null) {
+            title = "Image sent";
         }
 
         Conversation newConversation = new Conversation(character.getId(), title);
 
         conversationRepository.insert(newConversation, newId -> {
             int id = newId.intValue();
+
             if (!TextUtils.isEmpty(character.getFirstMessage())) {
                 Message greeting = new Message("assistant", character.getFirstMessage(), id);
                 messageRepository.insert(greeting);
             }
+
             conversationIdInput.postValue(id);
-            sendMessageWithId(content, id, user, character);
+
+            sendMessageWithId(content, imagePath, id, user, character);
         });
     }
 
-    public void sendMessage(String content, int conversationId, User user, Character character) {
-        sendMessageWithId(content, conversationId, user, character);
+    public void sendMessage(String content, String imagePath, int conversationId, User user, Character character) {
+        sendMessageWithId(content, imagePath, conversationId, user, character);
     }
 
-    private void sendMessageWithId(String content, int conversationId, User user, Character character) {
-        triggerApiCall(content, conversationId, user, character, false);
+    private void sendMessageWithId(String content, String imagePath, int conversationId, User user, Character character) {
+        triggerApiCall(content, imagePath, conversationId, user, character, false);
     }
 
     public void regenerateResponse(Message messageToRegenerate, User user, Character character) {
@@ -129,7 +130,7 @@ public class ConversationViewModel extends AndroidViewModel {
             if (messageToRegenerate != null) {
                 messageRepository.delete(messageToRegenerate);
             }
-            triggerApiCall("", messageToRegenerate.getConversationId(), user, character, true);
+            triggerApiCall("", null, messageToRegenerate.getConversationId(), user, character, true);
         });
     }
 
@@ -137,24 +138,25 @@ public class ConversationViewModel extends AndroidViewModel {
         messageRepository.update(message);
     }
 
-    private void triggerApiCall(String content, int conversationId, User user, Character character, boolean isRegeneration) {
+    private void triggerApiCall(String content, String imagePath, int conversationId, User user, Character character, boolean isRegeneration) {
         if (user == null || character == null) return;
 
-        isLoading.postValue(true); // Start loading
-
-        // 1. Insert User Message if not regen
         if (!isRegeneration) {
-            Message userMessage = new Message("user", content, conversationId);
+            Message userMessage = new Message("user", content, conversationId, imagePath);
             messageRepository.insert(userMessage);
             conversationRepository.updateLastUpdated(conversationId, System.currentTimeMillis());
         }
 
         executorService.execute(() -> {
-            // 2. Fetch History
             List<Message> messageHistory = messageRepository.getMessagesForConversationSync(conversationId);
             List<RequestMessage> requestMessages = new ArrayList<>();
 
-            long creationTimestamp = !messageHistory.isEmpty() ? messageHistory.get(0).getTimestamp() : System.currentTimeMillis();
+            long creationTimestamp;
+            if (!messageHistory.isEmpty()) {
+                creationTimestamp = messageHistory.get(0).getTimestamp();
+            } else {
+                creationTimestamp = System.currentTimeMillis();
+            }
             Date creationDate = new Date(creationTimestamp);
             String formattedDay = dayFormatter.format(creationDate);
             String formattedTime = timeFormatter.format(creationDate);
@@ -183,18 +185,24 @@ public class ConversationViewModel extends AndroidViewModel {
                     String msgTime = dayFormatter.format(msgDate) + " at " + timeFormatter.format(msgDate);
                     requestMessages.add(new RequestMessage("system", "Current time: " + msgTime));
                 }
+
+                // For history, we typically send text only to save tokens/complexity,
+                // unless we specifically want multi-turn vision history.
+                // For V1, let's treat history as text-only.
                 requestMessages.add(new RequestMessage(msg.getRole(), msg.getContent()));
             }
 
-            // Handle Double Message Send Race Condition
-            if (!isRegeneration && !content.isEmpty()) {
+            if (!isRegeneration) {
                 boolean alreadyInHistory = false;
                 if (!messageHistory.isEmpty()) {
                     Message lastMsg = messageHistory.get(messageHistory.size() - 1);
-                    if ("user".equals(lastMsg.getRole()) && content.equals(lastMsg.getContent())) {
+                    if ("user".equals(lastMsg.getRole())
+                            && TextUtils.equals(content, lastMsg.getContent())
+                            && TextUtils.equals(imagePath, lastMsg.getImagePath())) {
                         alreadyInHistory = true;
                     }
                 }
+
                 if (!alreadyInHistory) {
                     if (character.isTimeAware()) {
                         long now = System.currentTimeMillis();
@@ -202,72 +210,94 @@ public class ConversationViewModel extends AndroidViewModel {
                         String nowTime = dayFormatter.format(nowDate) + " at " + timeFormatter.format(nowDate);
                         requestMessages.add(new RequestMessage("system", "Current time: " + nowTime));
                     }
-                    requestMessages.add(new RequestMessage("user", content));
+
+                    // CURRENT MESSAGE CONSTRUCTION (Multimodal Check)
+                    if (imagePath != null) {
+                        String base64Image = encodeImageToBase64(imagePath);
+                        if (base64Image != null) {
+                            List<ContentPart> parts = new ArrayList<>();
+                            if (!TextUtils.isEmpty(content)) {
+                                parts.add(new ContentPart("text", content));
+                            }
+                            // Assuming jpeg for simplicity or detecting mime type.
+                            // OpenRouter/OpenAI accepts "data:image/jpeg;base64,..."
+                            String mimeType = "image/jpeg";
+                            if (imagePath.endsWith(".png")) mimeType = "image/png";
+                            if (imagePath.endsWith(".webp")) mimeType = "image/webp";
+
+                            parts.add(new ContentPart("image_url", new ImageUrl("data:" + mimeType + ";base64," + base64Image)));
+                            requestMessages.add(new RequestMessage("user", parts));
+                        } else {
+                            // Fallback if image fails
+                            requestMessages.add(new RequestMessage("user", content + " [Image Upload Failed]"));
+                        }
+                    } else {
+                        requestMessages.add(new RequestMessage("user", content));
+                    }
                 }
             }
 
             String model = character.getModel();
             if (TextUtils.isEmpty(model)) model = user.getPreferredModel();
-            if (TextUtils.isEmpty(model)) {
-                isLoading.postValue(false);
-                return;
-            }
+            if (TextUtils.isEmpty(model)) return;
 
-            // Request Streaming
-            ApiRequest apiRequest = new ApiRequest(model, requestMessages, character.getTemperature(), character.getMaxTokens(), true);
+            ApiRequest apiRequest = new ApiRequest(model, requestMessages, character.getTemperature(), character.getMaxTokens());
             String apiKey = "Bearer " + user.getApiKey();
 
-            Call<ResponseBody> call = apiService.getChatCompletionStream(apiKey, apiRequest);
-
-            try {
-                Response<ResponseBody> response = call.execute(); // Execute synchronously in this background thread
-
-                if (response.isSuccessful() && response.body() != null) {
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(response.body().byteStream()));
-                    String line;
-                    StringBuilder fullContent = new StringBuilder();
-
-                    // Start streaming UI
-                    streamingContent.postValue("");
-
-                    while ((line = reader.readLine()) != null) {
-                        if (line.startsWith("data: ")) {
-                            String data = line.substring(6).trim();
-                            if ("[DONE]".equals(data)) break;
-
-                            try {
-                                JSONObject json = new JSONObject(data);
-                                JSONObject delta = json.getJSONArray("choices").getJSONObject(0).getJSONObject("delta");
-                                if (delta.has("content")) {
-                                    String contentChunk = delta.getString("content");
-                                    fullContent.append(contentChunk);
-                                    // Update UI with partial content
-                                    streamingContent.postValue(fullContent.toString());
-                                }
-                            } catch (Exception e) {
-                                Log.e("Stream", "Parsing error", e);
-                            }
-                        }
+            Call<ApiResponse> call = apiService.getChatCompletion(apiKey, apiRequest);
+            call.enqueue(new Callback<ApiResponse>() {
+                @Override
+                public void onResponse(Call<ApiResponse> call, Response<ApiResponse> response) {
+                    if (response.isSuccessful() && response.body() != null && !response.body().getChoices().isEmpty()) {
+                        String aiResponseContent = response.body().getChoices().get(0).getMessage().getContent();
+                        Message aiMessage = new Message("assistant", aiResponseContent, conversationId);
+                        messageRepository.insert(aiMessage);
+                        conversationRepository.updateLastUpdated(conversationId, System.currentTimeMillis());
+                    } else {
+                        Message errorMessage = new Message("assistant", "Error: " + response.code() + " " + response.message(), conversationId);
+                        messageRepository.insert(errorMessage);
                     }
+                }
 
-                    // Streaming finished: Save to DB
-                    Message aiMessage = new Message("assistant", fullContent.toString(), conversationId);
-                    messageRepository.insert(aiMessage);
-                    conversationRepository.updateLastUpdated(conversationId, System.currentTimeMillis());
-
-                } else {
-                    Message errorMessage = new Message("assistant", "Error: " + response.code() + " " + response.message(), conversationId);
+                @Override
+                public void onFailure(Call<ApiResponse> call, Throwable t) {
+                    Message errorMessage = new Message("assistant", "Error: API call failed. " + t.getMessage(), conversationId);
                     messageRepository.insert(errorMessage);
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
-                Message errorMessage = new Message("assistant", "Error: Network request failed. " + e.getMessage(), conversationId);
-                messageRepository.insert(errorMessage);
-            } finally {
-                // Reset states
-                isLoading.postValue(false);
-                streamingContent.postValue(null);
-            }
+            });
         });
+    }
+
+    private String encodeImageToBase64(String imagePath) {
+        try {
+            File imageFile = new File(imagePath);
+            if (!imageFile.exists()) return null;
+
+            Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
+            if (bitmap == null) return null;
+
+            // Resize if too big to avoid payload limits (e.g. max 1024px dimension)
+            int maxDimension = 1024;
+            if (bitmap.getWidth() > maxDimension || bitmap.getHeight() > maxDimension) {
+                float aspectRatio = (float) bitmap.getWidth() / bitmap.getHeight();
+                int newWidth = maxDimension;
+                int newHeight = maxDimension;
+                if (bitmap.getWidth() > bitmap.getHeight()) {
+                    newHeight = Math.round(maxDimension / aspectRatio);
+                } else {
+                    newWidth = Math.round(maxDimension * aspectRatio);
+                }
+                bitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true);
+            }
+
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            // Compress to JPEG 80%
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream);
+            byte[] byteArray = outputStream.toByteArray();
+            return Base64.encodeToString(byteArray, Base64.NO_WRAP);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 }

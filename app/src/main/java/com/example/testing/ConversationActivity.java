@@ -4,43 +4,62 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.PopupMenu;
-import android.widget.ProgressBar; // Added
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.PickVisualMediaRequest;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.cardview.widget.CardView;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
 import com.example.testing.network.request.RequestMessage;
 import com.example.testing.network.response.Model;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 public class ConversationActivity extends AppCompatActivity {
 
     private EditText editTextMessage;
     private Button buttonSend;
+    private ImageButton buttonAttachImage;
     private RecyclerView recyclerViewMessages;
-    private ProgressBar progressBarLoading; // Added
     private MessageAdapter messageAdapter;
+
+    // Preview UI
+    private CardView cardViewImagePreview;
+    private ImageView imageViewPreview;
+    private ImageButton buttonRemoveImage;
 
     private ConversationViewModel conversationViewModel;
     private int conversationId = -1;
@@ -48,9 +67,16 @@ public class ConversationActivity extends AppCompatActivity {
     private User currentUser;
     private Character currentCharacter;
 
-    // We keep track of DB messages and streaming content separately
-    private List<Message> dbMessagesList = new ArrayList<>();
-    private String currentStreamingText = null;
+    private List<Message> currentMessages = new ArrayList<>();
+
+    private String selectedImagePath = null;
+
+    private final ActivityResultLauncher<PickVisualMediaRequest> pickMedia =
+            registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
+                if (uri != null) {
+                    saveImageToInternalStorage(uri);
+                }
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,7 +95,12 @@ public class ConversationActivity extends AppCompatActivity {
 
         editTextMessage = findViewById(R.id.edit_text_message);
         buttonSend = findViewById(R.id.button_send);
-        progressBarLoading = findViewById(R.id.progress_bar_loading); // Added
+        buttonAttachImage = findViewById(R.id.button_attach_image);
+
+        cardViewImagePreview = findViewById(R.id.card_view_image_preview);
+        imageViewPreview = findViewById(R.id.image_view_preview);
+        buttonRemoveImage = findViewById(R.id.button_remove_image);
+
         buttonSend.setEnabled(false);
 
         recyclerViewMessages = findViewById(R.id.recycler_view_messages);
@@ -87,35 +118,24 @@ public class ConversationActivity extends AppCompatActivity {
             this.conversationId = id;
         });
 
-        // Observe Loading State
-        conversationViewModel.getIsLoading().observe(this, isLoading -> {
-            if (isLoading) {
-                progressBarLoading.setVisibility(View.VISIBLE);
-                buttonSend.setEnabled(false);
-            } else {
-                progressBarLoading.setVisibility(View.GONE);
-                buttonSend.setEnabled(true);
-            }
-        });
-
-        // Observe Streaming Content
-        conversationViewModel.getStreamingContent().observe(this, content -> {
-            currentStreamingText = content;
-            updateMessageList();
-        });
-
         conversationViewModel.getCurrentCharacter().observe(this, character -> {
             if (character != null) {
                 this.currentCharacter = character;
                 setTitle(character.getName());
                 checkIfReadyToSend();
 
-                // Initial greeting logic for new conversations
-                if (conversationId == -1 && !TextUtils.isEmpty(character.getFirstMessage()) && dbMessagesList.isEmpty()) {
+                // Show/Hide Attach Button
+                if (character.isAllowImageInput()) {
+                    buttonAttachImage.setVisibility(View.VISIBLE);
+                } else {
+                    buttonAttachImage.setVisibility(View.GONE);
+                }
+
+                if (conversationId == -1 && !TextUtils.isEmpty(character.getFirstMessage())) {
                     List<Message> transientList = new ArrayList<>();
                     transientList.add(new Message("assistant", character.getFirstMessage(), -1));
-                    dbMessagesList = transientList;
-                    updateMessageList();
+                    messageAdapter.setMessages(transientList);
+                    currentMessages = transientList;
                 }
             }
         });
@@ -129,10 +149,11 @@ public class ConversationActivity extends AppCompatActivity {
             }
         });
 
-        conversationViewModel.getDbMessages().observe(this, messages -> {
-            if (messages != null) {
-                dbMessagesList = messages;
-                updateMessageList();
+        conversationViewModel.getMessages().observe(this, messages -> {
+            if (messages != null && !messages.isEmpty()) {
+                messageAdapter.setMessages(messages);
+                currentMessages = messages;
+                recyclerViewMessages.scrollToPosition(messages.size() - 1);
             }
         });
 
@@ -150,22 +171,62 @@ public class ConversationActivity extends AppCompatActivity {
             }
         });
 
+        // Text Watcher to enable/disable send button
+        editTextMessage.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { checkIfReadyToSend(); }
+            @Override public void afterTextChanged(Editable s) {}
+        });
+
         buttonSend.setOnClickListener(v -> sendMessage());
+
+        buttonAttachImage.setOnClickListener(v -> {
+            pickMedia.launch(new PickVisualMediaRequest.Builder()
+                    .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                    .build());
+        });
+
+        buttonRemoveImage.setOnClickListener(v -> clearSelectedImage());
     }
 
-    private void updateMessageList() {
-        List<Message> displayList = new ArrayList<>(dbMessagesList);
+    private void saveImageToInternalStorage(Uri uri) {
+        try {
+            InputStream inputStream = getContentResolver().openInputStream(uri);
+            File directory = new File(getFilesDir(), "chat_images");
+            if (!directory.exists()) {
+                directory.mkdirs();
+            }
+            File file = new File(directory, UUID.randomUUID().toString() + ".jpg");
+            OutputStream outputStream = new FileOutputStream(file);
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = inputStream.read(buffer)) > 0) {
+                outputStream.write(buffer, 0, length);
+            }
+            outputStream.close();
+            inputStream.close();
 
-        // If we are streaming, create a temporary message and append it
-        if (currentStreamingText != null) {
-            Message streamingMsg = new Message("assistant", currentStreamingText, conversationId);
-            displayList.add(streamingMsg);
-        }
+            selectedImagePath = file.getAbsolutePath();
+            showImagePreview();
+            checkIfReadyToSend();
 
-        messageAdapter.setMessages(displayList);
-        if (!displayList.isEmpty()) {
-            recyclerViewMessages.scrollToPosition(displayList.size() - 1);
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Failed to process image", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void showImagePreview() {
+        if (selectedImagePath != null) {
+            cardViewImagePreview.setVisibility(View.VISIBLE);
+            Glide.with(this).load(selectedImagePath).centerCrop().into(imageViewPreview);
+        }
+    }
+
+    private void clearSelectedImage() {
+        selectedImagePath = null;
+        cardViewImagePreview.setVisibility(View.GONE);
+        checkIfReadyToSend();
     }
 
     @Override
@@ -188,9 +249,6 @@ public class ConversationActivity extends AppCompatActivity {
     }
 
     private void showConversationInfo() {
-        // Use the adapter's list (which includes streaming content if any, though unlikely during info check)
-        List<Message> currentMessages = dbMessagesList;
-
         if (currentMessages == null || currentMessages.isEmpty() || currentCharacter == null) {
             Toast.makeText(this, "No information available yet.", Toast.LENGTH_SHORT).show();
             return;
@@ -255,6 +313,7 @@ public class ConversationActivity extends AppCompatActivity {
                         costStr = String.format(Locale.getDefault(), "$%.4f", estimatedCost);
                     }
                     costStr += " (Est. context snapshot)";
+
                 } catch (Exception e) {
                     costStr = "Pricing Error";
                 }
@@ -278,7 +337,7 @@ public class ConversationActivity extends AppCompatActivity {
     }
 
     private void copyConversationHistoryToClipboard() {
-        if (dbMessagesList == null || dbMessagesList.isEmpty() || currentCharacter == null || currentUser == null) {
+        if (currentMessages == null || currentMessages.isEmpty() || currentCharacter == null || currentUser == null) {
             Toast.makeText(this, "Nothing to copy or data not loaded", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -288,7 +347,7 @@ public class ConversationActivity extends AppCompatActivity {
         SimpleDateFormat dayFormatter = new SimpleDateFormat("EEE, MMM dd, yyyy", Locale.getDefault());
         SimpleDateFormat timeFormatter = new SimpleDateFormat("h:mm a", Locale.getDefault());
 
-        long creationTimestamp = dbMessagesList.get(0).getTimestamp();
+        long creationTimestamp = currentMessages.get(0).getTimestamp();
         Date creationDate = new Date(creationTimestamp);
         String formattedDay = dayFormatter.format(creationDate);
         String formattedTime = timeFormatter.format(creationDate);
@@ -311,12 +370,13 @@ public class ConversationActivity extends AppCompatActivity {
             requestMessages.add(new RequestMessage("system", finalSystemPrompt.trim()));
         }
 
-        for (Message msg : dbMessagesList) {
+        for (Message msg : currentMessages) {
             if (currentCharacter.isTimeAware() && "user".equals(msg.getRole())) {
                 Date msgDate = new Date(msg.getTimestamp());
                 String msgTime = dayFormatter.format(msgDate) + " at " + timeFormatter.format(msgDate);
                 requestMessages.add(new RequestMessage("system", "Current time: " + msgTime));
             }
+            // History export is simple text only
             requestMessages.add(new RequestMessage(msg.getRole(), msg.getContent()));
         }
 
@@ -331,12 +391,10 @@ public class ConversationActivity extends AppCompatActivity {
     }
 
     private void checkIfReadyToSend() {
-        if (currentUser != null && currentCharacter != null) {
-            // Only enable if not currently loading
-            if (progressBarLoading.getVisibility() != View.VISIBLE) {
-                buttonSend.setEnabled(true);
-            }
-        }
+        boolean hasContent = !TextUtils.isEmpty(editTextMessage.getText().toString().trim()) || selectedImagePath != null;
+        boolean hasCreds = currentUser != null && !TextUtils.isEmpty(currentUser.getApiKey()) && currentCharacter != null;
+
+        buttonSend.setEnabled(hasContent && hasCreds);
     }
 
     private void sendMessage() {
@@ -347,13 +405,19 @@ public class ConversationActivity extends AppCompatActivity {
             return;
         }
 
-        if (!TextUtils.isEmpty(messageContent)) {
+        if (!TextUtils.isEmpty(messageContent) || selectedImagePath != null) {
+            // Capture image path locally before clearing
+            String imageToSend = selectedImagePath;
+
             if (conversationId == -1) {
-                conversationViewModel.createConversationAndSendMessage(messageContent, currentUser, currentCharacter);
+                conversationViewModel.createConversationAndSendMessage(messageContent, imageToSend, currentUser, currentCharacter);
             } else {
-                conversationViewModel.sendMessage(messageContent, conversationId, currentUser, currentCharacter);
+                conversationViewModel.sendMessage(messageContent, imageToSend, conversationId, currentUser, currentCharacter);
             }
+
+            // Clear UI
             editTextMessage.setText("");
+            clearSelectedImage();
         }
     }
 

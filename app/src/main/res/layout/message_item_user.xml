@@ -4,17 +4,38 @@
     android:layout_height="wrap_content"
     android:padding="8dp">
 
-    <TextView
-        android:id="@+id/text_view_message"
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentEnd="true"
         android:background="@drawable/bg_user_message"
+        android:orientation="vertical"
         android:maxWidth="280dp"
-        android:padding="12dp"
-        android:text="This is a user message that could be quite long and wrap to multiple lines."
-        android:textColor="@android:color/white"
-        android:textSize="16sp" />
+        android:padding="4dp">
+
+        <ImageView
+            android:id="@+id/image_view_message_image"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxHeight="300dp"
+            android:paddingTop="8dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="2dp"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:visibility="gone"/>
+
+        <TextView
+            android:id="@+id/text_view_message"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="8dp"
+            android:text="User message"
+            android:textColor="@android:color/white"
+            android:textSize="16sp" />
+
+    </LinearLayout>
 
     <LinearLayout
         android:id="@+id/layout_edit_message"

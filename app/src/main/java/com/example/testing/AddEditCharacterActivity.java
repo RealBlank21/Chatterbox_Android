@@ -46,6 +46,7 @@ public class AddEditCharacterActivity extends AppCompatActivity {
     private ImageButton buttonRefreshModels;
     private TextView textViewModelInfo;
     private SwitchMaterial switchTimeAwareness;
+    private SwitchMaterial switchAllowImageInput;
 
     private CharacterViewModel characterViewModel;
     private int currentCharacterId = -1;
@@ -80,12 +81,11 @@ public class AddEditCharacterActivity extends AppCompatActivity {
         editTextTemperature = findViewById(R.id.edit_text_temperature);
         editTextMaxTokens = findViewById(R.id.edit_text_max_tokens);
         switchTimeAwareness = findViewById(R.id.switch_time_awareness);
+        switchAllowImageInput = findViewById(R.id.switch_allow_image_input);
 
-        // Initialize Adapter for Models
         modelsAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, modelIds);
         editTextModel.setAdapter(modelsAdapter);
 
-        // Load Models from Repository
         ModelRepository.getInstance().getModels().observe(this, models -> {
             if (models != null) {
                 modelIds.clear();
@@ -96,19 +96,16 @@ public class AddEditCharacterActivity extends AppCompatActivity {
             }
         });
 
-        // Manual Refresh
         buttonRefreshModels.setOnClickListener(v -> {
             Toast.makeText(this, "Refreshing models...", Toast.LENGTH_SHORT).show();
             ModelRepository.getInstance().refreshModels();
         });
 
-        // Show model info on selection
         editTextModel.setOnItemClickListener((parent, view, position, id) -> {
             String selectedId = modelsAdapter.getItem(position);
             updateModelInfo(selectedId);
         });
 
-        // Text watcher to update info if typed manually
         editTextModel.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
@@ -137,12 +134,13 @@ public class AddEditCharacterActivity extends AppCompatActivity {
                     editTextPersonality.setText(character.getPersonality());
 
                     editTextModel.setText(character.getModel());
-                    updateModelInfo(character.getModel()); // Show info for loaded model
+                    updateModelInfo(character.getModel());
 
                     editTextFirstMessage.setText(character.getFirstMessage());
                     if (character.getTemperature() != null) editTextTemperature.setText(String.valueOf(character.getTemperature()));
                     if (character.getMaxTokens() != null) editTextMaxTokens.setText(String.valueOf(character.getMaxTokens()));
                     switchTimeAwareness.setChecked(character.isTimeAware());
+                    switchAllowImageInput.setChecked(character.isAllowImageInput());
 
                     currentProfileImagePath = character.getCharacterProfileImagePath();
                     if (!TextUtils.isEmpty(currentProfileImagePath)) {
@@ -200,6 +198,7 @@ public class AddEditCharacterActivity extends AppCompatActivity {
         String tempStr = editTextTemperature.getText().toString();
         String maxTokensStr = editTextMaxTokens.getText().toString();
         boolean isTimeAware = switchTimeAwareness.isChecked();
+        boolean allowImageInput = switchAllowImageInput.isChecked();
 
         if (name.trim().isEmpty()) {
             Toast.makeText(this, "Please insert a name", Toast.LENGTH_SHORT).show();
@@ -226,7 +225,7 @@ public class AddEditCharacterActivity extends AppCompatActivity {
             }
         }
 
-        Character character = new Character(name, personality, firstMessage, model, currentProfileImagePath, "", "", temperature, maxTokens, isTimeAware);
+        Character character = new Character(name, personality, firstMessage, model, currentProfileImagePath, "", "", temperature, maxTokens, isTimeAware, allowImageInput);
 
         if (currentCharacterId != -1) {
             character.setId(currentCharacterId);

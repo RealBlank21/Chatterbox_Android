@@ -22,10 +22,10 @@ public class Character {
     private String model;
 
     @ColumnInfo(name = "personality")
-    private String personality; // The System Prompt
+    private String personality;
 
     @ColumnInfo(name = "first_message")
-    private String firstMessage; // The initial message the bot sends
+    private String firstMessage;
 
     @ColumnInfo(name = "is_active")
     private Boolean isActive;
@@ -54,14 +54,11 @@ public class Character {
     @ColumnInfo(name = "is_time_aware", defaultValue = "0")
     private boolean isTimeAware;
 
-    // --- Transient Field for UI (Not a real column in 'character' table) ---
-    // We use @ColumnInfo so Room matches the query result column "conversation_count" to this field.
+    @ColumnInfo(name = "allow_image_input", defaultValue = "0")
+    private boolean allowImageInput;
+
     @ColumnInfo(name = "conversation_count")
     private int conversationCount;
-
-    // -----------------------------------------------------------------
-    // CONSTRUCTORS
-    // -----------------------------------------------------------------
 
     public Character() { }
 
@@ -69,7 +66,7 @@ public class Character {
     public Character(String name, String personality, String firstMessage,
                      String model, String characterProfileImagePath,
                      String voiceReferenceId, String voiceReferenceName,
-                     Float temperature, Integer maxTokens, boolean isTimeAware) {
+                     Float temperature, Integer maxTokens, boolean isTimeAware, boolean allowImageInput) {
         this.createdAt = System.currentTimeMillis();
         this.name = name;
         this.personality = personality;
@@ -84,19 +81,15 @@ public class Character {
         this.isFavorite = false;
         this.isHidden = false;
         this.isTimeAware = isTimeAware;
+        this.allowImageInput = allowImageInput;
     }
 
     @Ignore
     public Character(String name, String personality, String firstMessage,
                      String model, String characterProfileImagePath,
                      String voiceReferenceId, String voiceReferenceName) {
-        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, null, null, false);
+        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, null, null, false, false);
     }
-
-
-    // -----------------------------------------------------------------
-    // GETTERS
-    // -----------------------------------------------------------------
 
     public int getId() { return id; }
     public long getCreatedAt() { return createdAt; }
@@ -113,11 +106,8 @@ public class Character {
     public boolean isFavorite() { return isFavorite; }
     public boolean isHidden() { return isHidden; }
     public boolean isTimeAware() { return isTimeAware; }
+    public boolean isAllowImageInput() { return allowImageInput; }
     public int getConversationCount() { return conversationCount; }
-
-    // -----------------------------------------------------------------
-    // SETTERS
-    // -----------------------------------------------------------------
 
     public void setId(int id) { this.id = id; }
     public void setCreatedAt(long createdAt) { this.createdAt = createdAt; }
@@ -134,5 +124,6 @@ public class Character {
     public void setFavorite(boolean favorite) { isFavorite = favorite; }
     public void setHidden(boolean hidden) { isHidden = hidden; }
     public void setTimeAware(boolean timeAware) { isTimeAware = timeAware; }
+    public void setAllowImageInput(boolean allowImageInput) { this.allowImageInput = allowImageInput; }
     public void setConversationCount(int conversationCount) { this.conversationCount = conversationCount; }
 }

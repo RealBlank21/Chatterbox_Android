@@ -9,15 +9,24 @@ import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.Header;
 import retrofit2.http.POST;
-import retrofit2.http.Streaming; // Import this
+import retrofit2.http.Streaming;
 
 public interface ApiService {
 
-    @Streaming // Add this annotation
+    // This is the method ConversationViewModel is trying to call
     @POST("v1/chat/completions")
-    Call<ResponseBody> getChatCompletionStream( // Changed return type and name
-                                                @Header("Authorization") String authToken,
-                                                @Body ApiRequest requestBody
+    Call<ApiResponse> getChatCompletion(
+            @Header("Authorization") String authToken,
+            @Body ApiRequest requestBody
+    );
+
+    // You likely have this one locally. Keeping it here ensures you don't lose it
+    // if you decide to switch back to streaming later.
+    @Streaming
+    @POST("v1/chat/completions")
+    Call<ResponseBody> getChatCompletionStream(
+            @Header("Authorization") String authToken,
+            @Body ApiRequest requestBody
     );
 
     @GET("v1/credits")
