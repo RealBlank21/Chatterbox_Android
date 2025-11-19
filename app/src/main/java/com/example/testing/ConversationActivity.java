@@ -12,6 +12,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.PopupMenu;
+import android.widget.ProgressBar; // Added
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -38,6 +39,7 @@ public class ConversationActivity extends AppCompatActivity {
     private EditText editTextMessage;
     private Button buttonSend;
     private RecyclerView recyclerViewMessages;
+    private ProgressBar progressBarLoading; // Added
     private MessageAdapter messageAdapter;
 
     private ConversationViewModel conversationViewModel;
@@ -46,7 +48,9 @@ public class ConversationActivity extends AppCompatActivity {
     private User currentUser;
     private Character currentCharacter;
 
-    private List<Message> currentMessages = new ArrayList<>();
+    // We keep track of DB messages and streaming content separately
+    private List<Message> dbMessagesList = new ArrayList<>();
+    private String currentStreamingText = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,6 +69,7 @@ public class ConversationActivity extends AppCompatActivity {
 
         editTextMessage = findViewById(R.id.edit_text_message);
         buttonSend = findViewById(R.id.button_send);
+        progressBarLoading = findViewById(R.id.progress_bar_loading); // Added
         buttonSend.setEnabled(false);
 
         recyclerViewMessages = findViewById(R.id.recycler_view_messages);
@@ -82,17 +87,35 @@ public class ConversationActivity extends AppCompatActivity {
             this.conversationId = id;
         });
 
+        // Observe Loading State
+        conversationViewModel.getIsLoading().observe(this, isLoading -> {
+            if (isLoading) {
+                progressBarLoading.setVisibility(View.VISIBLE);
+                buttonSend.setEnabled(false);
+            } else {
+                progressBarLoading.setVisibility(View.GONE);
+                buttonSend.setEnabled(true);
+            }
+        });
+
+        // Observe Streaming Content
+        conversationViewModel.getStreamingContent().observe(this, content -> {
+            currentStreamingText = content;
+            updateMessageList();
+        });
+
         conversationViewModel.getCurrentCharacter().observe(this, character -> {
             if (character != null) {
                 this.currentCharacter = character;
                 setTitle(character.getName());
                 checkIfReadyToSend();
 
-                if (conversationId == -1 && !TextUtils.isEmpty(character.getFirstMessage())) {
+                // Initial greeting logic for new conversations
+                if (conversationId == -1 && !TextUtils.isEmpty(character.getFirstMessage()) && dbMessagesList.isEmpty()) {
                     List<Message> transientList = new ArrayList<>();
                     transientList.add(new Message("assistant", character.getFirstMessage(), -1));
-                    messageAdapter.setMessages(transientList);
-                    currentMessages = transientList;
+                    dbMessagesList = transientList;
+                    updateMessageList();
                 }
             }
         });
@@ -106,11 +129,10 @@ public class ConversationActivity extends AppCompatActivity {
             }
         });
 
-        conversationViewModel.getMessages().observe(this, messages -> {
-            if (messages != null && !messages.isEmpty()) {
-                messageAdapter.setMessages(messages);
-                currentMessages = messages;
-                recyclerViewMessages.scrollToPosition(messages.size() - 1);
+        conversationViewModel.getDbMessages().observe(this, messages -> {
+            if (messages != null) {
+                dbMessagesList = messages;
+                updateMessageList();
             }
         });
 
@@ -129,6 +151,21 @@ public class ConversationActivity extends AppCompatActivity {
         });
 
         buttonSend.setOnClickListener(v -> sendMessage());
+    }
+
+    private void updateMessageList() {
+        List<Message> displayList = new ArrayList<>(dbMessagesList);
+
+        // If we are streaming, create a temporary message and append it
+        if (currentStreamingText != null) {
+            Message streamingMsg = new Message("assistant", currentStreamingText, conversationId);
+            displayList.add(streamingMsg);
+        }
+
+        messageAdapter.setMessages(displayList);
+        if (!displayList.isEmpty()) {
+            recyclerViewMessages.scrollToPosition(displayList.size() - 1);
+        }
     }
 
     @Override
@@ -150,14 +187,15 @@ public class ConversationActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    // --- INFO DIALOG LOGIC ---
     private void showConversationInfo() {
+        // Use the adapter's list (which includes streaming content if any, though unlikely during info check)
+        List<Message> currentMessages = dbMessagesList;
+
         if (currentMessages == null || currentMessages.isEmpty() || currentCharacter == null) {
             Toast.makeText(this, "No information available yet.", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // 1. Calculate Counts and Duration
         int userMsgCount = 0;
         int botMsgCount = 0;
         int totalTokens = 0;
@@ -171,8 +209,6 @@ public class ConversationActivity extends AppCompatActivity {
                 botMsgCount++;
             }
 
-            // Naive Token Estimation (char count / 4)
-            // Real token count requires a tokenizer library, but this is a standard approximation
             if (msg.getContent() != null) {
                 totalTokens += msg.getContent().length() / 4;
             }
@@ -181,7 +217,6 @@ public class ConversationActivity extends AppCompatActivity {
             if (msg.getTimestamp() > lastTimestamp) lastTimestamp = msg.getTimestamp();
         }
 
-        // Include system prompt in token count estimation
         String personality = currentCharacter.getPersonality();
         if (personality != null) totalTokens += personality.length() / 4;
 
@@ -200,7 +235,6 @@ public class ConversationActivity extends AppCompatActivity {
             }
         }
 
-        // 2. Estimate Cost
         String modelId = currentCharacter.getModel();
         if (TextUtils.isEmpty(modelId) && currentUser != null) {
             modelId = currentUser.getPreferredModel();
@@ -208,44 +242,25 @@ public class ConversationActivity extends AppCompatActivity {
 
         String costStr = "Unknown Model Price";
         if (modelId != null) {
-            // We try to fetch the model details from our repository cache
             Model model = ModelRepository.getInstance().getModelById(modelId);
             if (model != null && model.getPricing() != null) {
                 try {
-                    // Pricing is usually per token in API, but the object stores it as string.
-                    // Assuming we send approx half user/half bot for simplicity of this *rough* estimate,
-                    // or just apply the blended average if we don't want to re-iterate content.
-                    // Let's be slightly more precise:
-
                     double promptPrice = Double.parseDouble(model.getPricing().getPrompt());
                     double completionPrice = Double.parseDouble(model.getPricing().getCompletion());
-
-                    // Rough heuristic:
-                    // Input tokens = (System Prompt + All User Messages + All Bot Messages except last) * Number of turns?
-                    // No, that's for API calls context.
-                    // "Total Conversation Tokens" usually implies the static size of the chat log.
-                    // But "Credit Spent" implies cumulative API usage.
-                    // Calculating cumulative API usage strictly from history is hard because context window slides.
-                    // Let's estimate based on the *current* static conversation text as a lower bound "Context Size".
-
                     double estimatedCost = totalTokens * Math.max(promptPrice, completionPrice);
-                    // Using max price to be conservative since we don't track exact input/output split per message.
 
-                    // Small numbers, so format with many decimals or scientific notation if needed
                     if (estimatedCost < 0.01) {
                         costStr = String.format(Locale.getDefault(), "$%.6f", estimatedCost);
                     } else {
                         costStr = String.format(Locale.getDefault(), "$%.4f", estimatedCost);
                     }
                     costStr += " (Est. context snapshot)";
-
                 } catch (Exception e) {
                     costStr = "Pricing Error";
                 }
             }
         }
 
-        // 3. Build Message
         StringBuilder info = new StringBuilder();
         info.append("Model: ").append(modelId != null ? modelId : "Default").append("\n\n");
         info.append("User Messages: ").append(userMsgCount).append("\n");
@@ -263,7 +278,7 @@ public class ConversationActivity extends AppCompatActivity {
     }
 
     private void copyConversationHistoryToClipboard() {
-        if (currentMessages == null || currentMessages.isEmpty() || currentCharacter == null || currentUser == null) {
+        if (dbMessagesList == null || dbMessagesList.isEmpty() || currentCharacter == null || currentUser == null) {
             Toast.makeText(this, "Nothing to copy or data not loaded", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -273,7 +288,7 @@ public class ConversationActivity extends AppCompatActivity {
         SimpleDateFormat dayFormatter = new SimpleDateFormat("EEE, MMM dd, yyyy", Locale.getDefault());
         SimpleDateFormat timeFormatter = new SimpleDateFormat("h:mm a", Locale.getDefault());
 
-        long creationTimestamp = currentMessages.get(0).getTimestamp();
+        long creationTimestamp = dbMessagesList.get(0).getTimestamp();
         Date creationDate = new Date(creationTimestamp);
         String formattedDay = dayFormatter.format(creationDate);
         String formattedTime = timeFormatter.format(creationDate);
@@ -296,7 +311,7 @@ public class ConversationActivity extends AppCompatActivity {
             requestMessages.add(new RequestMessage("system", finalSystemPrompt.trim()));
         }
 
-        for (Message msg : currentMessages) {
+        for (Message msg : dbMessagesList) {
             if (currentCharacter.isTimeAware() && "user".equals(msg.getRole())) {
                 Date msgDate = new Date(msg.getTimestamp());
                 String msgTime = dayFormatter.format(msgDate) + " at " + timeFormatter.format(msgDate);
@@ -317,7 +332,10 @@ public class ConversationActivity extends AppCompatActivity {
 
     private void checkIfReadyToSend() {
         if (currentUser != null && currentCharacter != null) {
-            buttonSend.setEnabled(true);
+            // Only enable if not currently loading
+            if (progressBarLoading.getVisibility() != View.VISIBLE) {
+                buttonSend.setEnabled(true);
+            }
         }
     }
 

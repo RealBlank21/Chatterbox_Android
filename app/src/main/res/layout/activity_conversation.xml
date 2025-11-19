@@ -13,7 +13,18 @@
         android:layout_height="match_parent"
         android:layout_above="@id/layout_chatbox"
         android:padding="8dp"
-        android:paddingBottom="16dp"  android:clipToPadding="false" />
+        android:paddingBottom="16dp"
+        android:clipToPadding="false" />
+
+    <ProgressBar
+        android:id="@+id/progress_bar_loading"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_above="@id/layout_chatbox"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone"
+        android:indeterminateTint="@color/teal_200" />
 
     <LinearLayout
         android:id="@+id/layout_chatbox"
