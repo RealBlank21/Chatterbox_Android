@@ -148,9 +148,11 @@ public class ConversationViewModel extends AndroidViewModel {
         }
 
         executorService.execute(() -> {
+            // 1. Fetch FULL history to ensure we have context of what is happening
             List<Message> messageHistory = messageRepository.getMessagesForConversationSync(conversationId);
             List<RequestMessage> requestMessages = new ArrayList<>();
 
+            // 2. Calculate "Start Time" based on the FIRST message ever (database source of truth)
             long creationTimestamp;
             if (!messageHistory.isEmpty()) {
                 creationTimestamp = messageHistory.get(0).getTimestamp();
@@ -161,6 +163,27 @@ public class ConversationViewModel extends AndroidViewModel {
             String formattedDay = dayFormatter.format(creationDate);
             String formattedTime = timeFormatter.format(creationDate);
 
+            // 3. Determine Sliding Window Limit
+            int limit = 0; // Default to unlimited (0)
+            if (character.getContextLimit() != null && character.getContextLimit() > 0) {
+                limit = character.getContextLimit();
+            } else if (user.getDefaultContextLimit() > 0) {
+                limit = user.getDefaultContextLimit();
+            }
+
+            // 4. Slice the history if a limit is set
+            List<Message> messagesToSend = messageHistory;
+            if (limit > 0) {
+                // A "turn" typically implies 2 messages (User + AI)
+                // But sticking to raw messages is safer. Let's assume User means "Turns" as in "Exchanges".
+                // So limit * 2.
+                int keepCount = limit * 2;
+                if (messageHistory.size() > keepCount) {
+                    messagesToSend = messageHistory.subList(messageHistory.size() - keepCount, messageHistory.size());
+                }
+            }
+
+            // 5. Construct System Prompt (ALWAYS included at the top)
             String globalPrompt = user.getGlobalSystemPrompt() != null ? user.getGlobalSystemPrompt() : "";
             String characterPersonality = character.getPersonality() != null ? character.getPersonality() : "";
 
@@ -179,7 +202,8 @@ public class ConversationViewModel extends AndroidViewModel {
                 requestMessages.add(new RequestMessage("system", finalSystemPrompt.trim()));
             }
 
-            for (Message msg : messageHistory) {
+            // 6. Iterate over the SLICED history
+            for (Message msg : messagesToSend) {
                 if (character.isTimeAware() && "user".equals(msg.getRole())) {
                     Date msgDate = new Date(msg.getTimestamp());
                     String msgTime = dayFormatter.format(msgDate) + " at " + timeFormatter.format(msgDate);

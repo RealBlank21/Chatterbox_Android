@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {User.class, Character.class, Conversation.class, Message.class}, version = 10, exportSchema = false)
+@Database(entities = {User.class, Character.class, Conversation.class, Message.class}, version = 11, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
 
     public abstract UserDao userDao();
@@ -26,13 +26,24 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    // NEW MIGRATION
+    static final Migration MIGRATION_10_11 = new Migration(10, 11) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            // Add column to user_config with default 0 (Unlimited)
+            database.execSQL("ALTER TABLE user_config ADD COLUMN default_context_limit INTEGER NOT NULL DEFAULT 0");
+            // Add column to character (nullable)
+            database.execSQL("ALTER TABLE character ADD COLUMN context_limit INTEGER");
+        }
+    };
+
     public static AppDatabase getInstance(final Context context) {
         if (INSTANCE == null) {
             synchronized (AppDatabase.class) {
                 if (INSTANCE == null) {
                     INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
                                     AppDatabase.class, DATABASE_NAME)
-                            .addMigrations(MIGRATION_6_7)
+                            .addMigrations(MIGRATION_6_7, MIGRATION_10_11)
                             .fallbackToDestructiveMigration()
                             .build();
                 }

@@ -113,6 +113,13 @@
                 android:inputType="number" />
         </LinearLayout>
 
+        <EditText
+            android:id="@+id/edit_text_context_limit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="@string/context_limit_hint"
+            android:inputType="number" />
         <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/switch_time_awareness"
             android:layout_width="match_parent"

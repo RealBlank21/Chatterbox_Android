@@ -36,6 +36,9 @@
     <string name="copy_message">Copy Message</string>
     <string name="loading_credits">Loading credits...</string>
 
+    <string name="context_limit_turns">Context Limit (Turns)</string>
+    <string name="context_limit_hint">0 = Unlimited (Send full history)</string>
+
     <string-array name="ai_model_suggestions">
         <item>openai/gpt-5.1-chat</item>
         <item>google/gemini-2.5-pro</item>

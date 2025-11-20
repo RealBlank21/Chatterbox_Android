@@ -57,6 +57,10 @@ public class Character {
     @ColumnInfo(name = "allow_image_input", defaultValue = "0")
     private boolean allowImageInput;
 
+    // --- NEW FIELD ---
+    @ColumnInfo(name = "context_limit")
+    private Integer contextLimit; // Nullable, if null use global default
+
     @ColumnInfo(name = "conversation_count")
     private int conversationCount;
 
@@ -66,7 +70,8 @@ public class Character {
     public Character(String name, String personality, String firstMessage,
                      String model, String characterProfileImagePath,
                      String voiceReferenceId, String voiceReferenceName,
-                     Float temperature, Integer maxTokens, boolean isTimeAware, boolean allowImageInput) {
+                     Float temperature, Integer maxTokens, boolean isTimeAware,
+                     boolean allowImageInput, Integer contextLimit) {
         this.createdAt = System.currentTimeMillis();
         this.name = name;
         this.personality = personality;
@@ -82,13 +87,23 @@ public class Character {
         this.isHidden = false;
         this.isTimeAware = isTimeAware;
         this.allowImageInput = allowImageInput;
+        this.contextLimit = contextLimit;
+    }
+
+    // Legacy constructor support
+    @Ignore
+    public Character(String name, String personality, String firstMessage,
+                     String model, String characterProfileImagePath,
+                     String voiceReferenceId, String voiceReferenceName,
+                     Float temperature, Integer maxTokens, boolean isTimeAware, boolean allowImageInput) {
+        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, temperature, maxTokens, isTimeAware, allowImageInput, null);
     }
 
     @Ignore
     public Character(String name, String personality, String firstMessage,
                      String model, String characterProfileImagePath,
                      String voiceReferenceId, String voiceReferenceName) {
-        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, null, null, false, false);
+        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, null, null, false, false, null);
     }
 
     public int getId() { return id; }
@@ -109,6 +124,9 @@ public class Character {
     public boolean isAllowImageInput() { return allowImageInput; }
     public int getConversationCount() { return conversationCount; }
 
+    // Getter for new field
+    public Integer getContextLimit() { return contextLimit; }
+
     public void setId(int id) { this.id = id; }
     public void setCreatedAt(long createdAt) { this.createdAt = createdAt; }
     public void setName(String name) { this.name = name; }
@@ -126,4 +144,7 @@ public class Character {
     public void setTimeAware(boolean timeAware) { isTimeAware = timeAware; }
     public void setAllowImageInput(boolean allowImageInput) { this.allowImageInput = allowImageInput; }
     public void setConversationCount(int conversationCount) { this.conversationCount = conversationCount; }
+
+    // Setter for new field
+    public void setContextLimit(Integer contextLimit) { this.contextLimit = contextLimit; }
 }

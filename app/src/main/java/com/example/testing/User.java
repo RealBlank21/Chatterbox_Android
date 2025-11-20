@@ -9,18 +9,12 @@ import java.io.Serializable;
 @Entity(tableName = "user_config")
 public class User implements Serializable {
 
-    // Best practice for Serializable
-    private static final long serialVersionUID = 2L;
+    private static final long serialVersionUID = 3L; // Bumped version
 
-    // --- Database Fields (All fields must be public or have getters/setters) ---
-
-    // 2. Define the Primary Key
-    // Since you only expect ONE user/config row, a static ID is appropriate.
     @PrimaryKey
     @ColumnInfo(name = "config_id")
-    private int configId = 1; // Always set to 1, ensuring only one row exists
+    private int configId = 1;
 
-    // Identifiers and Display Fields
     @ColumnInfo(name = "username")
     private String username;
 
@@ -33,36 +27,38 @@ public class User implements Serializable {
     @ColumnInfo(name = "api_key")
     private String apiKey;
 
-    // Preferences
     @ColumnInfo(name = "preferred_model")
     private String preferredModel;
 
     @ColumnInfo(name = "global_system_prompt")
     private String globalSystemPrompt;
 
-    // -----------------------------------------------------------------
-    // CONSTRUCTOR (For easy object creation)
-    // -----------------------------------------------------------------
+    // --- NEW FIELD ---
+    @ColumnInfo(name = "default_context_limit", defaultValue = "0")
+    private int defaultContextLimit; // 0 means unlimited
+
     @Ignore
     public User(String username, String email, String profileImagePath,
                 String apiKey, String preferredModel, String globalSystemPrompt) {
-        // We do NOT set configId here; Room handles the PK
+        this(username, email, profileImagePath, apiKey, preferredModel, globalSystemPrompt, 0);
+    }
+
+    @Ignore
+    public User(String username, String email, String profileImagePath,
+                String apiKey, String preferredModel, String globalSystemPrompt, int defaultContextLimit) {
         this.username = username;
         this.email = email;
         this.profileImagePath = profileImagePath;
         this.apiKey = apiKey;
         this.preferredModel = preferredModel;
         this.globalSystemPrompt = globalSystemPrompt;
+        this.defaultContextLimit = defaultContextLimit;
     }
 
-    // Default constructor for Room and Serialization (REQUIRED)
     public User() {
     }
 
-    // -----------------------------------------------------------------
-    // GETTERS
-    // -----------------------------------------------------------------
-
+    // --- Getters ---
     public int getConfigId() { return configId; }
     public String getUsername() { return username; }
     public String getEmail() { return email; }
@@ -70,11 +66,9 @@ public class User implements Serializable {
     public String getApiKey() { return apiKey; }
     public String getPreferredModel() { return preferredModel; }
     public String getGlobalSystemPrompt() { return globalSystemPrompt; }
+    public int getDefaultContextLimit() { return defaultContextLimit; }
 
-    // -----------------------------------------------------------------
-    // SETTERS
-    // -----------------------------------------------------------------
-
+    // --- Setters ---
     public void setConfigId(int configId) { this.configId = configId; }
     public void setUsername(String username) { this.username = username; }
     public void setEmail(String email) { this.email = email; }
@@ -82,4 +76,5 @@ public class User implements Serializable {
     public void setApiKey(String apiKey) { this.apiKey = apiKey; }
     public void setPreferredModel(String preferredModel) { this.preferredModel = preferredModel; }
     public void setGlobalSystemPrompt(String globalSystemPrompt) { this.globalSystemPrompt = globalSystemPrompt; }
+    public void setDefaultContextLimit(int defaultContextLimit) { this.defaultContextLimit = defaultContextLimit; }
 }

@@ -41,6 +41,7 @@ public class SettingsActivity extends AppCompatActivity {
     private ImageButton buttonRefreshModels;
     private TextView textViewModelInfo;
     private EditText editTextGlobalPrompt;
+    private EditText editTextContextLimit; // NEW
     private TextView textViewCredits;
     private Button buttonSave;
 
@@ -83,6 +84,7 @@ public class SettingsActivity extends AppCompatActivity {
         buttonRefreshModels = findViewById(R.id.button_refresh_models);
         textViewModelInfo = findViewById(R.id.text_view_model_info);
         editTextGlobalPrompt = findViewById(R.id.edit_text_global_system_prompt);
+        editTextContextLimit = findViewById(R.id.edit_text_context_limit); // NEW
         buttonSave = findViewById(R.id.button_save_settings);
 
         buttonExport = findViewById(R.id.button_export_data);
@@ -138,9 +140,12 @@ public class SettingsActivity extends AppCompatActivity {
                 }
                 if (user.getPreferredModel() != null) {
                     editTextPreferredModel.setText(user.getPreferredModel());
-                    updateModelInfo(user.getPreferredModel()); // Show info for saved model
+                    updateModelInfo(user.getPreferredModel());
                 }
                 if (user.getGlobalSystemPrompt() != null) editTextGlobalPrompt.setText(user.getGlobalSystemPrompt());
+
+                // Load Context Limit
+                editTextContextLimit.setText(String.valueOf(user.getDefaultContextLimit()));
             }
         });
 
@@ -219,12 +224,19 @@ public class SettingsActivity extends AppCompatActivity {
         String preferredModel = editTextPreferredModel.getText().toString().trim();
         String globalPrompt = editTextGlobalPrompt.getText().toString().trim();
 
+        int contextLimit = 0;
+        try {
+            contextLimit = Integer.parseInt(editTextContextLimit.getText().toString().trim());
+        } catch (NumberFormatException e) {
+            contextLimit = 0;
+        }
+
         if (apiKey.isEmpty()) {
             Toast.makeText(this, "API Key cannot be empty", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        settingsViewModel.saveSettings(username, apiKey, preferredModel, globalPrompt);
+        settingsViewModel.saveSettings(username, apiKey, preferredModel, globalPrompt, contextLimit);
         Toast.makeText(this, "Settings saved!", Toast.LENGTH_SHORT).show();
         fetchCredits(apiKey);
         finish();

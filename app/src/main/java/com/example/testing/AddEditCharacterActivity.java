@@ -41,7 +41,7 @@ public class AddEditCharacterActivity extends AppCompatActivity {
 
     private ImageView imageViewProfilePreview;
     private Button buttonSelectImage;
-    private EditText editTextName, editTextPersonality, editTextFirstMessage, editTextTemperature, editTextMaxTokens;
+    private EditText editTextName, editTextPersonality, editTextFirstMessage, editTextTemperature, editTextMaxTokens, editTextContextLimit;
     private AutoCompleteTextView editTextModel;
     private ImageButton buttonRefreshModels;
     private TextView textViewModelInfo;
@@ -80,6 +80,7 @@ public class AddEditCharacterActivity extends AppCompatActivity {
         editTextFirstMessage = findViewById(R.id.edit_text_character_first_message);
         editTextTemperature = findViewById(R.id.edit_text_temperature);
         editTextMaxTokens = findViewById(R.id.edit_text_max_tokens);
+        editTextContextLimit = findViewById(R.id.edit_text_context_limit); // NEW
         switchTimeAwareness = findViewById(R.id.switch_time_awareness);
         switchAllowImageInput = findViewById(R.id.switch_allow_image_input);
 
@@ -139,6 +140,8 @@ public class AddEditCharacterActivity extends AppCompatActivity {
                     editTextFirstMessage.setText(character.getFirstMessage());
                     if (character.getTemperature() != null) editTextTemperature.setText(String.valueOf(character.getTemperature()));
                     if (character.getMaxTokens() != null) editTextMaxTokens.setText(String.valueOf(character.getMaxTokens()));
+                    if (character.getContextLimit() != null) editTextContextLimit.setText(String.valueOf(character.getContextLimit())); // NEW
+
                     switchTimeAwareness.setChecked(character.isTimeAware());
                     switchAllowImageInput.setChecked(character.isAllowImageInput());
 
@@ -197,6 +200,7 @@ public class AddEditCharacterActivity extends AppCompatActivity {
         String firstMessage = editTextFirstMessage.getText().toString();
         String tempStr = editTextTemperature.getText().toString();
         String maxTokensStr = editTextMaxTokens.getText().toString();
+        String contextLimitStr = editTextContextLimit.getText().toString();
         boolean isTimeAware = switchTimeAwareness.isChecked();
         boolean allowImageInput = switchAllowImageInput.isChecked();
 
@@ -225,7 +229,19 @@ public class AddEditCharacterActivity extends AppCompatActivity {
             }
         }
 
-        Character character = new Character(name, personality, firstMessage, model, currentProfileImagePath, "", "", temperature, maxTokens, isTimeAware, allowImageInput);
+        // NEW: Handle context limit
+        Integer contextLimit = null;
+        if (!TextUtils.isEmpty(contextLimitStr)) {
+            try {
+                int val = Integer.parseInt(contextLimitStr);
+                if (val > 0) contextLimit = val;
+            } catch (NumberFormatException e) {
+                // Ignore invalid input
+            }
+        }
+
+        // Updated constructor call
+        Character character = new Character(name, personality, firstMessage, model, currentProfileImagePath, "", "", temperature, maxTokens, isTimeAware, allowImageInput, contextLimit);
 
         if (currentCharacterId != -1) {
             character.setId(currentCharacterId);

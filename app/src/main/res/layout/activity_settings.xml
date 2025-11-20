@@ -80,7 +80,6 @@
                 android:contentDescription="Refresh Models" />
         </LinearLayout>
 
-        <!-- NEW: Model Details Section -->
         <TextView
             android:id="@+id/text_view_model_info"
             android:layout_width="match_parent"
@@ -92,6 +91,19 @@
             android:textSize="12sp"
             android:visibility="gone" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/context_limit_turns"
+            android:textAppearance="?attr/textAppearanceListItem" />
+
+        <EditText
+            android:id="@+id/edit_text_context_limit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/context_limit_hint"
+            android:inputType="number" />
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

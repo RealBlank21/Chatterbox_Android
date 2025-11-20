@@ -35,19 +35,20 @@ public class SettingsViewModel extends AndroidViewModel {
         return user;
     }
 
-    // Updated to accept all user fields
-    public void saveSettings(String username, String apiKey, String preferredModel, String globalPrompt) {
+    // Updated to accept context limit
+    public void saveSettings(String username, String apiKey, String preferredModel, String globalPrompt, int contextLimit) {
         User currentUser = user.getValue();
 
         if (currentUser == null) {
-            // If no user exists yet, create a new one. We pass "" for email and image path.
-            currentUser = new User(username, "", "", apiKey, preferredModel, globalPrompt);
+            // Create new user with default context limit
+            currentUser = new User(username, "", "", apiKey, preferredModel, globalPrompt, contextLimit);
         } else {
-            // If a user already exists, update all its fields
+            // Update existing user
             currentUser.setUsername(username);
             currentUser.setApiKey(apiKey);
             currentUser.setPreferredModel(preferredModel);
             currentUser.setGlobalSystemPrompt(globalPrompt);
+            currentUser.setDefaultContextLimit(contextLimit);
         }
 
         repository.insertOrUpdate(currentUser);
