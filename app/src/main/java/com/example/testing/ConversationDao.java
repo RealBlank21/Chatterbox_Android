@@ -34,10 +34,8 @@ public interface ConversationDao {
     @Delete
     void delete(Conversation conversation);
 
-    // --- ADD THIS METHOD ---
     @Query("DELETE FROM conversation WHERE conversation_id IN (:conversationIds)")
     void deleteConversationsByIds(List<Integer> conversationIds);
-    // -----------------------
 
     @Query("SELECT * FROM conversation WHERE conversation_id = :id")
     LiveData<Conversation> getConversationById(int id);
@@ -45,8 +43,11 @@ public interface ConversationDao {
     @Query("SELECT * FROM conversation WHERE character_fk = :characterId ORDER BY last_updated DESC")
     List<Conversation> getConversationsForCharacter(int characterId);
 
+    // --- UPDATED QUERY ---
     @Transaction
-    @Query("SELECT conversation.*, character.name FROM conversation " +
+    @Query("SELECT conversation.*, character.name, " +
+            "(SELECT COUNT(*) FROM chat_message WHERE conversation_fk = conversation.conversation_id) AS message_count " +
+            "FROM conversation " +
             "INNER JOIN character ON conversation.character_fk = character.character_id " +
             "ORDER BY conversation.last_updated DESC")
     LiveData<List<ConversationWithCharacter>> getAllConversationsWithCharacter();

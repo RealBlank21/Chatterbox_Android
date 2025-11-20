@@ -256,27 +256,33 @@ public class ConversationActivity extends AppCompatActivity {
 
         int userMsgCount = 0;
         int botMsgCount = 0;
-        int totalTokens = 0;
+
+        long totalInputTokens = 0;
+        long totalOutputTokens = 0;
+
         long firstTimestamp = Long.MAX_VALUE;
         long lastTimestamp = 0;
+        String lastFinishReason = "N/A";
 
         for (Message msg : currentMessages) {
             if ("user".equals(msg.getRole())) {
                 userMsgCount++;
             } else if ("assistant".equals(msg.getRole())) {
                 botMsgCount++;
+
+                // Accumulate Separate Tokens
+                totalInputTokens += msg.getPromptTokens();
+                totalOutputTokens += msg.getCompletionTokens();
+
+                if (msg.getFinishReason() != null) {
+                    lastFinishReason = msg.getFinishReason();
+                }
             }
 
-            if (msg.getContent() != null) {
-                totalTokens += msg.getContent().length() / 4;
-            }
-
+            // Calculate duration
             if (msg.getTimestamp() < firstTimestamp) firstTimestamp = msg.getTimestamp();
             if (msg.getTimestamp() > lastTimestamp) lastTimestamp = msg.getTimestamp();
         }
-
-        String personality = currentCharacter.getPersonality();
-        if (personality != null) totalTokens += personality.length() / 4;
 
         String durationStr = "N/A";
         if (firstTimestamp != Long.MAX_VALUE && lastTimestamp != 0) {
@@ -299,20 +305,29 @@ public class ConversationActivity extends AppCompatActivity {
         }
 
         String costStr = "Unknown Model Price";
+        String inputPriceStr = "N/A";
+        String outputPriceStr = "N/A";
+
         if (modelId != null) {
             Model model = ModelRepository.getInstance().getModelById(modelId);
             if (model != null && model.getPricing() != null) {
                 try {
+                    // Raw prices from API/Model object usually per 1 token
                     double promptPrice = Double.parseDouble(model.getPricing().getPrompt());
                     double completionPrice = Double.parseDouble(model.getPricing().getCompletion());
-                    double estimatedCost = totalTokens * Math.max(promptPrice, completionPrice);
 
-                    if (estimatedCost < 0.01) {
-                        costStr = String.format(Locale.getDefault(), "$%.6f", estimatedCost);
+                    // Calculate Total Cost based on the formula
+                    double totalCost = (totalInputTokens * promptPrice) + (totalOutputTokens * completionPrice);
+
+                    if (totalCost < 0.0001) {
+                        costStr = String.format(Locale.getDefault(), "$%.6f", totalCost);
                     } else {
-                        costStr = String.format(Locale.getDefault(), "$%.4f", estimatedCost);
+                        costStr = String.format(Locale.getDefault(), "$%.4f", totalCost);
                     }
-                    costStr += " (Est. context snapshot)";
+
+                    // Format pricing per Million for display
+                    inputPriceStr = String.format(Locale.getDefault(), "$%.2f/1M", promptPrice * 1000000);
+                    outputPriceStr = String.format(Locale.getDefault(), "$%.2f/1M", completionPrice * 1000000);
 
                 } catch (Exception e) {
                     costStr = "Pricing Error";
@@ -321,16 +336,23 @@ public class ConversationActivity extends AppCompatActivity {
         }
 
         StringBuilder info = new StringBuilder();
-        info.append("Model: ").append(modelId != null ? modelId : "Default").append("\n\n");
+        info.append("Model: ").append(modelId != null ? modelId : "Default").append("\n");
+        info.append("Input Price: ").append(inputPriceStr).append("\n");
+        info.append("Output Price: ").append(outputPriceStr).append("\n\n");
+
         info.append("User Messages: ").append(userMsgCount).append("\n");
         info.append("Bot Messages: ").append(botMsgCount).append("\n");
-        info.append("Total Messages: ").append(currentMessages.size()).append("\n\n");
-        info.append("Duration: ").append(durationStr).append("\n");
-        info.append("Est. Token Count: ~").append(totalTokens).append("\n");
-        info.append("Est. Cost (Current Context): ").append(costStr);
+        info.append("Duration: ").append(durationStr).append("\n\n");
+
+        info.append("--- Token Usage ---\n");
+        info.append("Total Input Tokens: ").append(totalInputTokens).append("\n");
+        info.append("Total Output Tokens: ").append(totalOutputTokens).append("\n");
+        info.append("Last Finish Reason: ").append(lastFinishReason).append("\n\n");
+
+        info.append("Total Cost: ").append(costStr);
 
         new AlertDialog.Builder(this)
-                .setTitle("Conversation Info")
+                .setTitle("Conversation Stats")
                 .setMessage(info.toString())
                 .setPositiveButton("OK", null)
                 .show();

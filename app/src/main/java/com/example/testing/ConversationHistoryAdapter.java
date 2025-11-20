@@ -33,7 +33,6 @@ public class ConversationHistoryAdapter extends RecyclerView.Adapter<Conversatio
     public void setOnSelectionChangedListener(OnSelectionChangedListener listener) {
         this.selectionListener = listener;
     }
-    // ------------------------
 
     @NonNull
     @Override
@@ -58,7 +57,13 @@ public class ConversationHistoryAdapter extends RecyclerView.Adapter<Conversatio
 
         Date date = new Date(currentItem.conversation.getLastUpdated());
         SimpleDateFormat formatter = new SimpleDateFormat("MMM dd, yyyy h:mm a", Locale.getDefault());
-        holder.textViewTimestamp.setText(formatter.format(date));
+        String formattedDate = formatter.format(date);
+
+        // --- UPDATED FORMATTING ---
+        // Format: <Timestamp> | (<Total Messages>)
+        String infoText = formattedDate + " | (" + currentItem.messageCount + " messages)";
+        holder.textViewTimestamp.setText(infoText);
+        // --------------------------
 
         // --- Handle Selection Visuals ---
         if (isDeleteMode) {
@@ -79,7 +84,6 @@ public class ConversationHistoryAdapter extends RecyclerView.Adapter<Conversatio
         notifyDataSetChanged();
     }
 
-    // --- Selection Helper Methods ---
     public void setDeleteMode(boolean enabled) {
         this.isDeleteMode = enabled;
         this.selectedIds.clear();
@@ -106,13 +110,12 @@ public class ConversationHistoryAdapter extends RecyclerView.Adapter<Conversatio
     public List<Integer> getSelectedIds() {
         return new ArrayList<>(selectedIds);
     }
-    // --------------------------------
 
     class ConversationViewHolder extends RecyclerView.ViewHolder {
         private final TextView textViewCharacterName;
         private final TextView textViewTitle;
         private final TextView textViewTimestamp;
-        private final CheckBox checkBox; // New Field
+        private final CheckBox checkBox;
 
         public ConversationViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -125,7 +128,6 @@ public class ConversationHistoryAdapter extends RecyclerView.Adapter<Conversatio
                 int position = getAdapterPosition();
                 if (position != RecyclerView.NO_POSITION) {
                     if (isDeleteMode) {
-                        // Toggle Selection
                         int id = conversations.get(position).conversation.getId();
                         if (selectedIds.contains(id)) {
                             selectedIds.remove(id);
@@ -135,7 +137,6 @@ public class ConversationHistoryAdapter extends RecyclerView.Adapter<Conversatio
                         notifyItemChanged(position);
                         if (selectionListener != null) selectionListener.onSelectionChanged(selectedIds.size());
                     } else {
-                        // Normal Click
                         if (listener != null) {
                             listener.onItemClick(conversations.get(position).conversation);
                         }

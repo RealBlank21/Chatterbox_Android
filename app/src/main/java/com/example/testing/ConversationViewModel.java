@@ -19,7 +19,7 @@ import com.example.testing.network.request.ApiRequest;
 import com.example.testing.network.request.ContentPart;
 import com.example.testing.network.request.ImageUrl;
 import com.example.testing.network.request.RequestMessage;
-import com.example.testing.network.response.ApiResponse;
+import com.example.testing.network.response.ChatCompletionResponse;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -185,10 +185,6 @@ public class ConversationViewModel extends AndroidViewModel {
                     String msgTime = dayFormatter.format(msgDate) + " at " + timeFormatter.format(msgDate);
                     requestMessages.add(new RequestMessage("system", "Current time: " + msgTime));
                 }
-
-                // For history, we typically send text only to save tokens/complexity,
-                // unless we specifically want multi-turn vision history.
-                // For V1, let's treat history as text-only.
                 requestMessages.add(new RequestMessage(msg.getRole(), msg.getContent()));
             }
 
@@ -211,7 +207,6 @@ public class ConversationViewModel extends AndroidViewModel {
                         requestMessages.add(new RequestMessage("system", "Current time: " + nowTime));
                     }
 
-                    // CURRENT MESSAGE CONSTRUCTION (Multimodal Check)
                     if (imagePath != null) {
                         String base64Image = encodeImageToBase64(imagePath);
                         if (base64Image != null) {
@@ -219,8 +214,6 @@ public class ConversationViewModel extends AndroidViewModel {
                             if (!TextUtils.isEmpty(content)) {
                                 parts.add(new ContentPart("text", content));
                             }
-                            // Assuming jpeg for simplicity or detecting mime type.
-                            // OpenRouter/OpenAI accepts "data:image/jpeg;base64,..."
                             String mimeType = "image/jpeg";
                             if (imagePath.endsWith(".png")) mimeType = "image/png";
                             if (imagePath.endsWith(".webp")) mimeType = "image/webp";
@@ -228,7 +221,6 @@ public class ConversationViewModel extends AndroidViewModel {
                             parts.add(new ContentPart("image_url", new ImageUrl("data:" + mimeType + ";base64," + base64Image)));
                             requestMessages.add(new RequestMessage("user", parts));
                         } else {
-                            // Fallback if image fails
                             requestMessages.add(new RequestMessage("user", content + " [Image Upload Failed]"));
                         }
                     } else {
@@ -244,13 +236,35 @@ public class ConversationViewModel extends AndroidViewModel {
             ApiRequest apiRequest = new ApiRequest(model, requestMessages, character.getTemperature(), character.getMaxTokens());
             String apiKey = "Bearer " + user.getApiKey();
 
-            Call<ApiResponse> call = apiService.getChatCompletion(apiKey, apiRequest);
-            call.enqueue(new Callback<ApiResponse>() {
+            Call<ChatCompletionResponse> call = apiService.getChatCompletion(apiKey, apiRequest);
+
+            call.enqueue(new Callback<ChatCompletionResponse>() {
                 @Override
-                public void onResponse(Call<ApiResponse> call, Response<ApiResponse> response) {
+                public void onResponse(Call<ChatCompletionResponse> call, Response<ChatCompletionResponse> response) {
                     if (response.isSuccessful() && response.body() != null && !response.body().getChoices().isEmpty()) {
-                        String aiResponseContent = response.body().getChoices().get(0).getMessage().getContent();
+                        ChatCompletionResponse fullResponse = response.body();
+
+                        String aiResponseContent = fullResponse.getChoices().get(0).getMessage().getContent();
+
+                        ChatCompletionResponse.Usage usage = fullResponse.getUsage();
+                        String finishReason = fullResponse.getChoices().get(0).getFinishReason();
+
+                        if ("length".equals(finishReason)) {
+                            aiResponseContent += "\n\n[Message cut off due to token limit]";
+                        }
+
                         Message aiMessage = new Message("assistant", aiResponseContent, conversationId);
+
+                        // --- SAVE DETAILED TOKEN USAGE ---
+                        if (usage != null) {
+                            aiMessage.setTokenCount(usage.getTotalTokens());
+                            aiMessage.setPromptTokens(usage.getPromptTokens());
+                            aiMessage.setCompletionTokens(usage.getCompletionTokens());
+                        }
+                        if (finishReason != null) {
+                            aiMessage.setFinishReason(finishReason);
+                        }
+
                         messageRepository.insert(aiMessage);
                         conversationRepository.updateLastUpdated(conversationId, System.currentTimeMillis());
                     } else {
@@ -260,7 +274,7 @@ public class ConversationViewModel extends AndroidViewModel {
                 }
 
                 @Override
-                public void onFailure(Call<ApiResponse> call, Throwable t) {
+                public void onFailure(Call<ChatCompletionResponse> call, Throwable t) {
                     Message errorMessage = new Message("assistant", "Error: API call failed. " + t.getMessage(), conversationId);
                     messageRepository.insert(errorMessage);
                 }
@@ -276,7 +290,6 @@ public class ConversationViewModel extends AndroidViewModel {
             Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
             if (bitmap == null) return null;
 
-            // Resize if too big to avoid payload limits (e.g. max 1024px dimension)
             int maxDimension = 1024;
             if (bitmap.getWidth() > maxDimension || bitmap.getHeight() > maxDimension) {
                 float aspectRatio = (float) bitmap.getWidth() / bitmap.getHeight();
@@ -291,7 +304,6 @@ public class ConversationViewModel extends AndroidViewModel {
             }
 
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            // Compress to JPEG 80%
             bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream);
             byte[] byteArray = outputStream.toByteArray();
             return Base64.encodeToString(byteArray, Base64.NO_WRAP);
