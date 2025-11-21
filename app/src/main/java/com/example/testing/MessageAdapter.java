@@ -131,8 +131,26 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
         return messages.size();
     }
 
-    public void setMessages(List<Message> messages) {
-        this.messages = messages;
+    public void setMessages(List<Message> newMessages) {
+        if (this.messages == null) {
+            this.messages = newMessages;
+            notifyDataSetChanged();
+            return;
+        }
+
+        if (this.messages.size() == newMessages.size() && !newMessages.isEmpty()) {
+            int lastIndex = newMessages.size() - 1;
+            Message oldLast = this.messages.get(lastIndex);
+            Message newLast = newMessages.get(lastIndex);
+
+            if (!oldLast.getContent().equals(newLast.getContent())) {
+                this.messages = newMessages;
+                notifyItemChanged(lastIndex);
+                return;
+            }
+        }
+
+        this.messages = newMessages;
         notifyDataSetChanged();
     }
 
@@ -192,7 +210,7 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
 
         public void showEditMode(Message message) {
             textViewMessage.setVisibility(View.GONE);
-            if (imageViewMessage != null) imageViewMessage.setVisibility(View.GONE); // Hide image in edit mode? Or keep it. Hiding for simplicity.
+            if (imageViewMessage != null) imageViewMessage.setVisibility(View.GONE);
             layoutEditMessage.setVisibility(View.VISIBLE);
             editTextMessageContent.setText(message.getContent());
             editTextMessageContent.requestFocus();

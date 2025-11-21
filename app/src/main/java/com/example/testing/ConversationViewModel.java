@@ -17,8 +17,12 @@ import com.example.testing.network.request.ContentPart;
 import com.example.testing.network.request.ImageUrl;
 import com.example.testing.network.request.RequestMessage;
 import com.example.testing.network.response.ChatCompletionResponse;
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -26,6 +30,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -50,7 +55,6 @@ public class ConversationViewModel extends AndroidViewModel {
 
     public ConversationViewModel(@NonNull Application application) {
         super(application);
-        // Use Singletons to prevent thread leaks
         messageRepository = MessageRepository.getInstance(application);
         characterRepository = CharacterRepository.getInstance(application);
         userRepository = UserRepository.getInstance(application);
@@ -74,7 +78,7 @@ public class ConversationViewModel extends AndroidViewModel {
     @Override
     protected void onCleared() {
         super.onCleared();
-        executorService.shutdown(); // Prevent memory/thread leaks
+        executorService.shutdown();
     }
 
     public void loadData(int characterId, int conversationId) {
@@ -114,6 +118,28 @@ public class ConversationViewModel extends AndroidViewModel {
         sendMessageWithId(content, imagePath, conversationId, user, character);
     }
 
+    // --- ADDED: Logic for Continuing Conversation ---
+    public void continueConversation(int conversationId, User user, Character character) {
+        if (conversationId == -1) {
+            // Handle edge case where user clicks continue on a fresh screen
+            Conversation newConversation = new Conversation(character.getId(), "New Chat");
+            conversationRepository.insert(newConversation, newId -> {
+                int id = newId.intValue();
+                if (!TextUtils.isEmpty(character.getFirstMessage())) {
+                    Message greeting = new Message("assistant", character.getFirstMessage(), id);
+                    messageRepository.insert(greeting);
+                }
+                conversationIdInput.postValue(id);
+                // Pass true to skip inserting a user message
+                triggerApiCall("", null, id, user, character, true);
+            });
+        } else {
+            // Pass true to skip inserting a user message
+            triggerApiCall("", null, conversationId, user, character, true);
+        }
+    }
+    // ------------------------------------------------
+
     private void sendMessageWithId(String content, String imagePath, int conversationId, User user, Character character) {
         triggerApiCall(content, imagePath, conversationId, user, character, false);
     }
@@ -121,11 +147,8 @@ public class ConversationViewModel extends AndroidViewModel {
     public void regenerateResponse(Message messageToRegenerate, User user, Character character) {
         executorService.execute(() -> {
             if (messageToRegenerate != null) {
-                // Use Sync delete to ensure it is gone BEFORE we read history for the API call
                 messageRepository.deleteSync(messageToRegenerate);
             }
-            // We call triggerApiCall, but since we are already in the executor,
-            // and triggerApiCall also submits to the executor, it will run sequentially.
             triggerApiCall("", null, messageToRegenerate.getConversationId(), user, character, true);
         });
     }
@@ -138,25 +161,20 @@ public class ConversationViewModel extends AndroidViewModel {
         if (user == null || character == null) return;
 
         executorService.execute(() -> {
-            // 1. Insert User Message Synchronously on this thread (if not regenerating)
-            // This guarantees the DB has the message before we read the history below.
             if (!isRegeneration) {
                 Message userMessage = new Message("user", content, conversationId, imagePath);
                 messageRepository.insertSync(userMessage);
                 conversationRepository.updateLastUpdatedSync(conversationId, System.currentTimeMillis());
             }
 
-            // 2. Fetch FULL history
             List<Message> messageHistory = messageRepository.getMessagesForConversationSync(conversationId);
             List<RequestMessage> requestMessages = new ArrayList<>();
 
-            // 3. Time/Date Calculation
             long creationTimestamp = !messageHistory.isEmpty() ? messageHistory.get(0).getTimestamp() : System.currentTimeMillis();
             Date creationDate = new Date(creationTimestamp);
             String formattedDay = dayFormatter.format(creationDate);
             String formattedTime = timeFormatter.format(creationDate);
 
-            // 4. Sliding Window Logic
             int limit = character.getContextLimit() != null && character.getContextLimit() > 0
                     ? character.getContextLimit() : user.getDefaultContextLimit();
 
@@ -168,7 +186,6 @@ public class ConversationViewModel extends AndroidViewModel {
                 }
             }
 
-            // 5. Construct System Prompt
             String globalPrompt = user.getGlobalSystemPrompt() != null ? user.getGlobalSystemPrompt() : "";
             String characterPersonality = character.getPersonality() != null ? character.getPersonality() : "";
 
@@ -183,7 +200,6 @@ public class ConversationViewModel extends AndroidViewModel {
                 requestMessages.add(new RequestMessage("system", finalSystemPrompt.trim()));
             }
 
-            // 6. Add History
             for (Message msg : messagesToSend) {
                 if (character.isTimeAware() && "user".equals(msg.getRole())) {
                     Date msgDate = new Date(msg.getTimestamp());
@@ -193,62 +209,68 @@ public class ConversationViewModel extends AndroidViewModel {
                 requestMessages.add(new RequestMessage(msg.getRole(), msg.getContent()));
             }
 
-            // Note: We no longer need the "alreadyInHistory" check here because we
-            // guaranteed insertion via insertSync at the start of this thread.
-
-            // 7. API Call Construction
             String model = !TextUtils.isEmpty(character.getModel()) ? character.getModel() : user.getPreferredModel();
             if (TextUtils.isEmpty(model)) return;
 
-            ApiRequest apiRequest = new ApiRequest(model, requestMessages, character.getTemperature(), character.getMaxTokens());
             String apiKey = "Bearer " + user.getApiKey();
 
-            Call<ChatCompletionResponse> call = apiService.getChatCompletion(apiKey, apiRequest);
+            ApiRequest apiRequest = new ApiRequest(model, requestMessages, character.getTemperature(), character.getMaxTokens(), true);
+            Call<ResponseBody> call = apiService.getChatCompletionStream(apiKey, apiRequest);
 
-            // Retrofit callback runs on Main Thread usually, or background depending on config.
-            // Safe to leave as is, but we must handle the DB insert off-thread.
-            call.enqueue(new Callback<ChatCompletionResponse>() {
-                @Override
-                public void onResponse(Call<ChatCompletionResponse> call, Response<ChatCompletionResponse> response) {
-                    if (response.isSuccessful() && response.body() != null && !response.body().getChoices().isEmpty()) {
-                        ChatCompletionResponse fullResponse = response.body();
-                        String aiResponseContent = fullResponse.getChoices().get(0).getMessage().getContent();
+            Message aiMessage = new Message("assistant", "", conversationId);
+            messageRepository.insertSync(aiMessage);
 
-                        // Handle potential empty response from API
-                        if (TextUtils.isEmpty(aiResponseContent)) {
-                            aiResponseContent = "..."; // Placeholder or handle error
+            List<Message> updatedHistory = messageRepository.getMessagesForConversationSync(conversationId);
+            Message currentAiMessage = updatedHistory.get(updatedHistory.size() - 1);
+
+            try {
+                Response<ResponseBody> response = call.execute();
+                if (response.isSuccessful() && response.body() != null) {
+                    InputStream is = response.body().byteStream();
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+                    String line;
+                    StringBuilder contentBuilder = new StringBuilder();
+
+                    while ((line = reader.readLine()) != null) {
+                        if (line.startsWith("data: ")) {
+                            String jsonPart = line.substring(6).trim();
+                            if (jsonPart.equals("[DONE]")) break;
+
+                            try {
+                                ChatCompletionResponse chunk = new com.google.gson.Gson().fromJson(jsonPart, ChatCompletionResponse.class);
+                                if (chunk.getChoices() != null && !chunk.getChoices().isEmpty()) {
+                                    ChatCompletionResponse.Message delta = chunk.getChoices().get(0).getDelta();
+                                    if (delta != null && delta.getContent() != null) {
+                                        contentBuilder.append(delta.getContent());
+                                        currentAiMessage.setContent(contentBuilder.toString());
+                                        messageRepository.updateSync(currentAiMessage);
+                                        conversationRepository.updateLastUpdatedSync(conversationId, System.currentTimeMillis());
+                                    }
+                                }
+                            } catch (Exception e) {
+                            }
                         }
-
-                        ChatCompletionResponse.Usage usage = fullResponse.getUsage();
-                        String finishReason = fullResponse.getChoices().get(0).getFinishReason();
-
-                        if ("length".equals(finishReason)) aiResponseContent += "\n\n[Message cut off]";
-
-                        Message aiMessage = new Message("assistant", aiResponseContent, conversationId);
-                        if (usage != null) {
-                            aiMessage.setTokenCount(usage.getTotalTokens());
-                            aiMessage.setPromptTokens(usage.getPromptTokens());
-                            aiMessage.setCompletionTokens(usage.getCompletionTokens());
-                        }
-                        if (finishReason != null) aiMessage.setFinishReason(finishReason);
-
-                        messageRepository.insert(aiMessage); // Async is fine here
-                        conversationRepository.updateLastUpdated(conversationId, System.currentTimeMillis());
-                    } else {
-                        messageRepository.insert(new Message("assistant", "Error: " + response.code() + " " + response.message(), conversationId));
                     }
-                }
 
-                @Override
-                public void onFailure(Call<ChatCompletionResponse> call, Throwable t) {
-                    messageRepository.insert(new Message("assistant", "Error: API call failed. " + t.getMessage(), conversationId));
+                    String finalContent = contentBuilder.toString().trim();
+                    if (TextUtils.isEmpty(finalContent)) {
+                        finalContent = "...";
+                    }
+                    currentAiMessage.setContent(finalContent);
+                    messageRepository.updateSync(currentAiMessage);
+
+                } else {
+                    currentAiMessage.setContent("Error: " + response.code() + " " + response.message());
+                    messageRepository.updateSync(currentAiMessage);
                 }
-            });
+            } catch (IOException e) {
+                currentAiMessage.setContent("Error: Stream interrupted. " + e.getMessage());
+                messageRepository.updateSync(currentAiMessage);
+            }
         });
     }
 
     private String encodeImageToBase64(String imagePath) {
-        // (Keep existing implementation)
         try {
             File imageFile = new File(imagePath);
             if (!imageFile.exists()) return null;

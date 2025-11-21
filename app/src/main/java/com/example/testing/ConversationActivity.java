@@ -51,7 +51,7 @@ import java.util.concurrent.TimeUnit;
 public class ConversationActivity extends AppCompatActivity {
 
     private EditText editTextMessage;
-    private Button buttonSend;
+    private ImageButton buttonSend; // Changed to ImageButton
     private ImageButton buttonAttachImage;
     private RecyclerView recyclerViewMessages;
     private MessageAdapter messageAdapter;
@@ -107,6 +107,7 @@ public class ConversationActivity extends AppCompatActivity {
         LinearLayoutManager layoutManager = new LinearLayoutManager(this);
         layoutManager.setStackFromEnd(true);
         recyclerViewMessages.setLayoutManager(layoutManager);
+        recyclerViewMessages.setItemAnimator(null);
 
         messageAdapter = new MessageAdapter();
         recyclerViewMessages.setAdapter(messageAdapter);
@@ -153,7 +154,10 @@ public class ConversationActivity extends AppCompatActivity {
             if (messages != null && !messages.isEmpty()) {
                 messageAdapter.setMessages(messages);
                 currentMessages = messages;
-                recyclerViewMessages.scrollToPosition(messages.size() - 1);
+
+                recyclerViewMessages.post(() ->
+                        recyclerViewMessages.scrollToPosition(messages.size() - 1)
+                );
             }
         });
 
@@ -178,7 +182,7 @@ public class ConversationActivity extends AppCompatActivity {
             @Override public void afterTextChanged(Editable s) {}
         });
 
-        buttonSend.setOnClickListener(v -> sendMessage());
+        buttonSend.setOnClickListener(v -> handleSendAction());
 
         buttonAttachImage.setOnClickListener(v -> {
             pickMedia.launch(new PickVisualMediaRequest.Builder()
@@ -269,8 +273,6 @@ public class ConversationActivity extends AppCompatActivity {
                 userMsgCount++;
             } else if ("assistant".equals(msg.getRole())) {
                 botMsgCount++;
-
-                // Accumulate Separate Tokens
                 totalInputTokens += msg.getPromptTokens();
                 totalOutputTokens += msg.getCompletionTokens();
 
@@ -279,7 +281,6 @@ public class ConversationActivity extends AppCompatActivity {
                 }
             }
 
-            // Calculate duration
             if (msg.getTimestamp() < firstTimestamp) firstTimestamp = msg.getTimestamp();
             if (msg.getTimestamp() > lastTimestamp) lastTimestamp = msg.getTimestamp();
         }
@@ -312,11 +313,9 @@ public class ConversationActivity extends AppCompatActivity {
             Model model = ModelRepository.getInstance().getModelById(modelId);
             if (model != null && model.getPricing() != null) {
                 try {
-                    // Raw prices from API/Model object usually per 1 token
                     double promptPrice = Double.parseDouble(model.getPricing().getPrompt());
                     double completionPrice = Double.parseDouble(model.getPricing().getCompletion());
 
-                    // Calculate Total Cost based on the formula
                     double totalCost = (totalInputTokens * promptPrice) + (totalOutputTokens * completionPrice);
 
                     if (totalCost < 0.0001) {
@@ -325,7 +324,6 @@ public class ConversationActivity extends AppCompatActivity {
                         costStr = String.format(Locale.getDefault(), "$%.4f", totalCost);
                     }
 
-                    // Format pricing per Million for display
                     inputPriceStr = String.format(Locale.getDefault(), "$%.2f/1M", promptPrice * 1000000);
                     outputPriceStr = String.format(Locale.getDefault(), "$%.2f/1M", completionPrice * 1000000);
 
@@ -398,7 +396,6 @@ public class ConversationActivity extends AppCompatActivity {
                 String msgTime = dayFormatter.format(msgDate) + " at " + timeFormatter.format(msgDate);
                 requestMessages.add(new RequestMessage("system", "Current time: " + msgTime));
             }
-            // History export is simple text only
             requestMessages.add(new RequestMessage(msg.getRole(), msg.getContent()));
         }
 
@@ -413,22 +410,31 @@ public class ConversationActivity extends AppCompatActivity {
     }
 
     private void checkIfReadyToSend() {
-        boolean hasContent = !TextUtils.isEmpty(editTextMessage.getText().toString().trim()) || selectedImagePath != null;
+        String text = editTextMessage.getText().toString().trim();
+        boolean hasContent = !TextUtils.isEmpty(text) || selectedImagePath != null;
         boolean hasCreds = currentUser != null && !TextUtils.isEmpty(currentUser.getApiKey()) && currentCharacter != null;
 
-        buttonSend.setEnabled(hasContent && hasCreds);
+        // Toggle Icon
+        if (hasContent) {
+            buttonSend.setImageResource(android.R.drawable.ic_menu_send);
+        } else {
+            buttonSend.setImageResource(android.R.drawable.ic_media_play); // Continue Icon
+        }
+
+        // Enable if credentials exist (Continue is valid even without content)
+        buttonSend.setEnabled(hasCreds);
     }
 
-    private void sendMessage() {
-        String messageContent = editTextMessage.getText().toString().trim();
-
+    private void handleSendAction() {
         if (currentUser == null || TextUtils.isEmpty(currentUser.getApiKey())) {
             Toast.makeText(this, "API Key is missing. Please set it in Settings.", Toast.LENGTH_LONG).show();
             return;
         }
 
+        String messageContent = editTextMessage.getText().toString().trim();
+
         if (!TextUtils.isEmpty(messageContent) || selectedImagePath != null) {
-            // Capture image path locally before clearing
+            // SEND MODE
             String imageToSend = selectedImagePath;
 
             if (conversationId == -1) {
@@ -436,10 +442,16 @@ public class ConversationActivity extends AppCompatActivity {
             } else {
                 conversationViewModel.sendMessage(messageContent, imageToSend, conversationId, currentUser, currentCharacter);
             }
-
             // Clear UI
             editTextMessage.setText("");
             clearSelectedImage();
+
+        } else {
+            // CONTINUE MODE (No text, no image)
+            conversationViewModel.continueConversation(conversationId, currentUser, currentCharacter);
+
+            // No UI to clear, but maybe show a toast?
+            Toast.makeText(this, "Continuing conversation...", Toast.LENGTH_SHORT).show();
         }
     }
 

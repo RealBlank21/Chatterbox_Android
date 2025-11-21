@@ -32,7 +32,7 @@
             android:layout_height="wrap_content"
             android:minLines="1"
             android:text="Editing this message"
-            android:textColor="@android:color/black"
+            android:textColor="@android:color/white"
             android:textSize="16sp" />
 
         <Button

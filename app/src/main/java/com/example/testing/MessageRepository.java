@@ -33,7 +33,6 @@ public class MessageRepository {
         executorService.execute(() -> messageDao.insert(message));
     }
 
-    // --- ADDED: Synchronous method for use inside other background threads ---
     public void insertSync(Message message) {
         messageDao.insert(message);
     }
@@ -42,11 +41,14 @@ public class MessageRepository {
         executorService.execute(() -> messageDao.update(message));
     }
 
+    public void updateSync(Message message) {
+        messageDao.update(message);
+    }
+
     public void delete(Message message) {
         executorService.execute(() -> messageDao.delete(message));
     }
 
-    // --- ADDED: Synchronous method to prevent race conditions during regeneration ---
     public void deleteSync(Message message) {
         messageDao.delete(message);
     }
