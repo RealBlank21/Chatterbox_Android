@@ -8,13 +8,25 @@ import java.util.concurrent.Executors;
 
 public class CharacterRepository {
 
+    private static volatile CharacterRepository INSTANCE;
     private final CharacterDao characterDao;
     private final ExecutorService executorService;
 
-    public CharacterRepository(Application application) {
+    private CharacterRepository(Application application) {
         AppDatabase db = AppDatabase.getInstance(application);
         this.characterDao = db.characterDao();
         this.executorService = Executors.newSingleThreadExecutor();
+    }
+
+    public static CharacterRepository getInstance(Application application) {
+        if (INSTANCE == null) {
+            synchronized (CharacterRepository.class) {
+                if (INSTANCE == null) {
+                    INSTANCE = new CharacterRepository(application);
+                }
+            }
+        }
+        return INSTANCE;
     }
 
     public void insert(Character character) {
@@ -33,11 +45,9 @@ public class CharacterRepository {
         return characterDao.getAllCharacters();
     }
 
-    // --- NEW ---
     public LiveData<List<Character>> getHiddenCharacters() {
         return characterDao.getHiddenCharacters();
     }
-    // -----------
 
     public LiveData<Character> getCharacterById(int id) {
         return characterDao.getCharacterById(id);

@@ -22,9 +22,10 @@ public class CharacterViewModel extends AndroidViewModel {
 
     public CharacterViewModel(Application application) {
         super(application);
-        characterRepository = new CharacterRepository(application);
-        conversationRepository = new ConversationRepository(application);
-        messageRepository = new MessageRepository(application);
+        // FIX: Use getInstance() to share the single thread pool
+        characterRepository = CharacterRepository.getInstance(application);
+        conversationRepository = ConversationRepository.getInstance(application);
+        messageRepository = MessageRepository.getInstance(application);
 
         // Logic to switch between normal list and hidden list
         displayedCharacters = Transformations.switchMap(showHiddenInput, showHidden -> {
@@ -50,7 +51,7 @@ public class CharacterViewModel extends AndroidViewModel {
     public LiveData<Character> getCharacterById(int id) { return characterRepository.getCharacterById(id); }
     public LiveData<ConversationInfo> getNavigateToConversation() { return navigateToConversation; }
 
-    // --- NEW HELPERS ---
+    // --- HELPERS ---
     public void setShowHidden(boolean show) {
         showHiddenInput.setValue(show);
     }
@@ -66,6 +67,8 @@ public class CharacterViewModel extends AndroidViewModel {
 
     public void startNewConversation(Character character) {
         Conversation newConversation = new Conversation(character.getId(), "New Chat (" + java.text.SimpleDateFormat.getDateTimeInstance().format(new java.util.Date()) + ")");
+
+        // Note: We can use the repo's executor here since we are just inserting
         conversationRepository.insert(newConversation, newId -> {
             String firstMessageContent = character.getFirstMessage();
             if (firstMessageContent != null && !firstMessageContent.trim().isEmpty()) {

@@ -13,7 +13,8 @@ public class ConversationHistoryViewModel extends AndroidViewModel {
 
     public ConversationHistoryViewModel(@NonNull Application application) {
         super(application);
-        repository = new ConversationRepository(application);
+        // FIX: Use getInstance()
+        repository = ConversationRepository.getInstance(application);
         allConversations = repository.getAllConversationsWithCharacter();
     }
 
@@ -21,7 +22,6 @@ public class ConversationHistoryViewModel extends AndroidViewModel {
         return allConversations;
     }
 
-    // --- ADD THIS METHOD ---
     public void deleteConversations(List<Integer> conversationIds) {
         repository.deleteConversations(conversationIds);
     }

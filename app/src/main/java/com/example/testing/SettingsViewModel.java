@@ -20,30 +20,39 @@ public class SettingsViewModel extends AndroidViewModel {
 
     private final UserRepository repository;
     private final LiveData<User> user;
-    private final ExecutorService executorService;
+    private final ExecutorService executorService; // Local executor for Import/Export
     private final AppDatabase db;
 
     public SettingsViewModel(@NonNull Application application) {
         super(application);
         db = AppDatabase.getInstance(application);
-        repository = new UserRepository(application);
+
+        // FIX: Use getInstance()
+        repository = UserRepository.getInstance(application);
         user = repository.getUser();
+
+        // This local executor is still needed for the heavy Import/Export logic
+        // that doesn't fit neatly into the existing Repositories.
         executorService = Executors.newSingleThreadExecutor();
+    }
+
+    @Override
+    protected void onCleared() {
+        super.onCleared();
+        // FIX: Shutdown the executor to prevent thread leaks when leaving Settings
+        executorService.shutdown();
     }
 
     public LiveData<User> getUser() {
         return user;
     }
 
-    // Updated to accept context limit
     public void saveSettings(String username, String apiKey, String preferredModel, String globalPrompt, int contextLimit) {
         User currentUser = user.getValue();
 
         if (currentUser == null) {
-            // Create new user with default context limit
             currentUser = new User(username, "", "", apiKey, preferredModel, globalPrompt, contextLimit);
         } else {
-            // Update existing user
             currentUser.setUsername(username);
             currentUser.setApiKey(apiKey);
             currentUser.setPreferredModel(preferredModel);
@@ -58,7 +67,7 @@ public class SettingsViewModel extends AndroidViewModel {
     public void exportBackup(Uri uri, ContentResolver resolver) {
         executorService.execute(() -> {
             try {
-                // 1. Gather all data
+                // 1. Gather all data using synchronous DAO methods
                 User user = db.userDao().getUserSync();
                 List<Character> characters = db.characterDao().getAllCharactersSync();
                 List<Conversation> conversations = db.conversationDao().getAllConversationsSync();
@@ -108,11 +117,10 @@ public class SettingsViewModel extends AndroidViewModel {
 
                 // 3. Write to DB in a Transaction (Clear old -> Insert new)
                 db.runInTransaction(() -> {
-                    // Clear existing data to avoid conflicts and "zombie" data
+                    // Clear existing data
                     db.messageDao().deleteAll();
                     db.conversationDao().deleteAll();
                     db.characterDao().deleteAll();
-                    // Note: We don't delete the user strictly, we just update/replace
 
                     // Restore data
                     if (backupData.user != null) db.userDao().insertOrUpdate(backupData.user);
@@ -135,7 +143,6 @@ public class SettingsViewModel extends AndroidViewModel {
         handler.post(() -> Toast.makeText(getApplication(), message, Toast.LENGTH_SHORT).show());
     }
 
-    // --- INNER CLASS FOR DATA STRUCTURE ---
     private static class BackupData {
         User user;
         List<Character> characters;
