@@ -25,6 +25,18 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // Trigger model refresh on app start with Toast feedback
+        ModelRepository.getInstance().refreshModels(isSuccess -> {
+            // Retrofit callbacks run on Main Thread by default on Android, but purely for safety:
+            runOnUiThread(() -> {
+                if (isSuccess) {
+                    Toast.makeText(MainActivity.this, "Models updated successfully", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(MainActivity.this, "Failed to update models", Toast.LENGTH_SHORT).show();
+                }
+            });
+        });
+
         FloatingActionButton fab = findViewById(R.id.fab_add_character);
         fab.setOnClickListener(view -> {
             Intent intent = new Intent(MainActivity.this, AddEditCharacterActivity.class);
@@ -38,7 +50,6 @@ public class MainActivity extends AppCompatActivity {
 
         characterViewModel = new ViewModelProvider(this).get(CharacterViewModel.class);
 
-        // Observe the dynamically switched list
         characterViewModel.getDisplayedCharacters().observe(this, adapter::setCharacters);
 
         adapter.setOnItemLongClickListener(this::showCharacterOptionsMenu);
@@ -66,7 +77,6 @@ public class MainActivity extends AppCompatActivity {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.main_menu, menu);
 
-        // Change text based on state
         MenuItem hiddenItem = menu.findItem(R.id.action_hidden_bots);
         if (characterViewModel.isShowingHidden()) {
             hiddenItem.setTitle("Show All Bots");
@@ -88,10 +98,9 @@ public class MainActivity extends AppCompatActivity {
             startActivity(intent);
             return true;
         } else if (itemId == R.id.action_hidden_bots) {
-            // Toggle View Mode
             boolean currentlyHidden = characterViewModel.isShowingHidden();
             characterViewModel.setShowHidden(!currentlyHidden);
-            invalidateOptionsMenu(); // Refresh menu text
+            invalidateOptionsMenu();
 
             String msg = !currentlyHidden ? "Showing Hidden Bots" : "Showing All Bots";
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
@@ -104,7 +113,6 @@ public class MainActivity extends AppCompatActivity {
         PopupMenu popup = new PopupMenu(this, anchorView);
         popup.getMenuInflater().inflate(R.menu.character_options_menu, popup.getMenu());
 
-        // Configure Dynamic Menu Items
         MenuItem favItem = popup.getMenu().findItem(R.id.option_favorite);
         favItem.setTitle(character.isFavorite() ? "Unfavorite" : "Favorite");
 
@@ -120,12 +128,10 @@ public class MainActivity extends AppCompatActivity {
                 showDeleteConfirmationDialog(character);
                 return true;
             } else if (itemId == R.id.option_favorite) {
-                // Toggle Favorite
                 character.setFavorite(!character.isFavorite());
                 characterViewModel.update(character);
                 return true;
             } else if (itemId == R.id.option_hide) {
-                // Toggle Hide
                 character.setHidden(!character.isHidden());
                 characterViewModel.update(character);
 

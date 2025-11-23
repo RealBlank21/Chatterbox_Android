@@ -118,10 +118,8 @@ public class ConversationViewModel extends AndroidViewModel {
         sendMessageWithId(content, imagePath, conversationId, user, character);
     }
 
-    // --- ADDED: Logic for Continuing Conversation ---
     public void continueConversation(int conversationId, User user, Character character) {
         if (conversationId == -1) {
-            // Handle edge case where user clicks continue on a fresh screen
             Conversation newConversation = new Conversation(character.getId(), "New Chat");
             conversationRepository.insert(newConversation, newId -> {
                 int id = newId.intValue();
@@ -130,15 +128,12 @@ public class ConversationViewModel extends AndroidViewModel {
                     messageRepository.insert(greeting);
                 }
                 conversationIdInput.postValue(id);
-                // Pass true to skip inserting a user message
                 triggerApiCall("", null, id, user, character, true);
             });
         } else {
-            // Pass true to skip inserting a user message
             triggerApiCall("", null, conversationId, user, character, true);
         }
     }
-    // ------------------------------------------------
 
     private void sendMessageWithId(String content, String imagePath, int conversationId, User user, Character character) {
         triggerApiCall(content, imagePath, conversationId, user, character, false);
@@ -207,6 +202,13 @@ public class ConversationViewModel extends AndroidViewModel {
                     requestMessages.add(new RequestMessage("system", "Current time: " + msgTime));
                 }
                 requestMessages.add(new RequestMessage(msg.getRole(), msg.getContent()));
+            }
+
+            if (!messagesToSend.isEmpty()) {
+                Message lastMessage = messagesToSend.get(messagesToSend.size() - 1);
+                if ("assistant".equals(lastMessage.getRole())) {
+                    requestMessages.add(new RequestMessage("user", "Continue with AI message."));
+                }
             }
 
             String model = !TextUtils.isEmpty(character.getModel()) ? character.getModel() : user.getPreferredModel();
@@ -291,7 +293,7 @@ public class ConversationViewModel extends AndroidViewModel {
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream);
             byte[] byteArray = outputStream.toByteArray();
-            return Base64.encodeToString(byteArray, Base64.NO_WRAP);
+            return Base64.encodeToString(byteArray , Base64.NO_WRAP);
         } catch (Exception e) {
             e.printStackTrace();
             return null;

@@ -23,6 +23,10 @@ public class ModelRepository {
     private List<Model> cachedModels = null;
     private final MutableLiveData<List<Model>> modelsLiveData = new MutableLiveData<>();
 
+    public interface RefreshCallback {
+        void onResult(boolean isSuccess);
+    }
+
     private ModelRepository() {
         apiService = ApiClient.getClient().create(ApiService.class);
     }
@@ -36,7 +40,7 @@ public class ModelRepository {
 
     public LiveData<List<Model>> getModels() {
         if (cachedModels == null) {
-            fetchModelsFromApi();
+            fetchModelsFromApi(null);
         } else {
             // Return immediately if cached
             modelsLiveData.setValue(cachedModels);
@@ -45,10 +49,14 @@ public class ModelRepository {
     }
 
     public void refreshModels() {
-        fetchModelsFromApi();
+        fetchModelsFromApi(null);
     }
 
-    private void fetchModelsFromApi() {
+    public void refreshModels(RefreshCallback callback) {
+        fetchModelsFromApi(callback);
+    }
+
+    private void fetchModelsFromApi(RefreshCallback callback) {
         // We don't need an API key for the public models endpoint in many cases,
         // but usually OpenRouter allows public access to /models without auth.
         // If auth is required in future, pass it here.
@@ -59,6 +67,13 @@ public class ModelRepository {
                 if (response.isSuccessful() && response.body() != null) {
                     cachedModels = response.body().getData();
                     modelsLiveData.postValue(cachedModels);
+                    if (callback != null) {
+                        callback.onResult(true);
+                    }
+                } else {
+                    if (callback != null) {
+                        callback.onResult(false);
+                    }
                 }
             }
 
@@ -66,6 +81,9 @@ public class ModelRepository {
             public void onFailure(Call<ModelResponse> call, Throwable t) {
                 // Handle error if needed, or just leave LiveData empty
                 t.printStackTrace();
+                if (callback != null) {
+                    callback.onResult(false);
+                }
             }
         });
     }
