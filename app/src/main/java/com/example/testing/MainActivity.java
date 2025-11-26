@@ -25,17 +25,19 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Trigger model refresh on app start with Toast feedback
-        ModelRepository.getInstance().refreshModels(isSuccess -> {
-            // Retrofit callbacks run on Main Thread by default on Android, but purely for safety:
-            runOnUiThread(() -> {
-                if (isSuccess) {
-                    Toast.makeText(MainActivity.this, "Models updated successfully", Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(MainActivity.this, "Failed to update models", Toast.LENGTH_SHORT).show();
-                }
+        // --- UPDATED: Only refresh if not cached ---
+        if (!ModelRepository.getInstance().isModelsCached()) {
+            ModelRepository.getInstance().refreshModels(isSuccess -> {
+                runOnUiThread(() -> {
+                    if (isSuccess) {
+                        Toast.makeText(MainActivity.this, "Models updated successfully", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(MainActivity.this, "Failed to update models", Toast.LENGTH_SHORT).show();
+                    }
+                });
             });
-        });
+        }
+        // -------------------------------------------
 
         FloatingActionButton fab = findViewById(R.id.fab_add_character);
         fab.setOnClickListener(view -> {

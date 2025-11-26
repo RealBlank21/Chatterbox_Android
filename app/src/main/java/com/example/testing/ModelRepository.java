@@ -96,4 +96,9 @@ public class ModelRepository {
         }
         return null;
     }
+
+    // --- ADDED: Check if we already have models ---
+    public boolean isModelsCached() {
+        return cachedModels != null && !cachedModels.isEmpty();
+    }
 }

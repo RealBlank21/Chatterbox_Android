@@ -82,13 +82,27 @@
                 android:inputType="textMultiLine"
                 android:maxLines="4" />
 
-            <ImageButton
-                android:id="@+id/button_send"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@android:drawable/ic_menu_send"
-                android:contentDescription="@string/send" />
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
+
+                <ImageButton
+                    android:id="@+id/button_send"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_send"
+                    android:contentDescription="@string/send" />
+
+                <ProgressBar
+                    android:id="@+id/progress_bar_generating"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:padding="8dp"
+                    android:visibility="gone" />
+
+            </FrameLayout>
+
         </LinearLayout>
     </LinearLayout>
 

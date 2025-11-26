@@ -12,11 +12,11 @@ import android.text.TextWatcher;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.PopupMenu;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -51,7 +51,8 @@ import java.util.concurrent.TimeUnit;
 public class ConversationActivity extends AppCompatActivity {
 
     private EditText editTextMessage;
-    private ImageButton buttonSend; // Changed to ImageButton
+    private ImageButton buttonSend;
+    private ProgressBar progressBarGenerating; // New field
     private ImageButton buttonAttachImage;
     private RecyclerView recyclerViewMessages;
     private MessageAdapter messageAdapter;
@@ -95,6 +96,7 @@ public class ConversationActivity extends AppCompatActivity {
 
         editTextMessage = findViewById(R.id.edit_text_message);
         buttonSend = findViewById(R.id.button_send);
+        progressBarGenerating = findViewById(R.id.progress_bar_generating); // Find ProgressBar
         buttonAttachImage = findViewById(R.id.button_attach_image);
 
         cardViewImagePreview = findViewById(R.id.card_view_image_preview);
@@ -117,6 +119,20 @@ public class ConversationActivity extends AppCompatActivity {
 
         conversationViewModel.getConversationId().observe(this, id -> {
             this.conversationId = id;
+        });
+
+        // --- NEW: Observe Generating State ---
+        conversationViewModel.getIsGenerating().observe(this, isGenerating -> {
+            if (isGenerating) {
+                // Show Loader, Hide Button
+                buttonSend.setVisibility(View.GONE);
+                progressBarGenerating.setVisibility(View.VISIBLE);
+            } else {
+                // Hide Loader, Show Button, Update Icon state
+                buttonSend.setVisibility(View.VISIBLE);
+                progressBarGenerating.setVisibility(View.GONE);
+                checkIfReadyToSend();
+            }
         });
 
         conversationViewModel.getCurrentCharacter().observe(this, character -> {
@@ -410,6 +426,11 @@ public class ConversationActivity extends AppCompatActivity {
     }
 
     private void checkIfReadyToSend() {
+        // --- NEW: If generating, don't enable button logic (it's hidden anyway) ---
+        if (Boolean.TRUE.equals(conversationViewModel.getIsGenerating().getValue())) {
+            return;
+        }
+
         String text = editTextMessage.getText().toString().trim();
         boolean hasContent = !TextUtils.isEmpty(text) || selectedImagePath != null;
         boolean hasCreds = currentUser != null && !TextUtils.isEmpty(currentUser.getApiKey()) && currentCharacter != null;
@@ -458,6 +479,12 @@ public class ConversationActivity extends AppCompatActivity {
     private void showCharacterMessageOptions(Message message, View anchorView, int position) {
         if (conversationId == -1) return;
 
+        // --- NEW: Disable if generating ---
+        if (Boolean.TRUE.equals(conversationViewModel.getIsGenerating().getValue())) {
+            Toast.makeText(this, "Please wait for generation to finish", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         PopupMenu popup = new PopupMenu(this, anchorView);
         popup.getMenuInflater().inflate(R.menu.message_options_menu, popup.getMenu());
         popup.setOnMenuItemClickListener(item -> {
@@ -471,6 +498,9 @@ public class ConversationActivity extends AppCompatActivity {
             } else if (itemId == R.id.option_edit_message) {
                 messageAdapter.setEditingPosition(position);
                 return true;
+            } else if (itemId == R.id.option_delete_message) {
+                conversationViewModel.deleteMessage(message);
+                return true;
             }
             return false;
         });
@@ -479,6 +509,12 @@ public class ConversationActivity extends AppCompatActivity {
 
     private void showUserMessageOptions(Message message, View anchorView, int position) {
         if (conversationId == -1) return;
+
+        // --- NEW: Disable if generating ---
+        if (Boolean.TRUE.equals(conversationViewModel.getIsGenerating().getValue())) {
+            Toast.makeText(this, "Please wait for generation to finish", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
         PopupMenu popup = new PopupMenu(this, anchorView);
         popup.getMenuInflater().inflate(R.menu.message_options_menu, popup.getMenu());
@@ -490,6 +526,9 @@ public class ConversationActivity extends AppCompatActivity {
                 return true;
             } else if (itemId == R.id.option_edit_message) {
                 messageAdapter.setEditingPosition(position);
+                return true;
+            } else if (itemId == R.id.option_delete_message) {
+                conversationViewModel.deleteMessage(message);
                 return true;
             }
             return false;

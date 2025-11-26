@@ -13,8 +13,6 @@ import androidx.lifecycle.Transformations;
 import com.example.testing.network.ApiClient;
 import com.example.testing.network.ApiService;
 import com.example.testing.network.request.ApiRequest;
-import com.example.testing.network.request.ContentPart;
-import com.example.testing.network.request.ImageUrl;
 import com.example.testing.network.request.RequestMessage;
 import com.example.testing.network.response.ChatCompletionResponse;
 import java.io.BufferedReader;
@@ -32,7 +30,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import okhttp3.ResponseBody;
 import retrofit2.Call;
-import retrofit2.Callback;
 import retrofit2.Response;
 
 public class ConversationViewModel extends AndroidViewModel {
@@ -52,6 +49,9 @@ public class ConversationViewModel extends AndroidViewModel {
 
     private LiveData<Character> currentCharacter;
     private LiveData<User> currentUser;
+
+    // --- NEW: Loading State ---
+    private final MutableLiveData<Boolean> isGenerating = new MutableLiveData<>(false);
 
     public ConversationViewModel(@NonNull Application application) {
         super(application);
@@ -91,6 +91,7 @@ public class ConversationViewModel extends AndroidViewModel {
     public LiveData<Character> getCurrentCharacter() { return currentCharacter; }
     public LiveData<User> getCurrentUser() { return currentUser; }
     public LiveData<Integer> getConversationId() { return conversationIdInput; }
+    public LiveData<Boolean> getIsGenerating() { return isGenerating; } // Expose state
 
     public void createConversationAndSendMessage(String content, String imagePath, User user, Character character) {
         String title = "New Chat";
@@ -148,6 +149,12 @@ public class ConversationViewModel extends AndroidViewModel {
         });
     }
 
+    public void deleteMessage(Message message) {
+        if (message != null) {
+            messageRepository.delete(message);
+        }
+    }
+
     public void update(Message message) {
         messageRepository.update(message);
     }
@@ -156,118 +163,141 @@ public class ConversationViewModel extends AndroidViewModel {
         if (user == null || character == null) return;
 
         executorService.execute(() -> {
-            if (!isRegeneration) {
-                Message userMessage = new Message("user", content, conversationId, imagePath);
-                messageRepository.insertSync(userMessage);
-                conversationRepository.updateLastUpdatedSync(conversationId, System.currentTimeMillis());
-            }
-
-            List<Message> messageHistory = messageRepository.getMessagesForConversationSync(conversationId);
-            List<RequestMessage> requestMessages = new ArrayList<>();
-
-            long creationTimestamp = !messageHistory.isEmpty() ? messageHistory.get(0).getTimestamp() : System.currentTimeMillis();
-            Date creationDate = new Date(creationTimestamp);
-            String formattedDay = dayFormatter.format(creationDate);
-            String formattedTime = timeFormatter.format(creationDate);
-
-            int limit = character.getContextLimit() != null && character.getContextLimit() > 0
-                    ? character.getContextLimit() : user.getDefaultContextLimit();
-
-            List<Message> messagesToSend = messageHistory;
-            if (limit > 0) {
-                int keepCount = limit * 2;
-                if (messageHistory.size() > keepCount) {
-                    messagesToSend = messageHistory.subList(messageHistory.size() - keepCount, messageHistory.size());
-                }
-            }
-
-            String globalPrompt = user.getGlobalSystemPrompt() != null ? user.getGlobalSystemPrompt() : "";
-            String characterPersonality = character.getPersonality() != null ? character.getPersonality() : "";
-
-            globalPrompt = globalPrompt.replace("{day}", formattedDay).replace("{time}", formattedTime);
-            characterPersonality = characterPersonality.replace("{day}", formattedDay).replace("{time}", formattedTime);
-
-            String finalSystemPrompt = globalPrompt + "\n" + characterPersonality;
-            if (character.isTimeAware()) {
-                finalSystemPrompt += "\nThis conversation was started on " + formattedDay + " at " + formattedTime + ".";
-            }
-            if (!TextUtils.isEmpty(finalSystemPrompt.trim())) {
-                requestMessages.add(new RequestMessage("system", finalSystemPrompt.trim()));
-            }
-
-            for (Message msg : messagesToSend) {
-                if (character.isTimeAware() && "user".equals(msg.getRole())) {
-                    Date msgDate = new Date(msg.getTimestamp());
-                    String msgTime = dayFormatter.format(msgDate) + " at " + timeFormatter.format(msgDate);
-                    requestMessages.add(new RequestMessage("system", "Current time: " + msgTime));
-                }
-                requestMessages.add(new RequestMessage(msg.getRole(), msg.getContent()));
-            }
-
-            if (!messagesToSend.isEmpty()) {
-                Message lastMessage = messagesToSend.get(messagesToSend.size() - 1);
-                if ("assistant".equals(lastMessage.getRole())) {
-                    requestMessages.add(new RequestMessage("user", "Continue with AI message."));
-                }
-            }
-
-            String model = !TextUtils.isEmpty(character.getModel()) ? character.getModel() : user.getPreferredModel();
-            if (TextUtils.isEmpty(model)) return;
-
-            String apiKey = "Bearer " + user.getApiKey();
-
-            ApiRequest apiRequest = new ApiRequest(model, requestMessages, character.getTemperature(), character.getMaxTokens(), true);
-            Call<ResponseBody> call = apiService.getChatCompletionStream(apiKey, apiRequest);
-
-            Message aiMessage = new Message("assistant", "", conversationId);
-            messageRepository.insertSync(aiMessage);
-
-            List<Message> updatedHistory = messageRepository.getMessagesForConversationSync(conversationId);
-            Message currentAiMessage = updatedHistory.get(updatedHistory.size() - 1);
+            // 1. Set Loading State to TRUE
+            isGenerating.postValue(true);
 
             try {
-                Response<ResponseBody> response = call.execute();
-                if (response.isSuccessful() && response.body() != null) {
-                    InputStream is = response.body().byteStream();
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-                    String line;
-                    StringBuilder contentBuilder = new StringBuilder();
+                if (!isRegeneration) {
+                    Message userMessage = new Message("user", content, conversationId, imagePath);
+                    messageRepository.insertSync(userMessage);
+                    conversationRepository.updateLastUpdatedSync(conversationId, System.currentTimeMillis());
+                }
 
-                    while ((line = reader.readLine()) != null) {
-                        if (line.startsWith("data: ")) {
-                            String jsonPart = line.substring(6).trim();
-                            if (jsonPart.equals("[DONE]")) break;
+                List<Message> messageHistory = messageRepository.getMessagesForConversationSync(conversationId);
+                List<RequestMessage> requestMessages = new ArrayList<>();
 
-                            try {
-                                ChatCompletionResponse chunk = new com.google.gson.Gson().fromJson(jsonPart, ChatCompletionResponse.class);
-                                if (chunk.getChoices() != null && !chunk.getChoices().isEmpty()) {
-                                    ChatCompletionResponse.Message delta = chunk.getChoices().get(0).getDelta();
-                                    if (delta != null && delta.getContent() != null) {
-                                        contentBuilder.append(delta.getContent());
-                                        currentAiMessage.setContent(contentBuilder.toString());
-                                        messageRepository.updateSync(currentAiMessage);
-                                        conversationRepository.updateLastUpdatedSync(conversationId, System.currentTimeMillis());
+                long creationTimestamp = !messageHistory.isEmpty() ? messageHistory.get(0).getTimestamp() : System.currentTimeMillis();
+                Date creationDate = new Date(creationTimestamp);
+                String formattedDay = dayFormatter.format(creationDate);
+                String formattedTime = timeFormatter.format(creationDate);
+
+                int limit = character.getContextLimit() != null && character.getContextLimit() > 0
+                        ? character.getContextLimit() : user.getDefaultContextLimit();
+
+                List<Message> messagesToSend = messageHistory;
+                if (limit > 0) {
+                    int keepCount = limit * 2;
+                    if (messageHistory.size() > keepCount) {
+                        messagesToSend = messageHistory.subList(messageHistory.size() - keepCount, messageHistory.size());
+                    }
+                }
+
+                String globalPrompt = user.getGlobalSystemPrompt() != null ? user.getGlobalSystemPrompt() : "";
+                String characterPersonality = character.getPersonality() != null ? character.getPersonality() : "";
+
+                globalPrompt = globalPrompt.replace("{day}", formattedDay).replace("{time}", formattedTime);
+                characterPersonality = characterPersonality.replace("{day}", formattedDay).replace("{time}", formattedTime);
+
+                String finalSystemPrompt = globalPrompt + "\n" + characterPersonality;
+                if (character.isTimeAware()) {
+                    finalSystemPrompt += "\nThis conversation was started on " + formattedDay + " at " + formattedTime + ".";
+                }
+                if (!TextUtils.isEmpty(finalSystemPrompt.trim())) {
+                    requestMessages.add(new RequestMessage("system", finalSystemPrompt.trim()));
+                }
+
+                for (Message msg : messagesToSend) {
+                    if (character.isTimeAware() && "user".equals(msg.getRole())) {
+                        Date msgDate = new Date(msg.getTimestamp());
+                        String msgTime = dayFormatter.format(msgDate) + " at " + timeFormatter.format(msgDate);
+                        requestMessages.add(new RequestMessage("system", "Current time: " + msgTime));
+                    }
+                    requestMessages.add(new RequestMessage(msg.getRole(), msg.getContent()));
+                }
+
+                if (!messagesToSend.isEmpty()) {
+                    Message lastMessage = messagesToSend.get(messagesToSend.size() - 1);
+                    if ("assistant".equals(lastMessage.getRole())) {
+                        requestMessages.add(new RequestMessage("system", "Continue with next message."));
+                    }
+                }
+
+                String model = !TextUtils.isEmpty(character.getModel()) ? character.getModel() : user.getPreferredModel();
+                if (TextUtils.isEmpty(model)) return;
+
+                String apiKey = "Bearer " + user.getApiKey();
+
+                ApiRequest apiRequest = new ApiRequest(model, requestMessages, character.getTemperature(), character.getMaxTokens(), true);
+                Call<ResponseBody> call = apiService.getChatCompletionStream(apiKey, apiRequest);
+
+                Message aiMessage = new Message("assistant", "", conversationId);
+                messageRepository.insertSync(aiMessage);
+
+                List<Message> updatedHistory = messageRepository.getMessagesForConversationSync(conversationId);
+                Message currentAiMessage = updatedHistory.get(updatedHistory.size() - 1);
+
+                try {
+                    Response<ResponseBody> response = call.execute();
+                    if (response.isSuccessful() && response.body() != null) {
+                        InputStream is = response.body().byteStream();
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+                        String line;
+                        StringBuilder contentBuilder = new StringBuilder();
+
+                        while ((line = reader.readLine()) != null) {
+                            if (line.startsWith("data: ")) {
+                                String jsonPart = line.substring(6).trim();
+                                if (jsonPart.equals("[DONE]")) break;
+
+                                try {
+                                    ChatCompletionResponse chunk = new com.google.gson.Gson().fromJson(jsonPart, ChatCompletionResponse.class);
+
+                                    if (chunk.getUsage() != null) {
+                                        currentAiMessage.setPromptTokens(chunk.getUsage().getPromptTokens());
+                                        currentAiMessage.setCompletionTokens(chunk.getUsage().getCompletionTokens());
+                                        currentAiMessage.setTokenCount(chunk.getUsage().getTotalTokens());
                                     }
+
+                                    if (chunk.getChoices() != null && !chunk.getChoices().isEmpty()) {
+                                        ChatCompletionResponse.Choice choice = chunk.getChoices().get(0);
+
+                                        ChatCompletionResponse.Message delta = choice.getDelta();
+                                        if (delta != null && delta.getContent() != null) {
+                                            contentBuilder.append(delta.getContent());
+                                            currentAiMessage.setContent(contentBuilder.toString());
+                                            messageRepository.updateSync(currentAiMessage);
+                                            conversationRepository.updateLastUpdatedSync(conversationId, System.currentTimeMillis());
+                                        }
+
+                                        if (choice.getFinishReason() != null) {
+                                            currentAiMessage.setFinishReason(choice.getFinishReason());
+                                        }
+                                    }
+                                } catch (Exception e) {
+                                    e.printStackTrace();
                                 }
-                            } catch (Exception e) {
                             }
                         }
-                    }
 
-                    String finalContent = contentBuilder.toString().trim();
-                    if (TextUtils.isEmpty(finalContent)) {
-                        finalContent = "...";
-                    }
-                    currentAiMessage.setContent(finalContent);
-                    messageRepository.updateSync(currentAiMessage);
+                        String finalContent = contentBuilder.toString().trim();
+                        if (TextUtils.isEmpty(finalContent)) {
+                            finalContent = "...";
+                        }
+                        currentAiMessage.setContent(finalContent);
+                        messageRepository.updateSync(currentAiMessage);
 
-                } else {
-                    currentAiMessage.setContent("Error: " + response.code() + " " + response.message());
+                    } else {
+                        currentAiMessage.setContent("Error: " + response.code() + " " + response.message());
+                        messageRepository.updateSync(currentAiMessage);
+                    }
+                } catch (IOException e) {
+                    currentAiMessage.setContent("Error: Stream interrupted. " + e.getMessage());
                     messageRepository.updateSync(currentAiMessage);
                 }
-            } catch (IOException e) {
-                currentAiMessage.setContent("Error: Stream interrupted. " + e.getMessage());
-                messageRepository.updateSync(currentAiMessage);
+
+            } finally {
+                // 2. Set Loading State to FALSE (Always runs)
+                isGenerating.postValue(false);
             }
         });
     }
