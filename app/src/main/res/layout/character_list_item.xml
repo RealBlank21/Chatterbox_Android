@@ -40,7 +40,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                app:cardBackgroundColor="#455A64"
+                app:cardBackgroundColor="?attr/colorPrimary"
                 app:cardCornerRadius="4dp"
                 android:visibility="gone">
 
@@ -48,7 +48,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="IMG"
-                    android:textColor="@android:color/white"
+                    android:textColor="?attr/colorOnPrimary"
                     android:textSize="10sp"
                     android:paddingStart="4dp"
                     android:paddingEnd="4dp"

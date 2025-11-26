@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {User.class, Character.class, Conversation.class, Message.class}, version = 11, exportSchema = false)
+@Database(entities = {User.class, Character.class, Conversation.class, Message.class}, version = 12, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
 
     public abstract UserDao userDao();
@@ -26,14 +26,20 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
-    // NEW MIGRATION
     static final Migration MIGRATION_10_11 = new Migration(10, 11) {
         @Override
         public void migrate(SupportSQLiteDatabase database) {
-            // Add column to user_config with default 0 (Unlimited)
             database.execSQL("ALTER TABLE user_config ADD COLUMN default_context_limit INTEGER NOT NULL DEFAULT 0");
-            // Add column to character (nullable)
             database.execSQL("ALTER TABLE character ADD COLUMN context_limit INTEGER");
+        }
+    };
+
+    // NEW MIGRATION
+    static final Migration MIGRATION_11_12 = new Migration(11, 12) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE user_config ADD COLUMN theme_color_primary INTEGER NOT NULL DEFAULT 0");
+            database.execSQL("ALTER TABLE user_config ADD COLUMN theme_color_secondary INTEGER NOT NULL DEFAULT 0");
         }
     };
 
@@ -43,7 +49,7 @@ public abstract class AppDatabase extends RoomDatabase {
                 if (INSTANCE == null) {
                     INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
                                     AppDatabase.class, DATABASE_NAME)
-                            .addMigrations(MIGRATION_6_7, MIGRATION_10_11)
+                            .addMigrations(MIGRATION_6_7, MIGRATION_10_11, MIGRATION_11_12)
                             .fallbackToDestructiveMigration()
                             .build();
                 }

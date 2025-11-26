@@ -13,7 +13,6 @@
         android:layout_above="@id/layout_delete_controls"
         tools:listitem="@layout/conversation_history_item" />
 
-    <!-- NEW DELETE CONTROLS -->
     <LinearLayout
         android:id="@+id/layout_delete_controls"
         android:layout_width="match_parent"
@@ -44,8 +43,8 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Delete (0)"
-            android:textColor="@android:color/white"
-            android:backgroundTint="#D32F2F"/>
+            android:textColor="?attr/colorOnError"
+            android:backgroundTint="?attr/colorError"/>
     </LinearLayout>
 
 </RelativeLayout>

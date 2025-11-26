@@ -48,7 +48,7 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-public class ConversationActivity extends AppCompatActivity {
+public class ConversationActivity extends BaseActivity {
 
     private EditText editTextMessage;
     private ImageButton buttonSend;

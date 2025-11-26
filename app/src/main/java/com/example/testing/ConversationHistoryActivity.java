@@ -19,7 +19,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.List;
 
-public class ConversationHistoryActivity extends AppCompatActivity {
+public class ConversationHistoryActivity extends BaseActivity {
 
     private RecyclerView recyclerView;
     private ConversationHistoryViewModel viewModel;

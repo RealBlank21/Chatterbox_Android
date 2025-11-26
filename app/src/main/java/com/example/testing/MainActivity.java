@@ -10,22 +10,21 @@ import android.widget.PopupMenu;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends BaseActivity {
 
     private CharacterViewModel characterViewModel;
+    private FloatingActionButton fab;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // --- UPDATED: Only refresh if not cached ---
         if (!ModelRepository.getInstance().isModelsCached()) {
             ModelRepository.getInstance().refreshModels(isSuccess -> {
                 runOnUiThread(() -> {
@@ -37,13 +36,16 @@ public class MainActivity extends AppCompatActivity {
                 });
             });
         }
-        // -------------------------------------------
 
-        FloatingActionButton fab = findViewById(R.id.fab_add_character);
+        fab = findViewById(R.id.fab_add_character);
         fab.setOnClickListener(view -> {
             Intent intent = new Intent(MainActivity.this, AddEditCharacterActivity.class);
             startActivity(intent);
         });
+
+        // Tint the FAB with the secondary color
+        int secondaryColor = ThemeUtils.getSecondaryColor(this);
+        ThemeUtils.tintFab(fab, secondaryColor);
 
         RecyclerView recyclerView = findViewById(R.id.character_recyclerview);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));

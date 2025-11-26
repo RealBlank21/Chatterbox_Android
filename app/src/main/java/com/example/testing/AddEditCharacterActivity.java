@@ -37,7 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class AddEditCharacterActivity extends AppCompatActivity {
+public class AddEditCharacterActivity extends BaseActivity {
 
     private ImageView imageViewProfilePreview;
     private Button buttonSelectImage;

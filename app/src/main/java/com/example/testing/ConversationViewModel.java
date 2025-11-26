@@ -218,7 +218,7 @@ public class ConversationViewModel extends AndroidViewModel {
                 if (!messagesToSend.isEmpty()) {
                     Message lastMessage = messagesToSend.get(messagesToSend.size() - 1);
                     if ("assistant".equals(lastMessage.getRole())) {
-                        requestMessages.add(new RequestMessage("system", "Continue with next message."));
+                        requestMessages.add(new RequestMessage("system", "Continue from where you stopped."));
                     }
                 }
 

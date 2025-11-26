@@ -20,26 +20,20 @@ public class SettingsViewModel extends AndroidViewModel {
 
     private final UserRepository repository;
     private final LiveData<User> user;
-    private final ExecutorService executorService; // Local executor for Import/Export
+    private final ExecutorService executorService;
     private final AppDatabase db;
 
     public SettingsViewModel(@NonNull Application application) {
         super(application);
         db = AppDatabase.getInstance(application);
-
-        // FIX: Use getInstance()
         repository = UserRepository.getInstance(application);
         user = repository.getUser();
-
-        // This local executor is still needed for the heavy Import/Export logic
-        // that doesn't fit neatly into the existing Repositories.
         executorService = Executors.newSingleThreadExecutor();
     }
 
     @Override
     protected void onCleared() {
         super.onCleared();
-        // FIX: Shutdown the executor to prevent thread leaks when leaving Settings
         executorService.shutdown();
     }
 
@@ -47,38 +41,36 @@ public class SettingsViewModel extends AndroidViewModel {
         return user;
     }
 
-    public void saveSettings(String username, String apiKey, String preferredModel, String globalPrompt, int contextLimit) {
+    // UPDATED SIGNATURE
+    public void saveSettings(String username, String apiKey, String preferredModel, String globalPrompt, int contextLimit, int colorPrimary, int colorSecondary) {
         User currentUser = user.getValue();
 
         if (currentUser == null) {
-            currentUser = new User(username, "", "", apiKey, preferredModel, globalPrompt, contextLimit);
+            currentUser = new User(username, "", "", apiKey, preferredModel, globalPrompt, contextLimit, colorPrimary, colorSecondary);
         } else {
             currentUser.setUsername(username);
             currentUser.setApiKey(apiKey);
             currentUser.setPreferredModel(preferredModel);
             currentUser.setGlobalSystemPrompt(globalPrompt);
             currentUser.setDefaultContextLimit(contextLimit);
+            currentUser.setThemeColorPrimary(colorPrimary);
+            currentUser.setThemeColorSecondary(colorSecondary);
         }
 
         repository.insertOrUpdate(currentUser);
     }
 
-    // --- EXPORT LOGIC ---
     public void exportBackup(Uri uri, ContentResolver resolver) {
         executorService.execute(() -> {
             try {
-                // 1. Gather all data using synchronous DAO methods
                 User user = db.userDao().getUserSync();
                 List<Character> characters = db.characterDao().getAllCharactersSync();
                 List<Conversation> conversations = db.conversationDao().getAllConversationsSync();
                 List<Message> messages = db.messageDao().getAllMessagesSync();
 
                 BackupData backupData = new BackupData(user, characters, conversations, messages);
-
-                // 2. Serialize to JSON
                 String json = new Gson().toJson(backupData);
 
-                // 3. Write to file
                 try (OutputStream outputStream = resolver.openOutputStream(uri)) {
                     if (outputStream != null) {
                         outputStream.write(json.getBytes());
@@ -92,11 +84,9 @@ public class SettingsViewModel extends AndroidViewModel {
         });
     }
 
-    // --- IMPORT LOGIC ---
     public void importBackup(Uri uri, ContentResolver resolver) {
         executorService.execute(() -> {
             try {
-                // 1. Read JSON from file
                 StringBuilder stringBuilder = new StringBuilder();
                 try (InputStream inputStream = resolver.openInputStream(uri);
                      BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
@@ -106,7 +96,6 @@ public class SettingsViewModel extends AndroidViewModel {
                     }
                 }
 
-                // 2. Deserialize
                 String json = stringBuilder.toString();
                 BackupData backupData = new Gson().fromJson(json, BackupData.class);
 
@@ -115,14 +104,11 @@ public class SettingsViewModel extends AndroidViewModel {
                     return;
                 }
 
-                // 3. Write to DB in a Transaction (Clear old -> Insert new)
                 db.runInTransaction(() -> {
-                    // Clear existing data
                     db.messageDao().deleteAll();
                     db.conversationDao().deleteAll();
                     db.characterDao().deleteAll();
 
-                    // Restore data
                     if (backupData.user != null) db.userDao().insertOrUpdate(backupData.user);
                     if (backupData.characters != null) db.characterDao().insertAll(backupData.characters);
                     if (backupData.conversations != null) db.conversationDao().insertAll(backupData.conversations);

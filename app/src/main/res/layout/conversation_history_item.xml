@@ -6,7 +6,6 @@
     android:gravity="center_vertical"
     android:padding="16dp">
 
-    <!-- NEW CHECKBOX -->
     <CheckBox
         android:id="@+id/checkbox_select"
         android:layout_width="wrap_content"
@@ -38,7 +37,7 @@
             android:layout_marginTop="4dp"
             android:text="New Chat"
             android:textSize="14sp"
-            android:textColor="#B0BEC5"
+            android:textColor="?android:attr/textColorSecondary"
             android:maxLines="1"
             android:ellipsize="end"/>
 
@@ -48,7 +47,7 @@
             android:layout_height="wrap_content"
             android:text="Date and Time"
             android:textSize="12sp"
-            android:textColor="#90A4AE"/>
+            android:textColor="?android:attr/textColorSecondary"/>
     </LinearLayout>
 
 </LinearLayout>
