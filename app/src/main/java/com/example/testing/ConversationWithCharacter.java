@@ -12,7 +12,25 @@ public class ConversationWithCharacter {
     @ColumnInfo(name = "name") // From 'character' table
     public String characterName;
 
-    // --- NEW FIELD ---
     @ColumnInfo(name = "message_count")
     public int messageCount;
+
+    // --- Helper Methods to access inner Conversation fields directly ---
+
+    public int getId() {
+        return conversation != null ? conversation.getId() : -1;
+    }
+
+    public int getCharacterId() {
+        return conversation != null ? conversation.getCharacterId() : -1;
+    }
+
+    public long getLastUpdated() {
+        return conversation != null ? conversation.getLastUpdated() : 0;
+    }
+
+    // FIX: Use getTitle() instead of getName()
+    public String getConversationName() {
+        return conversation != null ? conversation.getTitle() : "";
+    }
 }

@@ -33,21 +33,16 @@ public interface CharacterDao {
     @Query("SELECT * FROM character WHERE character_id = :id")
     LiveData<Character> getCharacterById(int id);
 
-    // --- UPDATED: Main list with conversation counts ---
     @Query("SELECT c.*, COUNT(conv.conversation_id) as conversation_count " +
             "FROM character c " +
             "LEFT JOIN conversation conv ON c.character_id = conv.character_fk " +
-            "WHERE c.is_hidden = 0 " +
+            "WHERE c.is_hidden = :isHidden " +
+            "AND c.name LIKE '%' || :searchQuery || '%' " +
+            "AND (:tagFilter IS NULL OR :tagFilter = '' OR c.tags LIKE '%' || :tagFilter || '%') " +
             "GROUP BY c.character_id " +
             "ORDER BY c.is_favorite DESC, c.name ASC")
-    LiveData<List<Character>> getAllCharacters();
+    LiveData<List<Character>> getFilteredCharacters(boolean isHidden, String searchQuery, String tagFilter);
 
-    // --- UPDATED: Hidden list with conversation counts ---
-    @Query("SELECT c.*, COUNT(conv.conversation_id) as conversation_count " +
-            "FROM character c " +
-            "LEFT JOIN conversation conv ON c.character_id = conv.character_fk " +
-            "WHERE c.is_hidden = 1 " +
-            "GROUP BY c.character_id " +
-            "ORDER BY c.name ASC")
-    LiveData<List<Character>> getHiddenCharacters();
+    @Query("SELECT tags FROM character WHERE tags IS NOT NULL AND tags != ''")
+    LiveData<List<String>> getAllTags();
 }

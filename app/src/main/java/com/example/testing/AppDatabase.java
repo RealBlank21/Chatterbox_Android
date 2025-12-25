@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {User.class, Character.class, Conversation.class, Message.class}, version = 12, exportSchema = false)
+@Database(entities = {User.class, Character.class, Conversation.class, Message.class}, version = 13, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
 
     public abstract UserDao userDao();
@@ -34,12 +34,18 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
-    // NEW MIGRATION
     static final Migration MIGRATION_11_12 = new Migration(11, 12) {
         @Override
         public void migrate(SupportSQLiteDatabase database) {
             database.execSQL("ALTER TABLE user_config ADD COLUMN theme_color_primary INTEGER NOT NULL DEFAULT 0");
             database.execSQL("ALTER TABLE user_config ADD COLUMN theme_color_secondary INTEGER NOT NULL DEFAULT 0");
+        }
+    };
+
+    static final Migration MIGRATION_12_13 = new Migration(12, 13) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE character ADD COLUMN tags TEXT DEFAULT ''");
         }
     };
 
@@ -49,7 +55,7 @@ public abstract class AppDatabase extends RoomDatabase {
                 if (INSTANCE == null) {
                     INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
                                     AppDatabase.class, DATABASE_NAME)
-                            .addMigrations(MIGRATION_6_7, MIGRATION_10_11, MIGRATION_11_12)
+                            .addMigrations(MIGRATION_6_7, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
                             .fallbackToDestructiveMigration()
                             .build();
                 }

@@ -1,11 +1,14 @@
 package com.example.testing;
 
 import android.content.Intent;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.util.TypedValue;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -27,6 +30,8 @@ import androidx.lifecycle.ViewModelProvider;
 
 import com.bumptech.glide.Glide;
 import com.example.testing.network.response.Model;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 
 import java.io.File;
@@ -48,12 +53,24 @@ public class AddEditCharacterActivity extends BaseActivity {
     private SwitchMaterial switchTimeAwareness;
     private SwitchMaterial switchAllowImageInput;
 
+    // Tags UI
+    private AutoCompleteTextView editTextNewTag; // Changed to AutoCompleteTextView
+    private ImageButton buttonAddTag;
+    private ChipGroup chipGroupTags;
+    private final List<String> currentTags = new ArrayList<>();
+
     private CharacterViewModel characterViewModel;
     private int currentCharacterId = -1;
     private String currentProfileImagePath = "";
+    private boolean isFavorite = false;
+    private boolean isHidden = false;
+    private long createdAt;
 
     private ArrayAdapter<String> modelsAdapter;
     private List<String> modelIds = new ArrayList<>();
+
+    // Adapter for existing tags
+    private ArrayAdapter<String> tagsAdapter;
 
     private final ActivityResultLauncher<PickVisualMediaRequest> pickMedia =
             registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
@@ -80,13 +97,49 @@ public class AddEditCharacterActivity extends BaseActivity {
         editTextFirstMessage = findViewById(R.id.edit_text_character_first_message);
         editTextTemperature = findViewById(R.id.edit_text_temperature);
         editTextMaxTokens = findViewById(R.id.edit_text_max_tokens);
-        editTextContextLimit = findViewById(R.id.edit_text_context_limit); // NEW
+        editTextContextLimit = findViewById(R.id.edit_text_context_limit);
         switchTimeAwareness = findViewById(R.id.switch_time_awareness);
         switchAllowImageInput = findViewById(R.id.switch_allow_image_input);
 
+        // Tags Init
+        editTextNewTag = findViewById(R.id.edit_text_new_tag);
+        buttonAddTag = findViewById(R.id.button_add_tag);
+        chipGroupTags = findViewById(R.id.chip_group_character_tags);
+
+        // --- Model Adapter Setup ---
         modelsAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, modelIds);
         editTextModel.setAdapter(modelsAdapter);
 
+        // --- View Model Setup ---
+        characterViewModel = new ViewModelProvider(this).get(CharacterViewModel.class);
+
+        // --- Tags Adapter Setup ---
+        tagsAdapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, new ArrayList<>());
+        editTextNewTag.setAdapter(tagsAdapter);
+
+        // Observe all tags to populate suggestions
+        characterViewModel.getAllTags().observe(this, tags -> {
+            if (tags != null) {
+                tagsAdapter.clear();
+                tagsAdapter.addAll(tags);
+                tagsAdapter.notifyDataSetChanged();
+            }
+        });
+
+        // When a tag is selected from dropdown, add it immediately
+        editTextNewTag.setOnItemClickListener((parent, view, position, id) -> {
+            String selectedTag = tagsAdapter.getItem(position);
+            addNewTag(selectedTag);
+            editTextNewTag.setText("");
+        });
+
+        // Add Tag Button Logic (for manual typing)
+        buttonAddTag.setOnClickListener(v -> {
+            String tag = editTextNewTag.getText().toString().trim();
+            addNewTag(tag);
+        });
+
+        // --- Model Repository Logic ---
         ModelRepository.getInstance().getModels().observe(this, models -> {
             if (models != null) {
                 modelIds.clear();
@@ -115,7 +168,6 @@ public class AddEditCharacterActivity extends BaseActivity {
             }
         });
 
-        characterViewModel = new ViewModelProvider(this).get(CharacterViewModel.class);
 
         getSupportActionBar().setHomeAsUpIndicator(android.R.drawable.ic_menu_close_clear_cancel);
 
@@ -140,7 +192,7 @@ public class AddEditCharacterActivity extends BaseActivity {
                     editTextFirstMessage.setText(character.getFirstMessage());
                     if (character.getTemperature() != null) editTextTemperature.setText(String.valueOf(character.getTemperature()));
                     if (character.getMaxTokens() != null) editTextMaxTokens.setText(String.valueOf(character.getMaxTokens()));
-                    if (character.getContextLimit() != null) editTextContextLimit.setText(String.valueOf(character.getContextLimit())); // NEW
+                    if (character.getContextLimit() != null) editTextContextLimit.setText(String.valueOf(character.getContextLimit()));
 
                     switchTimeAwareness.setChecked(character.isTimeAware());
                     switchAllowImageInput.setChecked(character.isAllowImageInput());
@@ -149,11 +201,80 @@ public class AddEditCharacterActivity extends BaseActivity {
                     if (!TextUtils.isEmpty(currentProfileImagePath)) {
                         Glide.with(this).load(currentProfileImagePath).into(imageViewProfilePreview);
                     }
+
+                    isFavorite = character.isFavorite();
+                    isHidden = character.isHidden();
+                    createdAt = character.getCreatedAt();
+
+                    // Load Tags
+                    loadTags(character.getTags());
                 }
             });
         } else {
             setTitle("Add Character");
         }
+    }
+
+    private void addNewTag(String tag) {
+        if (!tag.isEmpty()) {
+            if (!currentTags.contains(tag)) {
+                addTagChip(tag);
+                currentTags.add(tag);
+                editTextNewTag.setText("");
+            } else {
+                Toast.makeText(this, "Tag already exists", Toast.LENGTH_SHORT).show();
+                editTextNewTag.setText("");
+            }
+        }
+    }
+
+    private void loadTags(String tagsString) {
+        currentTags.clear();
+        chipGroupTags.removeAllViews();
+        if (tagsString != null && !tagsString.isEmpty()) {
+            String[] split = tagsString.split("\\|");
+            for (String tag : split) {
+                if (!tag.trim().isEmpty()) {
+                    currentTags.add(tag.trim());
+                    addTagChip(tag.trim());
+                }
+            }
+        }
+    }
+
+    private void addTagChip(String tag) {
+        Chip chip = new Chip(this);
+        chip.setText(tag);
+        chip.setCloseIconVisible(true);
+        chip.setOnCloseIconClickListener(v -> {
+            chipGroupTags.removeView(chip);
+            currentTags.remove(tag);
+        });
+
+        // --- Coloring Logic ---
+        int color = getTagColor(tag);
+        chip.setTextColor(color);
+        chip.setChipStrokeColor(ColorStateList.valueOf(color));
+        chip.setChipStrokeWidth(dpToPx(1));
+        chip.setChipBackgroundColor(ColorStateList.valueOf(Color.TRANSPARENT));
+        chip.setCloseIconTint(ColorStateList.valueOf(color));
+        // ----------------------
+
+        chipGroupTags.addView(chip);
+    }
+
+    private int getTagColor(String tag) {
+        int hash = tag.hashCode();
+        float[] hsv = new float[3];
+        hsv[0] = Math.abs(hash) % 360;
+        hsv[1] = 0.6f + (Math.abs(hash * 7) % 40) / 100f;
+        hsv[2] = 0.65f + (Math.abs(hash * 13) % 35) / 100f; // Slightly darker for edit view to be readable
+        return Color.HSVToColor(hsv);
+    }
+
+    private float dpToPx(int dp) {
+        return TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP, dp, getResources().getDisplayMetrics());
     }
 
     private void updateModelInfo(String modelId) {
@@ -229,22 +350,30 @@ public class AddEditCharacterActivity extends BaseActivity {
             }
         }
 
-        // NEW: Handle context limit
         Integer contextLimit = null;
         if (!TextUtils.isEmpty(contextLimitStr)) {
             try {
                 int val = Integer.parseInt(contextLimitStr);
                 if (val > 0) contextLimit = val;
             } catch (NumberFormatException e) {
-                // Ignore invalid input
             }
         }
 
-        // Updated constructor call
-        Character character = new Character(name, personality, firstMessage, model, currentProfileImagePath, "", "", temperature, maxTokens, isTimeAware, allowImageInput, contextLimit);
+        // Process Tags
+        StringBuilder tagsBuilder = new StringBuilder();
+        for (String t : currentTags) {
+            if (tagsBuilder.length() > 0) tagsBuilder.append("|");
+            tagsBuilder.append(t);
+        }
+        String tags = tagsBuilder.toString();
+
+        Character character = new Character(name, personality, firstMessage, model, currentProfileImagePath, "", "", temperature, maxTokens, isTimeAware, allowImageInput, contextLimit, tags);
+        character.setFavorite(isFavorite);
+        character.setHidden(isHidden);
 
         if (currentCharacterId != -1) {
             character.setId(currentCharacterId);
+            character.setCreatedAt(createdAt);
             characterViewModel.update(character);
         } else {
             characterViewModel.insert(character);

@@ -43,7 +43,6 @@ public interface ConversationDao {
     @Query("SELECT * FROM conversation WHERE character_fk = :characterId ORDER BY last_updated DESC")
     List<Conversation> getConversationsForCharacter(int characterId);
 
-    // --- UPDATED QUERY ---
     @Transaction
     @Query("SELECT conversation.*, character.name, " +
             "(SELECT COUNT(*) FROM chat_message WHERE conversation_fk = conversation.conversation_id) AS message_count " +
@@ -51,4 +50,14 @@ public interface ConversationDao {
             "INNER JOIN character ON conversation.character_fk = character.character_id " +
             "ORDER BY conversation.last_updated DESC")
     LiveData<List<ConversationWithCharacter>> getAllConversationsWithCharacter();
+
+    // --- NEW PAGED QUERY ---
+    @Transaction
+    @Query("SELECT conversation.*, character.name, " +
+            "(SELECT COUNT(*) FROM chat_message WHERE conversation_fk = conversation.conversation_id) AS message_count " +
+            "FROM conversation " +
+            "INNER JOIN character ON conversation.character_fk = character.character_id " +
+            "ORDER BY conversation.last_updated DESC " +
+            "LIMIT :limit OFFSET :offset")
+    List<ConversationWithCharacter> getConversationsWithCharacterPaged(int limit, int offset);
 }

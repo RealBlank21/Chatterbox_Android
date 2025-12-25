@@ -5,21 +5,30 @@ import androidx.lifecycle.LiveData;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import android.os.Handler;
+import android.os.Looper;
 
 public class ConversationRepository {
 
     private static volatile ConversationRepository INSTANCE;
     private final ConversationDao conversationDao;
     private final ExecutorService executorService;
+    private final Handler mainHandler; // To post results back to UI thread
 
     public interface InsertCallback {
         void onInsertFinished(Long newId);
+    }
+
+    // Callback for paged data
+    public interface DataCallback<T> {
+        void onDataLoaded(T data);
     }
 
     private ConversationRepository(Application application) {
         AppDatabase db = AppDatabase.getInstance(application);
         this.conversationDao = db.conversationDao();
         this.executorService = Executors.newSingleThreadExecutor();
+        this.mainHandler = new Handler(Looper.getMainLooper());
     }
 
     public static ConversationRepository getInstance(Application application) {
@@ -33,11 +42,23 @@ public class ConversationRepository {
         return INSTANCE;
     }
 
+    // --- PAGINATION METHOD ---
+    public void loadConversationsPaged(int limit, int offset, DataCallback<List<ConversationWithCharacter>> callback) {
+        executorService.execute(() -> {
+            List<ConversationWithCharacter> data = conversationDao.getConversationsWithCharacterPaged(limit, offset);
+            mainHandler.post(() -> {
+                if (callback != null) {
+                    callback.onDataLoaded(data);
+                }
+            });
+        });
+    }
+
     public void insert(Conversation conversation, InsertCallback callback) {
         executorService.execute(() -> {
             long newId = conversationDao.insert(conversation);
             if (callback != null) {
-                callback.onInsertFinished(newId);
+                mainHandler.post(() -> callback.onInsertFinished(newId));
             }
         });
     }
@@ -50,7 +71,6 @@ public class ConversationRepository {
         executorService.execute(() -> conversationDao.updateLastUpdated(conversationId, timestamp));
     }
 
-    // --- ADDED: Sync version ---
     public void updateLastUpdatedSync(int conversationId, long timestamp) {
         conversationDao.updateLastUpdated(conversationId, timestamp);
     }

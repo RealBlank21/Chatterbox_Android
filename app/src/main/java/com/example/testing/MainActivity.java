@@ -1,7 +1,10 @@
 package com.example.testing;
 
 import android.content.Intent;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.util.TypedValue;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -10,52 +13,79 @@ import android.widget.PopupMenu;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.SearchView;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import java.util.List;
 
 public class MainActivity extends BaseActivity {
 
     private CharacterViewModel characterViewModel;
     private FloatingActionButton fab;
+    private SearchView searchView;
+    private ChipGroup chipGroupTags;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        characterViewModel = new ViewModelProvider(this).get(CharacterViewModel.class);
+
         if (!ModelRepository.getInstance().isModelsCached()) {
             ModelRepository.getInstance().refreshModels(isSuccess -> {
                 runOnUiThread(() -> {
                     if (isSuccess) {
                         Toast.makeText(MainActivity.this, "Models updated successfully", Toast.LENGTH_SHORT).show();
-                    } else {
-                        Toast.makeText(MainActivity.this, "Failed to update models", Toast.LENGTH_SHORT).show();
                     }
                 });
             });
         }
 
+        // --- UI Initialization ---
         fab = findViewById(R.id.fab_add_character);
+        searchView = findViewById(R.id.search_view);
+        chipGroupTags = findViewById(R.id.chip_group_tags);
+        RecyclerView recyclerView = findViewById(R.id.character_recyclerview);
+
+        // --- FAB Setup ---
         fab.setOnClickListener(view -> {
             Intent intent = new Intent(MainActivity.this, AddEditCharacterActivity.class);
             startActivity(intent);
         });
-
-        // Tint the FAB with the secondary color
         int secondaryColor = ThemeUtils.getSecondaryColor(this);
         ThemeUtils.tintFab(fab, secondaryColor);
 
-        RecyclerView recyclerView = findViewById(R.id.character_recyclerview);
+        // --- RecyclerView Setup ---
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         final CharacterAdapter adapter = new CharacterAdapter();
         recyclerView.setAdapter(adapter);
 
-        characterViewModel = new ViewModelProvider(this).get(CharacterViewModel.class);
+        // --- Search View Setup ---
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) { return false; }
 
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                characterViewModel.setSearchQuery(newText);
+                return true;
+            }
+        });
+
+        // --- Observers ---
         characterViewModel.getDisplayedCharacters().observe(this, adapter::setCharacters);
 
+        // Populate ChipGroup with tags
+        characterViewModel.getAllTags().observe(this, tags -> {
+            populateTagChips(tags);
+        });
+
+        // --- Navigation Logic ---
         adapter.setOnItemLongClickListener(this::showCharacterOptionsMenu);
 
         adapter.setOnItemClickListener(character -> {
@@ -74,6 +104,67 @@ public class MainActivity extends BaseActivity {
                 characterViewModel.doneNavigating();
             }
         });
+    }
+
+    private void populateTagChips(List<String> tags) {
+        String currentSelection = characterViewModel.getCurrentTagFilter();
+        chipGroupTags.removeAllViews();
+
+        for (String tag : tags) {
+            Chip chip = new Chip(this);
+            chip.setText(tag);
+            chip.setCheckable(true);
+            chip.setClickable(true);
+
+            // --- Coloring Logic ---
+            int color = getTagColor(tag);
+            chip.setTextColor(color);
+            chip.setChipStrokeColor(ColorStateList.valueOf(color));
+            chip.setChipStrokeWidth(dpToPx(1)); // Set border width
+            chip.setChipBackgroundColor(ColorStateList.valueOf(Color.TRANSPARENT)); // Transparent background
+            chip.setRippleColor(ColorStateList.valueOf(Color.parseColor("#20" + Integer.toHexString(color).substring(2)))); // Light ripple
+            // ----------------------
+
+            if (tag.equals(currentSelection)) {
+                chip.setChecked(true);
+                // Optional: Invert colors for selected state
+                chip.setChipBackgroundColor(ColorStateList.valueOf(color));
+                chip.setTextColor(Color.WHITE);
+            }
+
+            chip.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                if (isChecked) {
+                    characterViewModel.setTagFilter(tag);
+                    // Update visual state for selected
+                    chip.setChipBackgroundColor(ColorStateList.valueOf(color));
+                    chip.setTextColor(Color.WHITE);
+                } else {
+                    if (tag.equals(characterViewModel.getCurrentTagFilter())) {
+                        characterViewModel.setTagFilter("");
+                    }
+                    // Revert visual state
+                    chip.setChipBackgroundColor(ColorStateList.valueOf(Color.TRANSPARENT));
+                    chip.setTextColor(color);
+                }
+            });
+            chipGroupTags.addView(chip);
+        }
+    }
+
+    // Helper to generate a consistent random color from the tag text
+    private int getTagColor(String tag) {
+        int hash = tag.hashCode();
+        // Use HSV to generate nice, readable colors (avoiding too bright/white or too dark)
+        float[] hsv = new float[3];
+        hsv[0] = Math.abs(hash) % 360;      // Hue: Random
+        hsv[1] = 0.6f + (Math.abs(hash * 7) % 40) / 100f; // Saturation: 0.6 - 1.0
+        hsv[2] = 0.7f + (Math.abs(hash * 13) % 30) / 100f; // Value: 0.7 - 1.0
+        return Color.HSVToColor(hsv);
+    }
+
+    private float dpToPx(int dp) {
+        return TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP, dp, getResources().getDisplayMetrics());
     }
 
     @Override

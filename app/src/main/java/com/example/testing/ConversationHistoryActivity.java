@@ -38,7 +38,8 @@ public class ConversationHistoryActivity extends BaseActivity {
         setTitle("Conversation History");
 
         recyclerView = findViewById(R.id.recycler_view_conversation_history);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        LinearLayoutManager layoutManager = new LinearLayoutManager(this);
+        recyclerView.setLayoutManager(layoutManager);
         recyclerView.setHasFixedSize(true);
 
         // Controls
@@ -50,11 +51,32 @@ public class ConversationHistoryActivity extends BaseActivity {
         recyclerView.setAdapter(adapter);
 
         viewModel = new ViewModelProvider(this).get(ConversationHistoryViewModel.class);
+
+        // Observe data changes
         viewModel.getAllConversations().observe(this, conversationWithCharacters -> {
             adapter.setConversations(conversationWithCharacters);
             // If we were selecting all, and list changed (deleted), reset selection
             if (adapter.isDeleteMode() && conversationWithCharacters.isEmpty()) {
                 toggleDeleteMode(false);
+            }
+        });
+
+        // Add Scroll Listener for Pagination
+        recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+
+                if (dy > 0) { // Scrolling down
+                    int visibleItemCount = layoutManager.getChildCount();
+                    int totalItemCount = layoutManager.getItemCount();
+                    int firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition();
+
+                    if ((visibleItemCount + firstVisibleItemPosition) >= totalItemCount
+                            && firstVisibleItemPosition >= 0) {
+                        viewModel.loadNextPage();
+                    }
+                }
             }
         });
 
