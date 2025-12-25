@@ -1,12 +1,13 @@
 package com.example.testing;
 
+import androidx.annotation.Nullable;
+import androidx.room.ColumnInfo;
 import androidx.room.Entity;
 import androidx.room.Ignore;
+import androidx.room.Index;
 import androidx.room.PrimaryKey;
-import androidx.room.ColumnInfo;
-import androidx.annotation.Nullable;
 
-@Entity(tableName = "chat_message")
+@Entity(tableName = "chat_message", indices = {@Index(value = "conversation_fk", name = "index_chat_message_conversation_fk")})
 public class Message {
 
     @PrimaryKey(autoGenerate = true)
@@ -30,20 +31,18 @@ public class Message {
     private String imagePath;
 
     @ColumnInfo(name = "token_count", defaultValue = "0")
-    private int tokenCount; // Total tokens (Input + Output)
+    private int tokenCount;
 
-    // --- NEW FIELDS ---
     @ColumnInfo(name = "prompt_tokens", defaultValue = "0")
-    private int promptTokens; // Input
+    private int promptTokens;
 
     @ColumnInfo(name = "completion_tokens", defaultValue = "0")
-    private int completionTokens; // Output
+    private int completionTokens;
 
     @Nullable
     @ColumnInfo(name = "finish_reason")
     private String finishReason;
 
-    // Constructor used by Room
     public Message(int index, String role, String content, long timestamp, int conversationId, String imagePath, int tokenCount, int promptTokens, int completionTokens, String finishReason) {
         this.index = index;
         this.role = role;
@@ -79,7 +78,6 @@ public class Message {
         this.finishReason = null;
     }
 
-    // --- Getters ---
     public int getIndex() { return index; }
     public String getRole() { return role; }
     public String getContent() { return content; }
@@ -93,7 +91,6 @@ public class Message {
     @Nullable
     public String getFinishReason() { return finishReason; }
 
-    // --- Setters ---
     public void setIndex(int index) { this.index = index; }
     public void setRole(String role) { this.role = role; }
     public void setContent(String content) { this.content = content; }

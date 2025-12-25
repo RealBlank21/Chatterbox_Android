@@ -1,21 +1,19 @@
 package com.example.testing;
 
+import androidx.room.ColumnInfo;
 import androidx.room.Entity;
 import androidx.room.Ignore;
+import androidx.room.Index;
 import androidx.room.PrimaryKey;
-import androidx.room.ColumnInfo;
 import java.io.Serializable;
 
-@Entity(tableName = "conversation")
+@Entity(tableName = "conversation", indices = {@Index(value = "last_updated", name = "index_conversation_last_updated")})
 public class Conversation implements Serializable {
-
-    // --- Fields ---
 
     @PrimaryKey(autoGenerate = true)
     @ColumnInfo(name = "conversation_id")
     private int id;
 
-    // Foreign Key to the Character entity
     @ColumnInfo(name = "character_fk")
     private int characterId;
 
@@ -31,15 +29,8 @@ public class Conversation implements Serializable {
     @ColumnInfo(name = "is_active")
     private Boolean isActive;
 
-    // -----------------------------------------------------------------
-    // CONSTRUCTORS
-    // -----------------------------------------------------------------
-
-    // Constructor required by Room for creating an object from a database row
     public Conversation() { }
 
-
-    // Constructor for creating a NEW conversation (Updated to include isActive)
     @Ignore
     public Conversation(int characterId, String title) {
         this.characterId = characterId;
@@ -47,12 +38,8 @@ public class Conversation implements Serializable {
         long now = System.currentTimeMillis();
         this.createdAt = now;
         this.lastUpdated = now;
-        this.isActive = true; // Defaulting new conversations to active
+        this.isActive = true;
     }
-
-    // -----------------------------------------------------------------
-    // GETTERS
-    // -----------------------------------------------------------------
 
     public int getId() { return id; }
     public int getCharacterId() { return characterId; }
@@ -60,10 +47,6 @@ public class Conversation implements Serializable {
     public long getCreatedAt() { return createdAt; }
     public long getLastUpdated() { return lastUpdated; }
     public Boolean getIsActive() { return isActive; }
-
-    // -----------------------------------------------------------------
-    // SETTERS
-    // -----------------------------------------------------------------
 
     public void setId(int id) { this.id = id; }
     public void setCharacterId(int characterId) { this.characterId = characterId; }
