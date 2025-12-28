@@ -10,6 +10,8 @@ import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -59,6 +61,8 @@ public class SettingsActivity extends BaseActivity {
     private View layoutPersona, layoutLlm, layoutAppearance, layoutBackup;
 
     // Appearance Inputs
+    private RadioGroup radioGroupListMode;
+    private RadioButton radioModeList, radioModeCard;
     private CardView previewPrimary, previewSecondary;
     private EditText hexPrimary, hexSecondary;
     private SeekBar seekPrimaryR, seekPrimaryG, seekPrimaryB;
@@ -137,6 +141,10 @@ public class SettingsActivity extends BaseActivity {
         buttonSave = findViewById(R.id.button_save_settings);
         buttonExport = findViewById(R.id.button_export_data);
         buttonImport = findViewById(R.id.button_import_data);
+
+        radioGroupListMode = findViewById(R.id.radio_group_list_mode);
+        radioModeList = findViewById(R.id.radio_mode_list);
+        radioModeCard = findViewById(R.id.radio_mode_card);
 
         previewPrimary = findViewById(R.id.card_preview_primary);
         previewSecondary = findViewById(R.id.card_preview_secondary);
@@ -297,6 +305,13 @@ public class SettingsActivity extends BaseActivity {
                 setSeekBarsFromColor(s, seekSecondaryR, seekSecondaryG, seekSecondaryB);
                 updatePrimaryColor();
                 updateSecondaryColor();
+
+                // Set Radio Button
+                if ("card".equals(user.getCharacterListMode())) {
+                    radioModeCard.setChecked(true);
+                } else {
+                    radioModeList.setChecked(true);
+                }
             }
         });
 
@@ -387,11 +402,14 @@ public class SettingsActivity extends BaseActivity {
             return;
         }
 
+        // Get view mode
+        String viewMode = radioModeCard.isChecked() ? "card" : "list";
+
         // Save immediately to Prefs
         ThemeUtils.saveColors(this, currentColorPrimary, currentColorSecondary);
 
         // Save to DB
-        settingsViewModel.saveSettings(username, apiKey, preferredModel, globalPrompt, contextLimit, currentColorPrimary, currentColorSecondary);
+        settingsViewModel.saveSettings(username, apiKey, preferredModel, globalPrompt, contextLimit, currentColorPrimary, currentColorSecondary, viewMode);
         Toast.makeText(this, "Settings saved! Restarting...", Toast.LENGTH_SHORT).show();
 
         // Restart Activity to apply changes

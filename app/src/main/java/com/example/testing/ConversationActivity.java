@@ -9,6 +9,8 @@ import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -17,12 +19,14 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.PopupMenu;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.PickVisualMediaRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
@@ -52,7 +56,7 @@ public class ConversationActivity extends BaseActivity {
 
     private EditText editTextMessage;
     private ImageButton buttonSend;
-    private ProgressBar progressBarGenerating; // New field
+    private ProgressBar progressBarGenerating;
     private ImageButton buttonAttachImage;
     private RecyclerView recyclerViewMessages;
     private MessageAdapter messageAdapter;
@@ -61,6 +65,10 @@ public class ConversationActivity extends BaseActivity {
     private CardView cardViewImagePreview;
     private ImageView imageViewPreview;
     private ImageButton buttonRemoveImage;
+
+    // Custom Action Bar Views
+    private ImageView actionBarImage;
+    private TextView actionBarName;
 
     private ConversationViewModel conversationViewModel;
     private int conversationId = -1;
@@ -84,6 +92,29 @@ public class ConversationActivity extends BaseActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_conversation);
 
+        // --- Custom Action Bar Setup ---
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar != null) {
+            actionBar.setDisplayShowCustomEnabled(true);
+            actionBar.setDisplayShowTitleEnabled(false);
+            // Ensure back arrow is visible (usually implied, but explicit here)
+            actionBar.setDisplayHomeAsUpEnabled(true);
+
+            LayoutInflater inflater = LayoutInflater.from(this);
+            View customView = inflater.inflate(R.layout.action_bar_title, null);
+
+            ActionBar.LayoutParams params = new ActionBar.LayoutParams(
+                    ActionBar.LayoutParams.WRAP_CONTENT,
+                    ActionBar.LayoutParams.WRAP_CONTENT,
+                    Gravity.CENTER_VERTICAL | Gravity.START
+            );
+            actionBar.setCustomView(customView, params);
+
+            actionBarImage = customView.findViewById(R.id.image_view_title_profile);
+            actionBarName = customView.findViewById(R.id.text_view_title_name);
+        }
+        // -------------------------------
+
         Intent intent = getIntent();
         int characterId = intent.getIntExtra("CHARACTER_ID", -1);
         conversationId = intent.getIntExtra("CONVERSATION_ID", -1);
@@ -96,7 +127,7 @@ public class ConversationActivity extends BaseActivity {
 
         editTextMessage = findViewById(R.id.edit_text_message);
         buttonSend = findViewById(R.id.button_send);
-        progressBarGenerating = findViewById(R.id.progress_bar_generating); // Find ProgressBar
+        progressBarGenerating = findViewById(R.id.progress_bar_generating);
         buttonAttachImage = findViewById(R.id.button_attach_image);
 
         cardViewImagePreview = findViewById(R.id.card_view_image_preview);
@@ -121,14 +152,11 @@ public class ConversationActivity extends BaseActivity {
             this.conversationId = id;
         });
 
-        // --- NEW: Observe Generating State ---
         conversationViewModel.getIsGenerating().observe(this, isGenerating -> {
             if (isGenerating) {
-                // Show Loader, Hide Button
                 buttonSend.setVisibility(View.GONE);
                 progressBarGenerating.setVisibility(View.VISIBLE);
             } else {
-                // Hide Loader, Show Button, Update Icon state
                 buttonSend.setVisibility(View.VISIBLE);
                 progressBarGenerating.setVisibility(View.GONE);
                 checkIfReadyToSend();
@@ -138,10 +166,23 @@ public class ConversationActivity extends BaseActivity {
         conversationViewModel.getCurrentCharacter().observe(this, character -> {
             if (character != null) {
                 this.currentCharacter = character;
-                setTitle(character.getName());
+
+                // Update Custom Action Bar
+                if (actionBarName != null) {
+                    actionBarName.setText(character.getName());
+                }
+                if (actionBarImage != null) {
+                    String imagePath = character.getCharacterProfileImagePath();
+                    if (!TextUtils.isEmpty(imagePath)) {
+                        Glide.with(this).load(imagePath).circleCrop().into(actionBarImage);
+                    } else {
+                        actionBarImage.setImageResource(R.mipmap.ic_launcher_round);
+                    }
+                }
+                // ------------------------
+
                 checkIfReadyToSend();
 
-                // Show/Hide Attach Button
                 if (character.isAllowImageInput()) {
                     buttonAttachImage.setVisibility(View.VISIBLE);
                 } else {
@@ -191,7 +232,6 @@ public class ConversationActivity extends BaseActivity {
             }
         });
 
-        // Text Watcher to enable/disable send button
         editTextMessage.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) { checkIfReadyToSend(); }
@@ -263,6 +303,9 @@ public class ConversationActivity extends BaseActivity {
             return true;
         } else if (id == R.id.action_conversation_info) {
             showConversationInfo();
+            return true;
+        } else if (id == android.R.id.home) {
+            finish();
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -426,7 +469,6 @@ public class ConversationActivity extends BaseActivity {
     }
 
     private void checkIfReadyToSend() {
-        // --- NEW: If generating, don't enable button logic (it's hidden anyway) ---
         if (Boolean.TRUE.equals(conversationViewModel.getIsGenerating().getValue())) {
             return;
         }
@@ -435,14 +477,12 @@ public class ConversationActivity extends BaseActivity {
         boolean hasContent = !TextUtils.isEmpty(text) || selectedImagePath != null;
         boolean hasCreds = currentUser != null && !TextUtils.isEmpty(currentUser.getApiKey()) && currentCharacter != null;
 
-        // Toggle Icon
         if (hasContent) {
             buttonSend.setImageResource(android.R.drawable.ic_menu_send);
         } else {
-            buttonSend.setImageResource(android.R.drawable.ic_media_play); // Continue Icon
+            buttonSend.setImageResource(android.R.drawable.ic_media_play);
         }
 
-        // Enable if credentials exist (Continue is valid even without content)
         buttonSend.setEnabled(hasCreds);
     }
 
@@ -455,7 +495,6 @@ public class ConversationActivity extends BaseActivity {
         String messageContent = editTextMessage.getText().toString().trim();
 
         if (!TextUtils.isEmpty(messageContent) || selectedImagePath != null) {
-            // SEND MODE
             String imageToSend = selectedImagePath;
 
             if (conversationId == -1) {
@@ -463,15 +502,11 @@ public class ConversationActivity extends BaseActivity {
             } else {
                 conversationViewModel.sendMessage(messageContent, imageToSend, conversationId, currentUser, currentCharacter);
             }
-            // Clear UI
             editTextMessage.setText("");
             clearSelectedImage();
 
         } else {
-            // CONTINUE MODE (No text, no image)
             conversationViewModel.continueConversation(conversationId, currentUser, currentCharacter);
-
-            // No UI to clear, but maybe show a toast?
             Toast.makeText(this, "Continuing conversation...", Toast.LENGTH_SHORT).show();
         }
     }
@@ -479,7 +514,6 @@ public class ConversationActivity extends BaseActivity {
     private void showCharacterMessageOptions(Message message, View anchorView, int position) {
         if (conversationId == -1) return;
 
-        // --- NEW: Disable if generating ---
         if (Boolean.TRUE.equals(conversationViewModel.getIsGenerating().getValue())) {
             Toast.makeText(this, "Please wait for generation to finish", Toast.LENGTH_SHORT).show();
             return;
@@ -510,7 +544,6 @@ public class ConversationActivity extends BaseActivity {
     private void showUserMessageOptions(Message message, View anchorView, int position) {
         if (conversationId == -1) return;
 
-        // --- NEW: Disable if generating ---
         if (Boolean.TRUE.equals(conversationViewModel.getIsGenerating().getValue())) {
             Toast.makeText(this, "Please wait for generation to finish", Toast.LENGTH_SHORT).show();
             return;

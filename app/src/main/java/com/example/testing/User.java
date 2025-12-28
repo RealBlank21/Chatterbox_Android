@@ -9,7 +9,7 @@ import java.io.Serializable;
 @Entity(tableName = "user_config")
 public class User implements Serializable {
 
-    private static final long serialVersionUID = 4L;
+    private static final long serialVersionUID = 5L;
 
     @PrimaryKey
     @ColumnInfo(name = "config_id")
@@ -36,29 +36,39 @@ public class User implements Serializable {
     @ColumnInfo(name = "default_context_limit", defaultValue = "0")
     private int defaultContextLimit;
 
-    // --- NEW FIELDS ---
     @ColumnInfo(name = "theme_color_primary", defaultValue = "0")
     private int themeColorPrimary;
 
     @ColumnInfo(name = "theme_color_secondary", defaultValue = "0")
     private int themeColorSecondary;
 
+    // --- NEW FIELD ---
+    @ColumnInfo(name = "character_list_mode", defaultValue = "list")
+    private String characterListMode;
+
     @Ignore
     public User(String username, String email, String profileImagePath,
                 String apiKey, String preferredModel, String globalSystemPrompt) {
-        this(username, email, profileImagePath, apiKey, preferredModel, globalSystemPrompt, 0, 0, 0);
+        this(username, email, profileImagePath, apiKey, preferredModel, globalSystemPrompt, 0, 0, 0, "list");
     }
 
     @Ignore
     public User(String username, String email, String profileImagePath,
                 String apiKey, String preferredModel, String globalSystemPrompt, int defaultContextLimit) {
-        this(username, email, profileImagePath, apiKey, preferredModel, globalSystemPrompt, defaultContextLimit, 0, 0);
+        this(username, email, profileImagePath, apiKey, preferredModel, globalSystemPrompt, defaultContextLimit, 0, 0, "list");
     }
 
     @Ignore
     public User(String username, String email, String profileImagePath,
                 String apiKey, String preferredModel, String globalSystemPrompt,
                 int defaultContextLimit, int themeColorPrimary, int themeColorSecondary) {
+        this(username, email, profileImagePath, apiKey, preferredModel, globalSystemPrompt, defaultContextLimit, themeColorPrimary, themeColorSecondary, "list");
+    }
+
+    @Ignore
+    public User(String username, String email, String profileImagePath,
+                String apiKey, String preferredModel, String globalSystemPrompt,
+                int defaultContextLimit, int themeColorPrimary, int themeColorSecondary, String characterListMode) {
         this.username = username;
         this.email = email;
         this.profileImagePath = profileImagePath;
@@ -68,6 +78,7 @@ public class User implements Serializable {
         this.defaultContextLimit = defaultContextLimit;
         this.themeColorPrimary = themeColorPrimary;
         this.themeColorSecondary = themeColorSecondary;
+        this.characterListMode = characterListMode;
     }
 
     public User() {
@@ -84,6 +95,7 @@ public class User implements Serializable {
     public int getDefaultContextLimit() { return defaultContextLimit; }
     public int getThemeColorPrimary() { return themeColorPrimary; }
     public int getThemeColorSecondary() { return themeColorSecondary; }
+    public String getCharacterListMode() { return characterListMode; }
 
     // --- Setters ---
     public void setConfigId(int configId) { this.configId = configId; }
@@ -96,4 +108,5 @@ public class User implements Serializable {
     public void setDefaultContextLimit(int defaultContextLimit) { this.defaultContextLimit = defaultContextLimit; }
     public void setThemeColorPrimary(int themeColorPrimary) { this.themeColorPrimary = themeColorPrimary; }
     public void setThemeColorSecondary(int themeColorSecondary) { this.themeColorSecondary = themeColorSecondary; }
+    public void setCharacterListMode(String characterListMode) { this.characterListMode = characterListMode; }
 }

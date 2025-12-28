@@ -42,11 +42,11 @@ public class SettingsViewModel extends AndroidViewModel {
     }
 
     // UPDATED SIGNATURE
-    public void saveSettings(String username, String apiKey, String preferredModel, String globalPrompt, int contextLimit, int colorPrimary, int colorSecondary) {
+    public void saveSettings(String username, String apiKey, String preferredModel, String globalPrompt, int contextLimit, int colorPrimary, int colorSecondary, String viewMode) {
         User currentUser = user.getValue();
 
         if (currentUser == null) {
-            currentUser = new User(username, "", "", apiKey, preferredModel, globalPrompt, contextLimit, colorPrimary, colorSecondary);
+            currentUser = new User(username, "", "", apiKey, preferredModel, globalPrompt, contextLimit, colorPrimary, colorSecondary, viewMode);
         } else {
             currentUser.setUsername(username);
             currentUser.setApiKey(apiKey);
@@ -55,6 +55,7 @@ public class SettingsViewModel extends AndroidViewModel {
             currentUser.setDefaultContextLimit(contextLimit);
             currentUser.setThemeColorPrimary(colorPrimary);
             currentUser.setThemeColorSecondary(colorSecondary);
+            currentUser.setCharacterListMode(viewMode);
         }
 
         repository.insertOrUpdate(currentUser);

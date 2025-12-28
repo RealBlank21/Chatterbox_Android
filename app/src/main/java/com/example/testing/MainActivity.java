@@ -15,6 +15,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.SearchView;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.chip.Chip;
@@ -25,9 +26,12 @@ import java.util.List;
 public class MainActivity extends BaseActivity {
 
     private CharacterViewModel characterViewModel;
+    private SettingsViewModel settingsViewModel;
     private FloatingActionButton fab;
     private SearchView searchView;
     private ChipGroup chipGroupTags;
+    private RecyclerView recyclerView;
+    private CharacterAdapter adapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,6 +39,7 @@ public class MainActivity extends BaseActivity {
         setContentView(R.layout.activity_main);
 
         characterViewModel = new ViewModelProvider(this).get(CharacterViewModel.class);
+        settingsViewModel = new ViewModelProvider(this).get(SettingsViewModel.class);
 
         if (!ModelRepository.getInstance().isModelsCached()) {
             ModelRepository.getInstance().refreshModels(isSuccess -> {
@@ -46,13 +51,11 @@ public class MainActivity extends BaseActivity {
             });
         }
 
-        // --- UI Initialization ---
         fab = findViewById(R.id.fab_add_character);
         searchView = findViewById(R.id.search_view);
         chipGroupTags = findViewById(R.id.chip_group_tags);
-        RecyclerView recyclerView = findViewById(R.id.character_recyclerview);
+        recyclerView = findViewById(R.id.character_recyclerview);
 
-        // --- FAB Setup ---
         fab.setOnClickListener(view -> {
             Intent intent = new Intent(MainActivity.this, AddEditCharacterActivity.class);
             startActivity(intent);
@@ -60,12 +63,9 @@ public class MainActivity extends BaseActivity {
         int secondaryColor = ThemeUtils.getSecondaryColor(this);
         ThemeUtils.tintFab(fab, secondaryColor);
 
-        // --- RecyclerView Setup ---
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        final CharacterAdapter adapter = new CharacterAdapter();
+        adapter = new CharacterAdapter();
         recyclerView.setAdapter(adapter);
 
-        // --- Search View Setup ---
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String query) { return false; }
@@ -77,15 +77,35 @@ public class MainActivity extends BaseActivity {
             }
         });
 
-        // --- Observers ---
         characterViewModel.getDisplayedCharacters().observe(this, adapter::setCharacters);
 
-        // Populate ChipGroup with tags
+        settingsViewModel.getUser().observe(this, user -> {
+            if (user != null) {
+                String mode = user.getCharacterListMode();
+                if (mode == null) mode = "list";
+
+                adapter.setViewMode(mode);
+
+                if ("card".equals(mode)) {
+                    if (!(recyclerView.getLayoutManager() instanceof GridLayoutManager)) {
+                        recyclerView.setLayoutManager(new GridLayoutManager(this, 2));
+                    }
+                } else {
+                    if (!(recyclerView.getLayoutManager() instanceof LinearLayoutManager) || (recyclerView.getLayoutManager() instanceof GridLayoutManager)) {
+                        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+                    }
+                }
+            } else {
+                if (!(recyclerView.getLayoutManager() instanceof LinearLayoutManager) || (recyclerView.getLayoutManager() instanceof GridLayoutManager)) {
+                    recyclerView.setLayoutManager(new LinearLayoutManager(this));
+                }
+            }
+        });
+
         characterViewModel.getAllTags().observe(this, tags -> {
             populateTagChips(tags);
         });
 
-        // --- Navigation Logic ---
         adapter.setOnItemLongClickListener(this::showCharacterOptionsMenu);
 
         adapter.setOnItemClickListener(character -> {
@@ -116,18 +136,15 @@ public class MainActivity extends BaseActivity {
             chip.setCheckable(true);
             chip.setClickable(true);
 
-            // --- Coloring Logic ---
             int color = getTagColor(tag);
             chip.setTextColor(color);
             chip.setChipStrokeColor(ColorStateList.valueOf(color));
-            chip.setChipStrokeWidth(dpToPx(1)); // Set border width
-            chip.setChipBackgroundColor(ColorStateList.valueOf(Color.TRANSPARENT)); // Transparent background
-            chip.setRippleColor(ColorStateList.valueOf(Color.parseColor("#20" + Integer.toHexString(color).substring(2)))); // Light ripple
-            // ----------------------
+            chip.setChipStrokeWidth(dpToPx(1));
+            chip.setChipBackgroundColor(ColorStateList.valueOf(Color.TRANSPARENT));
+            chip.setRippleColor(ColorStateList.valueOf(Color.parseColor("#20" + Integer.toHexString(color).substring(2))));
 
             if (tag.equals(currentSelection)) {
                 chip.setChecked(true);
-                // Optional: Invert colors for selected state
                 chip.setChipBackgroundColor(ColorStateList.valueOf(color));
                 chip.setTextColor(Color.WHITE);
             }
@@ -135,14 +152,12 @@ public class MainActivity extends BaseActivity {
             chip.setOnCheckedChangeListener((buttonView, isChecked) -> {
                 if (isChecked) {
                     characterViewModel.setTagFilter(tag);
-                    // Update visual state for selected
                     chip.setChipBackgroundColor(ColorStateList.valueOf(color));
                     chip.setTextColor(Color.WHITE);
                 } else {
                     if (tag.equals(characterViewModel.getCurrentTagFilter())) {
                         characterViewModel.setTagFilter("");
                     }
-                    // Revert visual state
                     chip.setChipBackgroundColor(ColorStateList.valueOf(Color.TRANSPARENT));
                     chip.setTextColor(color);
                 }
@@ -151,14 +166,14 @@ public class MainActivity extends BaseActivity {
         }
     }
 
-    // Helper to generate a consistent random color from the tag text
     private int getTagColor(String tag) {
         int hash = tag.hashCode();
-        // Use HSV to generate nice, readable colors (avoiding too bright/white or too dark)
         float[] hsv = new float[3];
-        hsv[0] = Math.abs(hash) % 360;      // Hue: Random
-        hsv[1] = 0.6f + (Math.abs(hash * 7) % 40) / 100f; // Saturation: 0.6 - 1.0
-        hsv[2] = 0.7f + (Math.abs(hash * 13) % 30) / 100f; // Value: 0.7 - 1.0
+        hsv[0] = Math.abs(hash) % 360; // Random Hue
+        // Saturation 0.4 - 0.8
+        hsv[1] = 0.4f + (Math.abs(hash * 7) % 40) / 100f;
+        // Value 1.0 (Brightest)
+        hsv[2] = 1.0f;
         return Color.HSVToColor(hsv);
     }
 
