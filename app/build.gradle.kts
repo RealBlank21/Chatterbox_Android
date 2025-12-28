@@ -38,36 +38,22 @@ android {
 }
 
 dependencies {
-
     implementation(libs.appcompat)
     implementation(libs.material)
-
-    // Room
     implementation(libs.room.runtime)
     ksp(libs.room.compiler)
-
-    // ViewModel and LiveData
     implementation(libs.lifecycle.viewmodel)
     implementation(libs.lifecycle.livedata)
-
-    // Networking
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
     implementation(libs.gson)
-
-    // Markdown Rendering
     implementation(libs.markwon.core)
     implementation(libs.markwon.ext.tables)
     implementation(libs.markwon.ext.latex)
-    implementation(libs.markwon.inline.parser) // ADD THIS
-
-    // Testing
+    implementation(libs.markwon.inline.parser)
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
-
-    // Image Loading
     implementation(libs.glide)
-
     implementation(libs.android.image.cropper)
 }

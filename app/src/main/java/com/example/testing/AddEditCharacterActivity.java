@@ -30,6 +30,9 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.bumptech.glide.Glide;
+import com.canhub.cropper.CropImageContract;
+import com.canhub.cropper.CropImageContractOptions;
+import com.canhub.cropper.CropImageOptions;
 import com.example.testing.network.response.Model;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
@@ -58,7 +61,6 @@ public class AddEditCharacterActivity extends BaseActivity {
     private LinearLayout layoutModelSettingsContainer;
     private ImageView imageViewSettingsArrow;
 
-    // New variables for Personality collapse
     private LinearLayout layoutPersonalityHeader;
     private LinearLayout layoutPersonalityContainer;
     private ImageView imageViewPersonalityArrow;
@@ -81,11 +83,28 @@ public class AddEditCharacterActivity extends BaseActivity {
 
     private ArrayAdapter<String> tagsAdapter;
 
+    private final ActivityResultLauncher<CropImageContractOptions> cropImage =
+            registerForActivityResult(new CropImageContract(), result -> {
+                if (result.isSuccessful()) {
+                    Uri uriContent = result.getUriContent();
+                    if (uriContent != null) {
+                        saveImageToInternalStorage(uriContent);
+                        Glide.with(this).load(currentProfileImagePath).into(imageViewProfilePreview);
+                    }
+                } else {
+                    Exception error = result.getError();
+                    Toast.makeText(this, "Crop failed: " + (error != null ? error.getMessage() : "Unknown"), Toast.LENGTH_SHORT).show();
+                }
+            });
+
     private final ActivityResultLauncher<PickVisualMediaRequest> pickMedia =
             registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
                 if (uri != null) {
-                    saveImageToInternalStorage(uri);
-                    Glide.with(this).load(currentProfileImagePath).into(imageViewProfilePreview);
+                    CropImageOptions options = new CropImageOptions();
+                    options.fixAspectRatio = true;
+                    options.aspectRatioX = 1;
+                    options.aspectRatioY = 1;
+                    cropImage.launch(new CropImageContractOptions(uri, options));
                 } else {
                     Toast.makeText(this, "No image selected.", Toast.LENGTH_SHORT).show();
                 }
@@ -177,7 +196,6 @@ public class AddEditCharacterActivity extends BaseActivity {
             }
         });
 
-        // Model Settings Collapse Logic
         layoutModelSettingsHeader.setOnClickListener(v -> {
             if (layoutModelSettingsContainer.getVisibility() == View.VISIBLE) {
                 layoutModelSettingsContainer.setVisibility(View.GONE);
@@ -188,7 +206,6 @@ public class AddEditCharacterActivity extends BaseActivity {
             }
         });
 
-        // Personality Collapse Logic
         layoutPersonalityHeader.setOnClickListener(v -> {
             if (layoutPersonalityContainer.getVisibility() == View.VISIBLE) {
                 layoutPersonalityContainer.setVisibility(View.GONE);
