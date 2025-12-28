@@ -106,7 +106,11 @@ public class MainActivity extends BaseActivity {
             populateTagChips(tags);
         });
 
-        adapter.setOnItemLongClickListener(this::showCharacterOptionsMenu);
+        adapter.setOnItemLongClickListener((character, anchorView) -> {
+            Intent intent = new Intent(MainActivity.this, AddEditCharacterActivity.class);
+            intent.putExtra("CHARACTER_ID", character.getId());
+            startActivity(intent);
+        });
 
         adapter.setOnItemClickListener(character -> {
             Intent intent = new Intent(MainActivity.this, ConversationActivity.class);
@@ -169,10 +173,8 @@ public class MainActivity extends BaseActivity {
     private int getTagColor(String tag) {
         int hash = tag.hashCode();
         float[] hsv = new float[3];
-        hsv[0] = Math.abs(hash) % 360; // Random Hue
-        // Saturation 0.4 - 0.8
+        hsv[0] = Math.abs(hash) % 360;
         hsv[1] = 0.4f + (Math.abs(hash * 7) % 40) / 100f;
-        // Value 1.0 (Brightest)
         hsv[2] = 1.0f;
         return Color.HSVToColor(hsv);
     }
@@ -217,59 +219,5 @@ public class MainActivity extends BaseActivity {
             return true;
         }
         return super.onOptionsItemSelected(item);
-    }
-
-    private void showCharacterOptionsMenu(Character character, View anchorView) {
-        PopupMenu popup = new PopupMenu(this, anchorView);
-        popup.getMenuInflater().inflate(R.menu.character_options_menu, popup.getMenu());
-
-        MenuItem favItem = popup.getMenu().findItem(R.id.option_favorite);
-        favItem.setTitle(character.isFavorite() ? "Unfavorite" : "Favorite");
-
-        MenuItem hideItem = popup.getMenu().findItem(R.id.option_hide);
-        hideItem.setTitle(character.isHidden() ? "Unhide" : "Hide");
-
-        popup.setOnMenuItemClickListener(item -> {
-            int itemId = item.getItemId();
-            if (itemId == R.id.option_edit) {
-                editCharacter(character);
-                return true;
-            } else if (itemId == R.id.option_delete) {
-                showDeleteConfirmationDialog(character);
-                return true;
-            } else if (itemId == R.id.option_favorite) {
-                character.setFavorite(!character.isFavorite());
-                characterViewModel.update(character);
-                return true;
-            } else if (itemId == R.id.option_hide) {
-                character.setHidden(!character.isHidden());
-                characterViewModel.update(character);
-
-                String msg = character.isHidden() ? "Bot Hidden" : "Bot Unhidden";
-                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
-                return true;
-            }
-            return false;
-        });
-        popup.show();
-    }
-
-    private void editCharacter(Character character) {
-        Intent intent = new Intent(MainActivity.this, AddEditCharacterActivity.class);
-        intent.putExtra("CHARACTER_ID", character.getId());
-        startActivity(intent);
-    }
-
-    private void showDeleteConfirmationDialog(Character character) {
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.delete_confirmation)
-                .setMessage(R.string.are_you_sure_delete)
-                .setPositiveButton(R.string.delete, (dialog, which) -> {
-                    characterViewModel.delete(character);
-                    Toast.makeText(this, "Character deleted", Toast.LENGTH_SHORT).show();
-                })
-                .setNegativeButton(R.string.cancel, null)
-                .setIcon(android.R.drawable.ic_dialog_alert)
-                .show();
     }
 }

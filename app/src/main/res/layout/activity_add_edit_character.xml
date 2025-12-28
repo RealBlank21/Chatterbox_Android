@@ -27,64 +27,76 @@
             android:layout_marginTop="8dp"
             android:text="@string/select_image" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/character_name"
+            android:textStyle="bold" />
+
         <EditText
             android:id="@+id/edit_text_character_name"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
             android:hint="@string/character_name"
             android:inputType="text" />
 
-        <EditText
-            android:id="@+id/edit_text_character_personality"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:gravity="top"
-            android:hint="@string/character_personality"
-            android:inputType="textMultiLine"
-            android:minLines="3" />
-
         <LinearLayout
+            android:id="@+id/layout_personality_header"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="horizontal">
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackground">
 
-            <AutoCompleteTextView
-                android:id="@+id/edit_text_character_model"
+            <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:hint="@string/character_model"
-                android:inputType="text"
-                android:completionThreshold="1" />
+                android:text="Personality / System Prompt"
+                android:textStyle="bold"
+                android:textSize="16sp"/>
 
-            <ImageButton
-                android:id="@+id/button_refresh_models"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:src="@android:drawable/ic_popup_sync"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Refresh Models" />
+            <ImageView
+                android:id="@+id/image_view_personality_arrow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@android:drawable/arrow_down_float"/>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layout_personality_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <EditText
+                android:id="@+id/edit_text_character_personality"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="top"
+                android:hint="@string/character_personality"
+                android:inputType="textMultiLine"
+                android:minLines="5" />
         </LinearLayout>
 
         <TextView
-            android:id="@+id/text_view_model_info"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:background="#1A000000"
-            android:padding="8dp"
-            android:text="Select a model to see details"
-            android:textSize="12sp"
-            android:visibility="gone" />
+            android:text="@string/character_first_message"
+            android:textStyle="bold" />
 
         <EditText
             android:id="@+id/edit_text_character_first_message"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
             android:gravity="top"
             android:hint="@string/character_first_message"
             android:inputType="textMultiLine"
@@ -128,42 +140,130 @@
         </com.google.android.material.chip.ChipGroup>
 
         <LinearLayout
+            android:id="@+id/layout_model_settings_header"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:orientation="horizontal">
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackground">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Model Settings"
+                android:textStyle="bold"
+                android:textSize="16sp"/>
+
+            <ImageView
+                android:id="@+id/image_view_settings_arrow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@android:drawable/arrow_down_float"/>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layout_model_settings_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/character_model"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <AutoCompleteTextView
+                    android:id="@+id/edit_text_character_model"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="@string/character_model"
+                    android:inputType="text"
+                    android:completionThreshold="1" />
+
+                <ImageButton
+                    android:id="@+id/button_refresh_models"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:src="@android:drawable/ic_popup_sync"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Refresh Models" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/text_view_model_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="#1A000000"
+                android:padding="8dp"
+                android:text="Select a model to see details"
+                android:textSize="12sp"
+                android:visibility="gone" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/temperature"
+                android:textStyle="bold" />
 
             <EditText
                 android:id="@+id/edit_text_temperature"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
                 android:hint="@string/temperature"
                 android:inputType="numberDecimal" />
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/max_tokens"
+                android:textStyle="bold" />
+
             <EditText
                 android:id="@+id/edit_text_max_tokens"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_weight="1"
                 android:hint="@string/max_tokens"
                 android:inputType="number" />
-        </LinearLayout>
 
-        <EditText
-            android:id="@+id/edit_text_context_limit"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:hint="@string/context_limit_hint"
-            android:inputType="number" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/context_limit_hint"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/edit_text_context_limit"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/context_limit_hint"
+                android:inputType="number" />
+
+        </LinearLayout>
 
         <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/switch_time_awareness"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="16dp"
             android:text="Time Awareness" />
 
         <com.google.android.material.switchmaterial.SwitchMaterial

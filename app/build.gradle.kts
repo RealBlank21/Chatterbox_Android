@@ -68,4 +68,6 @@ dependencies {
 
     // Image Loading
     implementation(libs.glide)
+
+    implementation(libs.android.image.cropper)
 }

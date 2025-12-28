@@ -18,6 +18,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -25,7 +26,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.PickVisualMediaRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AlertDialog;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.bumptech.glide.Glide;
@@ -53,14 +54,23 @@ public class AddEditCharacterActivity extends BaseActivity {
     private SwitchMaterial switchTimeAwareness;
     private SwitchMaterial switchAllowImageInput;
 
-    // Tags UI
-    private AutoCompleteTextView editTextNewTag; // Changed to AutoCompleteTextView
+    private LinearLayout layoutModelSettingsHeader;
+    private LinearLayout layoutModelSettingsContainer;
+    private ImageView imageViewSettingsArrow;
+
+    // New variables for Personality collapse
+    private LinearLayout layoutPersonalityHeader;
+    private LinearLayout layoutPersonalityContainer;
+    private ImageView imageViewPersonalityArrow;
+
+    private AutoCompleteTextView editTextNewTag;
     private ImageButton buttonAddTag;
     private ChipGroup chipGroupTags;
     private final List<String> currentTags = new ArrayList<>();
 
     private CharacterViewModel characterViewModel;
     private int currentCharacterId = -1;
+    private Character editingCharacter;
     private String currentProfileImagePath = "";
     private boolean isFavorite = false;
     private boolean isHidden = false;
@@ -69,7 +79,6 @@ public class AddEditCharacterActivity extends BaseActivity {
     private ArrayAdapter<String> modelsAdapter;
     private List<String> modelIds = new ArrayList<>();
 
-    // Adapter for existing tags
     private ArrayAdapter<String> tagsAdapter;
 
     private final ActivityResultLauncher<PickVisualMediaRequest> pickMedia =
@@ -101,23 +110,26 @@ public class AddEditCharacterActivity extends BaseActivity {
         switchTimeAwareness = findViewById(R.id.switch_time_awareness);
         switchAllowImageInput = findViewById(R.id.switch_allow_image_input);
 
-        // Tags Init
+        layoutModelSettingsHeader = findViewById(R.id.layout_model_settings_header);
+        layoutModelSettingsContainer = findViewById(R.id.layout_model_settings_container);
+        imageViewSettingsArrow = findViewById(R.id.image_view_settings_arrow);
+
+        layoutPersonalityHeader = findViewById(R.id.layout_personality_header);
+        layoutPersonalityContainer = findViewById(R.id.layout_personality_container);
+        imageViewPersonalityArrow = findViewById(R.id.image_view_personality_arrow);
+
         editTextNewTag = findViewById(R.id.edit_text_new_tag);
         buttonAddTag = findViewById(R.id.button_add_tag);
         chipGroupTags = findViewById(R.id.chip_group_character_tags);
 
-        // --- Model Adapter Setup ---
         modelsAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, modelIds);
         editTextModel.setAdapter(modelsAdapter);
 
-        // --- View Model Setup ---
         characterViewModel = new ViewModelProvider(this).get(CharacterViewModel.class);
 
-        // --- Tags Adapter Setup ---
         tagsAdapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, new ArrayList<>());
         editTextNewTag.setAdapter(tagsAdapter);
 
-        // Observe all tags to populate suggestions
         characterViewModel.getAllTags().observe(this, tags -> {
             if (tags != null) {
                 tagsAdapter.clear();
@@ -126,20 +138,17 @@ public class AddEditCharacterActivity extends BaseActivity {
             }
         });
 
-        // When a tag is selected from dropdown, add it immediately
         editTextNewTag.setOnItemClickListener((parent, view, position, id) -> {
             String selectedTag = tagsAdapter.getItem(position);
             addNewTag(selectedTag);
             editTextNewTag.setText("");
         });
 
-        // Add Tag Button Logic (for manual typing)
         buttonAddTag.setOnClickListener(v -> {
             String tag = editTextNewTag.getText().toString().trim();
             addNewTag(tag);
         });
 
-        // --- Model Repository Logic ---
         ModelRepository.getInstance().getModels().observe(this, models -> {
             if (models != null) {
                 modelIds.clear();
@@ -168,6 +177,27 @@ public class AddEditCharacterActivity extends BaseActivity {
             }
         });
 
+        // Model Settings Collapse Logic
+        layoutModelSettingsHeader.setOnClickListener(v -> {
+            if (layoutModelSettingsContainer.getVisibility() == View.VISIBLE) {
+                layoutModelSettingsContainer.setVisibility(View.GONE);
+                imageViewSettingsArrow.setImageResource(android.R.drawable.arrow_down_float);
+            } else {
+                layoutModelSettingsContainer.setVisibility(View.VISIBLE);
+                imageViewSettingsArrow.setImageResource(android.R.drawable.arrow_up_float);
+            }
+        });
+
+        // Personality Collapse Logic
+        layoutPersonalityHeader.setOnClickListener(v -> {
+            if (layoutPersonalityContainer.getVisibility() == View.VISIBLE) {
+                layoutPersonalityContainer.setVisibility(View.GONE);
+                imageViewPersonalityArrow.setImageResource(android.R.drawable.arrow_down_float);
+            } else {
+                layoutPersonalityContainer.setVisibility(View.VISIBLE);
+                imageViewPersonalityArrow.setImageResource(android.R.drawable.arrow_up_float);
+            }
+        });
 
         getSupportActionBar().setHomeAsUpIndicator(android.R.drawable.ic_menu_close_clear_cancel);
 
@@ -183,6 +213,7 @@ public class AddEditCharacterActivity extends BaseActivity {
             currentCharacterId = intent.getIntExtra("CHARACTER_ID", -1);
             characterViewModel.getCharacterById(currentCharacterId).observe(this, character -> {
                 if (character != null) {
+                    editingCharacter = character;
                     editTextName.setText(character.getName());
                     editTextPersonality.setText(character.getPersonality());
 
@@ -206,8 +237,8 @@ public class AddEditCharacterActivity extends BaseActivity {
                     isHidden = character.isHidden();
                     createdAt = character.getCreatedAt();
 
-                    // Load Tags
                     loadTags(character.getTags());
+                    invalidateOptionsMenu();
                 }
             });
         } else {
@@ -251,14 +282,12 @@ public class AddEditCharacterActivity extends BaseActivity {
             currentTags.remove(tag);
         });
 
-        // --- Coloring Logic ---
         int color = getTagColor(tag);
         chip.setTextColor(color);
         chip.setChipStrokeColor(ColorStateList.valueOf(color));
         chip.setChipStrokeWidth(dpToPx(1));
         chip.setChipBackgroundColor(ColorStateList.valueOf(Color.TRANSPARENT));
         chip.setCloseIconTint(ColorStateList.valueOf(color));
-        // ----------------------
 
         chipGroupTags.addView(chip);
     }
@@ -268,7 +297,7 @@ public class AddEditCharacterActivity extends BaseActivity {
         float[] hsv = new float[3];
         hsv[0] = Math.abs(hash) % 360;
         hsv[1] = 0.6f + (Math.abs(hash * 7) % 40) / 100f;
-        hsv[2] = 0.65f + (Math.abs(hash * 13) % 35) / 100f; // Slightly darker for edit view to be readable
+        hsv[2] = 0.65f + (Math.abs(hash * 13) % 35) / 100f;
         return Color.HSVToColor(hsv);
     }
 
@@ -359,7 +388,6 @@ public class AddEditCharacterActivity extends BaseActivity {
             }
         }
 
-        // Process Tags
         StringBuilder tagsBuilder = new StringBuilder();
         for (String t : currentTags) {
             if (tagsBuilder.length() > 0) tagsBuilder.append("|");
@@ -382,6 +410,22 @@ public class AddEditCharacterActivity extends BaseActivity {
         finish();
     }
 
+    private void deleteCharacter() {
+        if (editingCharacter != null) {
+            new AlertDialog.Builder(this)
+                    .setTitle(R.string.delete_confirmation)
+                    .setMessage(R.string.are_you_sure_delete)
+                    .setPositiveButton(R.string.delete, (dialog, which) -> {
+                        characterViewModel.delete(editingCharacter);
+                        Toast.makeText(this, "Character deleted", Toast.LENGTH_SHORT).show();
+                        finish();
+                    })
+                    .setNegativeButton(R.string.cancel, null)
+                    .setIcon(android.R.drawable.ic_dialog_alert)
+                    .show();
+        }
+    }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.add_character_menu, menu);
@@ -389,9 +433,48 @@ public class AddEditCharacterActivity extends BaseActivity {
     }
 
     @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        MenuItem favItem = menu.findItem(R.id.action_favorite);
+        MenuItem hideItem = menu.findItem(R.id.action_hide);
+        MenuItem deleteItem = menu.findItem(R.id.action_delete);
+
+        if (currentCharacterId == -1) {
+            favItem.setVisible(false);
+            hideItem.setVisible(false);
+            deleteItem.setVisible(false);
+        } else {
+            favItem.setVisible(true);
+            hideItem.setVisible(true);
+            deleteItem.setVisible(true);
+
+            if (isFavorite) {
+                favItem.setIcon(android.R.drawable.btn_star_big_on);
+            } else {
+                favItem.setIcon(android.R.drawable.btn_star_big_off);
+            }
+
+            hideItem.setTitle(isHidden ? "Unhide" : "Hide");
+        }
+        return super.onPrepareOptionsMenu(menu);
+    }
+
+    @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        if (item.getItemId() == R.id.save_character) {
+        int itemId = item.getItemId();
+        if (itemId == R.id.save_character) {
             saveCharacter();
+            return true;
+        } else if (itemId == R.id.action_favorite) {
+            isFavorite = !isFavorite;
+            invalidateOptionsMenu();
+            return true;
+        } else if (itemId == R.id.action_hide) {
+            isHidden = !isHidden;
+            invalidateOptionsMenu();
+            Toast.makeText(this, isHidden ? "Will be hidden" : "Will be shown", Toast.LENGTH_SHORT).show();
+            return true;
+        } else if (itemId == R.id.action_delete) {
+            deleteCharacter();
             return true;
         }
         return super.onOptionsItemSelected(item);
