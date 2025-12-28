@@ -207,6 +207,15 @@ public class ConversationActivity extends BaseActivity {
             }
         });
 
+        conversationViewModel.getActivePersona().observe(this, persona -> {
+            EditText messageInput = findViewById(R.id.edit_text_message); // Verify this ID
+            if (persona != null) {
+                messageInput.setHint("Chatting as " + persona.getName());
+            } else {
+                messageInput.setHint("Type a message");
+            }
+        });
+
         conversationViewModel.getMessages().observe(this, messages -> {
             if (messages != null && !messages.isEmpty()) {
                 messageAdapter.setMessages(messages);

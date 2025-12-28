@@ -38,6 +38,7 @@ public class ConversationViewModel extends AndroidViewModel {
     private final CharacterRepository characterRepository;
     private final UserRepository userRepository;
     private final ConversationRepository conversationRepository;
+    private final PersonaDao personaDao;
     private final ApiService apiService;
     private final ExecutorService executorService;
 
@@ -49,6 +50,7 @@ public class ConversationViewModel extends AndroidViewModel {
 
     private LiveData<Character> currentCharacter;
     private LiveData<User> currentUser;
+    private LiveData<Persona> activePersona;
 
     // --- NEW: Loading State ---
     private final MutableLiveData<Boolean> isGenerating = new MutableLiveData<>(false);
@@ -59,6 +61,7 @@ public class ConversationViewModel extends AndroidViewModel {
         characterRepository = CharacterRepository.getInstance(application);
         userRepository = UserRepository.getInstance(application);
         conversationRepository = ConversationRepository.getInstance(application);
+        personaDao = AppDatabase.getInstance(application).personaDao();
 
         apiService = ApiClient.getClient().create(ApiService.class);
         executorService = Executors.newSingleThreadExecutor();
@@ -84,12 +87,22 @@ public class ConversationViewModel extends AndroidViewModel {
     public void loadData(int characterId, int conversationId) {
         this.currentCharacter = characterRepository.getCharacterById(characterId);
         this.currentUser = userRepository.getUser();
+
+        // Initialize Active Persona LiveData
+        this.activePersona = Transformations.switchMap(currentUser, user -> {
+            if (user == null || user.getCurrentPersonaId() == -1) {
+                return new MutableLiveData<>(null);
+            }
+            return personaDao.getPersonaByIdLive(user.getCurrentPersonaId());
+        });
+
         conversationIdInput.setValue(conversationId);
     }
 
     public LiveData<List<Message>> getMessages() { return messages; }
     public LiveData<Character> getCurrentCharacter() { return currentCharacter; }
     public LiveData<User> getCurrentUser() { return currentUser; }
+    public LiveData<Persona> getActivePersona() { return activePersona; }
     public LiveData<Integer> getConversationId() { return conversationIdInput; }
     public LiveData<Boolean> getIsGenerating() { return isGenerating; } // Expose state
 
@@ -195,10 +208,28 @@ public class ConversationViewModel extends AndroidViewModel {
                 String globalPrompt = user.getGlobalSystemPrompt() != null ? user.getGlobalSystemPrompt() : "";
                 String characterPersonality = character.getPersonality() != null ? character.getPersonality() : "";
 
+                // --- Append Persona Info ---
+                StringBuilder personaPromptBuilder = new StringBuilder();
+                if (user.getCurrentPersonaId() != -1) {
+                    Persona persona = personaDao.getPersonaById(user.getCurrentPersonaId());
+                    if (persona != null) {
+                        personaPromptBuilder.append("User Persona:\n");
+                        if (persona.getName() != null && !persona.getName().isEmpty()) {
+                            personaPromptBuilder.append("Name: ").append(persona.getName()).append("\n");
+                        }
+                        if (persona.getDescription() != null && !persona.getDescription().isEmpty()) {
+                            personaPromptBuilder.append("Description: ").append(persona.getDescription()).append("\n");
+                        }
+                        personaPromptBuilder.append("\n");
+                    }
+                }
+                String personaPrompt = personaPromptBuilder.toString();
+                // ---------------------------
+
                 globalPrompt = globalPrompt.replace("{day}", formattedDay).replace("{time}", formattedTime);
                 characterPersonality = characterPersonality.replace("{day}", formattedDay).replace("{time}", formattedTime);
 
-                String finalSystemPrompt = globalPrompt + "\n" + characterPersonality;
+                String finalSystemPrompt = globalPrompt + "\n" + personaPrompt + characterPersonality;
                 if (character.isTimeAware()) {
                     finalSystemPrompt += "\nThis conversation was started on " + formattedDay + " at " + formattedTime + ".";
                 }

@@ -9,7 +9,7 @@ import java.io.Serializable;
 @Entity(tableName = "user_config")
 public class User implements Serializable {
 
-    private static final long serialVersionUID = 5L;
+    private static final long serialVersionUID = 6L;
 
     @PrimaryKey
     @ColumnInfo(name = "config_id")
@@ -42,33 +42,42 @@ public class User implements Serializable {
     @ColumnInfo(name = "theme_color_secondary", defaultValue = "0")
     private int themeColorSecondary;
 
-    // --- NEW FIELD ---
     @ColumnInfo(name = "character_list_mode", defaultValue = "list")
     private String characterListMode;
+
+    @ColumnInfo(name = "current_persona_id", defaultValue = "-1")
+    private int currentPersonaId;
 
     @Ignore
     public User(String username, String email, String profileImagePath,
                 String apiKey, String preferredModel, String globalSystemPrompt) {
-        this(username, email, profileImagePath, apiKey, preferredModel, globalSystemPrompt, 0, 0, 0, "list");
+        this(username, email, profileImagePath, apiKey, preferredModel, globalSystemPrompt, 0, 0, 0, "list", -1);
     }
 
     @Ignore
     public User(String username, String email, String profileImagePath,
                 String apiKey, String preferredModel, String globalSystemPrompt, int defaultContextLimit) {
-        this(username, email, profileImagePath, apiKey, preferredModel, globalSystemPrompt, defaultContextLimit, 0, 0, "list");
+        this(username, email, profileImagePath, apiKey, preferredModel, globalSystemPrompt, defaultContextLimit, 0, 0, "list", -1);
     }
 
     @Ignore
     public User(String username, String email, String profileImagePath,
                 String apiKey, String preferredModel, String globalSystemPrompt,
                 int defaultContextLimit, int themeColorPrimary, int themeColorSecondary) {
-        this(username, email, profileImagePath, apiKey, preferredModel, globalSystemPrompt, defaultContextLimit, themeColorPrimary, themeColorSecondary, "list");
+        this(username, email, profileImagePath, apiKey, preferredModel, globalSystemPrompt, defaultContextLimit, themeColorPrimary, themeColorSecondary, "list", -1);
     }
 
     @Ignore
     public User(String username, String email, String profileImagePath,
                 String apiKey, String preferredModel, String globalSystemPrompt,
                 int defaultContextLimit, int themeColorPrimary, int themeColorSecondary, String characterListMode) {
+        this(username, email, profileImagePath, apiKey, preferredModel, globalSystemPrompt, defaultContextLimit, themeColorPrimary, themeColorSecondary, characterListMode, -1);
+    }
+
+    @Ignore
+    public User(String username, String email, String profileImagePath,
+                String apiKey, String preferredModel, String globalSystemPrompt,
+                int defaultContextLimit, int themeColorPrimary, int themeColorSecondary, String characterListMode, int currentPersonaId) {
         this.username = username;
         this.email = email;
         this.profileImagePath = profileImagePath;
@@ -79,6 +88,7 @@ public class User implements Serializable {
         this.themeColorPrimary = themeColorPrimary;
         this.themeColorSecondary = themeColorSecondary;
         this.characterListMode = characterListMode;
+        this.currentPersonaId = currentPersonaId;
     }
 
     public User() {
@@ -96,6 +106,7 @@ public class User implements Serializable {
     public int getThemeColorPrimary() { return themeColorPrimary; }
     public int getThemeColorSecondary() { return themeColorSecondary; }
     public String getCharacterListMode() { return characterListMode; }
+    public int getCurrentPersonaId() { return currentPersonaId; }
 
     // --- Setters ---
     public void setConfigId(int configId) { this.configId = configId; }
@@ -109,4 +120,5 @@ public class User implements Serializable {
     public void setThemeColorPrimary(int themeColorPrimary) { this.themeColorPrimary = themeColorPrimary; }
     public void setThemeColorSecondary(int themeColorSecondary) { this.themeColorSecondary = themeColorSecondary; }
     public void setCharacterListMode(String characterListMode) { this.characterListMode = characterListMode; }
+    public void setCurrentPersonaId(int currentPersonaId) { this.currentPersonaId = currentPersonaId; }
 }

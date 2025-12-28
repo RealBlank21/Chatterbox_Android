@@ -77,8 +77,76 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/username"
+                    android:text="Select Persona"
                     android:textAppearance="?attr/textAppearanceListItem" />
+
+                <Spinner
+                    android:id="@+id/spinner_persona"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:layout_marginBottom="8dp"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="24dp">
+
+                    <Button
+                        android:id="@+id/button_add_persona"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Add New"
+                        android:layout_marginEnd="8dp"/>
+
+                    <Button
+                        android:id="@+id/button_delete_persona"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Delete"
+                        android:textColor="#F44336"
+                        style="?attr/borderlessButtonStyle"/>
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Name"
+                    android:textAppearance="?attr/textAppearanceListItem" />
+
+                <EditText
+                    android:id="@+id/edit_text_persona_name"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="e.g. User"
+                    android:inputType="textPersonName"
+                    android:layout_marginBottom="16dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Description"
+                    android:textAppearance="?attr/textAppearanceListItem" />
+
+                <EditText
+                    android:id="@+id/edit_text_persona_description"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="top"
+                    android:hint="Describe yourself to the AI..."
+                    android:inputType="textMultiLine"
+                    android:minLines="3"
+                    android:layout_marginBottom="24dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Account Username (Optional)"
+                    android:textSize="12sp"
+                    android:visibility="visible" />
 
                 <EditText
                     android:id="@+id/edit_text_username"
@@ -86,7 +154,8 @@
                     android:layout_height="wrap_content"
                     android:hint="@string/enter_your_username"
                     android:inputType="textPersonName"
-                    android:layout_marginBottom="8dp"/>
+                    android:textSize="14sp"/>
+
             </LinearLayout>
         </ScrollView>
 

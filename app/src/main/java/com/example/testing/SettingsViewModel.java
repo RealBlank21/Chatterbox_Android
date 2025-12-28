@@ -20,6 +20,8 @@ public class SettingsViewModel extends AndroidViewModel {
 
     private final UserRepository repository;
     private final LiveData<User> user;
+    private final PersonaDao personaDao;
+    private final LiveData<List<Persona>> allPersonas;
     private final ExecutorService executorService;
     private final AppDatabase db;
 
@@ -27,7 +29,9 @@ public class SettingsViewModel extends AndroidViewModel {
         super(application);
         db = AppDatabase.getInstance(application);
         repository = UserRepository.getInstance(application);
+        personaDao = db.personaDao();
         user = repository.getUser();
+        allPersonas = personaDao.getAllPersonas();
         executorService = Executors.newSingleThreadExecutor();
     }
 
@@ -41,12 +45,42 @@ public class SettingsViewModel extends AndroidViewModel {
         return user;
     }
 
-    // UPDATED SIGNATURE
-    public void saveSettings(String username, String apiKey, String preferredModel, String globalPrompt, int contextLimit, int colorPrimary, int colorSecondary, String viewMode) {
+    public LiveData<List<Persona>> getAllPersonas() {
+        return allPersonas;
+    }
+
+    public void addPersona(String name, String description) {
+        executorService.execute(() -> {
+            Persona persona = new Persona(name, description);
+            long id = personaDao.insert(persona);
+            updateUserCurrentPersona((int) id);
+        });
+    }
+
+    public void updatePersona(Persona persona) {
+        executorService.execute(() -> personaDao.update(persona));
+    }
+
+    public void deletePersona(Persona persona) {
+        executorService.execute(() -> {
+            personaDao.delete(persona);
+            // If we deleted the current persona, reset selection logic is handled in Activity or by next fetch
+        });
+    }
+
+    public void updateUserCurrentPersona(int personaId) {
+        User currentUser = user.getValue();
+        if (currentUser != null) {
+            currentUser.setCurrentPersonaId(personaId);
+            repository.insertOrUpdate(currentUser);
+        }
+    }
+
+    public void saveSettings(String username, String apiKey, String preferredModel, String globalPrompt, int contextLimit, int colorPrimary, int colorSecondary, String viewMode, int currentPersonaId) {
         User currentUser = user.getValue();
 
         if (currentUser == null) {
-            currentUser = new User(username, "", "", apiKey, preferredModel, globalPrompt, contextLimit, colorPrimary, colorSecondary, viewMode);
+            currentUser = new User(username, "", "", apiKey, preferredModel, globalPrompt, contextLimit, colorPrimary, colorSecondary, viewMode, currentPersonaId);
         } else {
             currentUser.setUsername(username);
             currentUser.setApiKey(apiKey);
@@ -56,6 +90,7 @@ public class SettingsViewModel extends AndroidViewModel {
             currentUser.setThemeColorPrimary(colorPrimary);
             currentUser.setThemeColorSecondary(colorSecondary);
             currentUser.setCharacterListMode(viewMode);
+            currentUser.setCurrentPersonaId(currentPersonaId);
         }
 
         repository.insertOrUpdate(currentUser);
@@ -68,8 +103,9 @@ public class SettingsViewModel extends AndroidViewModel {
                 List<Character> characters = db.characterDao().getAllCharactersSync();
                 List<Conversation> conversations = db.conversationDao().getAllConversationsSync();
                 List<Message> messages = db.messageDao().getAllMessagesSync();
+                List<Persona> personas = db.personaDao().getAllPersonasSync();
 
-                BackupData backupData = new BackupData(user, characters, conversations, messages);
+                BackupData backupData = new BackupData(user, characters, conversations, messages, personas);
                 String json = new Gson().toJson(backupData);
 
                 try (OutputStream outputStream = resolver.openOutputStream(uri)) {
@@ -109,11 +145,19 @@ public class SettingsViewModel extends AndroidViewModel {
                     db.messageDao().deleteAll();
                     db.conversationDao().deleteAll();
                     db.characterDao().deleteAll();
+                    db.personaDao().deleteAll(); // Clear old personas? Maybe
 
                     if (backupData.user != null) db.userDao().insertOrUpdate(backupData.user);
                     if (backupData.characters != null) db.characterDao().insertAll(backupData.characters);
                     if (backupData.conversations != null) db.conversationDao().insertAll(backupData.conversations);
                     if (backupData.messages != null) db.messageDao().insertAll(backupData.messages);
+                    if (backupData.personas != null && !backupData.personas.isEmpty()) {
+                        // We need to loop insert to generate IDs or just insertAll if IDs are preserved
+                        // Simplest is to clear table and insertAll
+                        for (Persona p : backupData.personas) {
+                            db.personaDao().insert(p);
+                        }
+                    }
                 });
 
                 showToast("Backup Restored Successfully");
@@ -135,12 +179,14 @@ public class SettingsViewModel extends AndroidViewModel {
         List<Character> characters;
         List<Conversation> conversations;
         List<Message> messages;
+        List<Persona> personas;
 
-        public BackupData(User user, List<Character> characters, List<Conversation> conversations, List<Message> messages) {
+        public BackupData(User user, List<Character> characters, List<Conversation> conversations, List<Message> messages, List<Persona> personas) {
             this.user = user;
             this.characters = characters;
             this.conversations = conversations;
             this.messages = messages;
+            this.personas = personas;
         }
     }
 }

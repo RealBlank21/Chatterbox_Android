@@ -5,6 +5,8 @@ import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
@@ -13,11 +15,14 @@ import android.widget.ImageButton;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.SeekBar;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.cardview.widget.CardView;
 import androidx.lifecycle.ViewModelProvider;
 
@@ -54,6 +59,20 @@ public class SettingsActivity extends BaseActivity {
     private Button buttonExport;
     private Button buttonImport;
     private View saveContainer;
+
+    // Persona Inputs
+    private Spinner spinnerPersona;
+    private Button buttonAddPersona;
+    private Button buttonDeletePersona;
+    private EditText editTextPersonaName;
+    private EditText editTextPersonaDescription;
+    private List<Persona> personaList = new ArrayList<>();
+    private PersonaAdapter personaAdapter;
+    private Persona selectedPersona = null;
+
+    // State tracking for Persona
+    private int activePersonaId = -1;
+    private boolean initialPersonaLoaded = false;
 
     // Tabs & Layouts
     private View tabContainer;
@@ -137,6 +156,13 @@ public class SettingsActivity extends BaseActivity {
         textViewModelInfo = findViewById(R.id.text_view_model_info);
         editTextGlobalPrompt = findViewById(R.id.edit_text_global_system_prompt);
         editTextContextLimit = findViewById(R.id.edit_text_context_limit);
+
+        // Persona Views
+        spinnerPersona = findViewById(R.id.spinner_persona);
+        buttonAddPersona = findViewById(R.id.button_add_persona);
+        buttonDeletePersona = findViewById(R.id.button_delete_persona);
+        editTextPersonaName = findViewById(R.id.edit_text_persona_name);
+        editTextPersonaDescription = findViewById(R.id.edit_text_persona_description);
 
         buttonSave = findViewById(R.id.button_save_settings);
         buttonExport = findViewById(R.id.button_export_data);
@@ -249,6 +275,94 @@ public class SettingsActivity extends BaseActivity {
     }
 
     private void setupLogic() {
+        settingsViewModel = new ViewModelProvider(this).get(SettingsViewModel.class);
+
+        // --- Persona Logic ---
+        personaAdapter = new PersonaAdapter(this, android.R.layout.simple_spinner_item, personaList);
+        personaAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerPersona.setAdapter(personaAdapter);
+
+        // Observer for Personas List
+        settingsViewModel.getAllPersonas().observe(this, personas -> {
+            personaList.clear();
+            if (personas != null && !personas.isEmpty()) {
+                personaList.addAll(personas);
+            } else {
+                settingsViewModel.addPersona("Default User", "I am a user of this app.");
+                return;
+            }
+            personaAdapter.notifyDataSetChanged();
+            syncPersonaSelection();
+        });
+
+        // Observer for User Config (Active Persona ID)
+        settingsViewModel.getUser().observe(this, user -> {
+            if (user != null) {
+                if (user.getUsername() != null) editTextUsername.setText(user.getUsername());
+                if (user.getApiKey() != null) {
+                    editTextApiKey.setText(user.getApiKey());
+                    if (!user.getApiKey().isEmpty()) fetchCredits(user.getApiKey());
+                }
+                if (user.getPreferredModel() != null) {
+                    editTextPreferredModel.setText(user.getPreferredModel());
+                    updateModelInfo(user.getPreferredModel());
+                }
+                if (user.getGlobalSystemPrompt() != null) editTextGlobalPrompt.setText(user.getGlobalSystemPrompt());
+                editTextContextLimit.setText(String.valueOf(user.getDefaultContextLimit()));
+
+                int p = user.getThemeColorPrimary();
+                int s = user.getThemeColorSecondary();
+
+                if (p == 0) p = ThemeUtils.getPrimaryColor(this);
+                if (s == 0) s = ThemeUtils.getSecondaryColor(this);
+
+                currentColorPrimary = p;
+                currentColorSecondary = s;
+                setSeekBarsFromColor(p, seekPrimaryR, seekPrimaryG, seekPrimaryB);
+                setSeekBarsFromColor(s, seekSecondaryR, seekSecondaryG, seekSecondaryB);
+                updatePrimaryColor();
+                updateSecondaryColor();
+
+                if ("card".equals(user.getCharacterListMode())) {
+                    radioModeCard.setChecked(true);
+                } else {
+                    radioModeList.setChecked(true);
+                }
+
+                // Update Active Persona ID
+                activePersonaId = user.getCurrentPersonaId();
+                personaAdapter.notifyDataSetChanged(); // To update the stars
+                syncPersonaSelection();
+            }
+        });
+
+        spinnerPersona.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                selectedPersona = personaList.get(position);
+                updatePersonaInputs(selectedPersona);
+            }
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
+        });
+
+        buttonAddPersona.setOnClickListener(v -> {
+            settingsViewModel.addPersona("New Persona", "");
+            Toast.makeText(this, "Created new persona", Toast.LENGTH_SHORT).show();
+        });
+
+        buttonDeletePersona.setOnClickListener(v -> {
+            if (selectedPersona != null) {
+                if (personaList.size() <= 1) {
+                    Toast.makeText(this, "Cannot delete the last persona", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                settingsViewModel.deletePersona(selectedPersona);
+                Toast.makeText(this, "Persona deleted", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // --- LLM Logic ---
         modelsAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, modelIds);
         editTextPreferredModel.setAdapter(modelsAdapter);
 
@@ -277,44 +391,6 @@ public class SettingsActivity extends BaseActivity {
             @Override public void afterTextChanged(Editable s) { updateModelInfo(s.toString()); }
         });
 
-        settingsViewModel = new ViewModelProvider(this).get(SettingsViewModel.class);
-
-        settingsViewModel.getUser().observe(this, user -> {
-            if (user != null) {
-                if (user.getUsername() != null) editTextUsername.setText(user.getUsername());
-                if (user.getApiKey() != null) {
-                    editTextApiKey.setText(user.getApiKey());
-                    if (!user.getApiKey().isEmpty()) fetchCredits(user.getApiKey());
-                }
-                if (user.getPreferredModel() != null) {
-                    editTextPreferredModel.setText(user.getPreferredModel());
-                    updateModelInfo(user.getPreferredModel());
-                }
-                if (user.getGlobalSystemPrompt() != null) editTextGlobalPrompt.setText(user.getGlobalSystemPrompt());
-                editTextContextLimit.setText(String.valueOf(user.getDefaultContextLimit()));
-
-                int p = user.getThemeColorPrimary();
-                int s = user.getThemeColorSecondary();
-
-                if (p == 0) p = ThemeUtils.getPrimaryColor(this);
-                if (s == 0) s = ThemeUtils.getSecondaryColor(this);
-
-                currentColorPrimary = p;
-                currentColorSecondary = s;
-                setSeekBarsFromColor(p, seekPrimaryR, seekPrimaryG, seekPrimaryB);
-                setSeekBarsFromColor(s, seekSecondaryR, seekSecondaryG, seekSecondaryB);
-                updatePrimaryColor();
-                updateSecondaryColor();
-
-                // Set Radio Button
-                if ("card".equals(user.getCharacterListMode())) {
-                    radioModeCard.setChecked(true);
-                } else {
-                    radioModeList.setChecked(true);
-                }
-            }
-        });
-
         buttonSave.setOnClickListener(v -> saveSettings());
 
         buttonExport.setOnClickListener(v -> {
@@ -326,6 +402,49 @@ public class SettingsActivity extends BaseActivity {
         buttonImport.setOnClickListener(v -> {
             openDocumentLauncher.launch(new String[]{"application/json"});
         });
+    }
+
+    /**
+     * Synchronizes the Spinner selection with the activePersonaId.
+     * Only auto-selects if we haven't successfully loaded the initial state yet,
+     * to prevent jumping around if the user is editing.
+     */
+    private void syncPersonaSelection() {
+        if (personaList.isEmpty() || initialPersonaLoaded) return;
+
+        // If activePersonaId is -1 (default not set), we might default to the first one
+        // or wait. If the list is populated, we should probably just pick the first one
+        // if activeId is invalid, effectively making it the candidate for "active".
+
+        int indexToSelect = 0; // Default to first
+        boolean found = false;
+
+        if (activePersonaId != -1) {
+            for (int i = 0; i < personaList.size(); i++) {
+                if (personaList.get(i).getId() == activePersonaId) {
+                    indexToSelect = i;
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        // If we found the active one, or just defaulting to 0, set it.
+        // We consider initial load done if we have data.
+        spinnerPersona.setSelection(indexToSelect);
+        selectedPersona = personaList.get(indexToSelect);
+        updatePersonaInputs(selectedPersona);
+        initialPersonaLoaded = true;
+    }
+
+    private void updatePersonaInputs(Persona persona) {
+        if (persona != null) {
+            editTextPersonaName.setText(persona.getName());
+            editTextPersonaDescription.setText(persona.getDescription());
+        } else {
+            editTextPersonaName.setText("");
+            editTextPersonaDescription.setText("");
+        }
     }
 
     private void updateModelInfo(String modelId) {
@@ -402,18 +521,70 @@ public class SettingsActivity extends BaseActivity {
             return;
         }
 
+        // Save Persona Changes
+        if (selectedPersona != null) {
+            String pName = editTextPersonaName.getText().toString().trim();
+            String pDesc = editTextPersonaDescription.getText().toString().trim();
+            if (pName.isEmpty()) {
+                Toast.makeText(this, "Persona name cannot be empty", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            selectedPersona.setName(pName);
+            selectedPersona.setDescription(pDesc);
+            settingsViewModel.updatePersona(selectedPersona);
+        }
+
         // Get view mode
         String viewMode = radioModeCard.isChecked() ? "card" : "list";
+
+        // Update active persona ID to the one currently selected in the spinner
+        int newActivePersonaId = selectedPersona != null ? selectedPersona.getId() : activePersonaId;
 
         // Save immediately to Prefs
         ThemeUtils.saveColors(this, currentColorPrimary, currentColorSecondary);
 
         // Save to DB
-        settingsViewModel.saveSettings(username, apiKey, preferredModel, globalPrompt, contextLimit, currentColorPrimary, currentColorSecondary, viewMode);
+        settingsViewModel.saveSettings(username, apiKey, preferredModel, globalPrompt, contextLimit, currentColorPrimary, currentColorSecondary, viewMode, newActivePersonaId);
         Toast.makeText(this, "Settings saved! Restarting...", Toast.LENGTH_SHORT).show();
 
         // Restart Activity to apply changes
         finish();
         startActivity(getIntent());
+    }
+
+    // --- Custom Adapter for Persona Spinner ---
+    private class PersonaAdapter extends ArrayAdapter<Persona> {
+
+        public PersonaAdapter(@NonNull android.content.Context context, int resource, @NonNull List<Persona> objects) {
+            super(context, resource, objects);
+        }
+
+        @NonNull
+        @Override
+        public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
+            View view = super.getView(position, convertView, parent);
+            enhanceView(view, getItem(position));
+            return view;
+        }
+
+        @Override
+        public View getDropDownView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
+            View view = super.getDropDownView(position, convertView, parent);
+            enhanceView(view, getItem(position));
+            return view;
+        }
+
+        private void enhanceView(View view, Persona persona) {
+            if (view instanceof TextView && persona != null) {
+                TextView textView = (TextView) view;
+                String text = persona.getName();
+
+                // Add star if this is the active persona
+                if (persona.getId() == activePersonaId) {
+                    text += " ★";
+                }
+                textView.setText(text);
+            }
+        }
     }
 }
