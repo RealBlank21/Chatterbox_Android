@@ -1,13 +1,14 @@
 package com.example.testing;
 
 import android.content.Context;
+import android.database.Cursor;
 import androidx.room.Database;
 import androidx.room.Room;
 import androidx.room.RoomDatabase;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {User.class, Character.class, Conversation.class, Message.class, Persona.class}, version = 16, exportSchema = false)
+@Database(entities = {User.class, Character.class, Conversation.class, Message.class, Persona.class, Scenario.class}, version = 17, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
 
     public abstract UserDao userDao();
@@ -15,6 +16,7 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract ConversationDao conversationDao();
     public abstract MessageDao messageDao();
     public abstract PersonaDao personaDao();
+    public abstract ScenarioDao scenarioDao();
 
     private static volatile AppDatabase INSTANCE;
     private static final String DATABASE_NAME = "chatterbox-db";
@@ -69,7 +71,55 @@ public abstract class AppDatabase extends RoomDatabase {
         @Override
         public void migrate(SupportSQLiteDatabase database) {
             database.execSQL("CREATE TABLE IF NOT EXISTS `persona` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT, `description` TEXT)");
-            database.execSQL("ALTER TABLE user_config ADD COLUMN current_persona_id INTEGER NOT NULL DEFAULT -1");
+
+            boolean columnExists = false;
+            try (Cursor cursor = database.query("SELECT * FROM user_config LIMIT 0")) {
+                if (cursor != null && cursor.getColumnIndex("current_persona_id") != -1) {
+                    columnExists = true;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            if (!columnExists) {
+                database.execSQL("ALTER TABLE user_config ADD COLUMN current_persona_id INTEGER NOT NULL DEFAULT -1");
+            }
+        }
+    };
+
+    static final Migration MIGRATION_16_17 = new Migration(16, 17) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            // 1. Create the Scenario table with first_message
+            database.execSQL("CREATE TABLE IF NOT EXISTS `scenario` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`character_id` INTEGER NOT NULL, " +
+                    "`name` TEXT, " +
+                    "`description` TEXT, " +
+                    "`first_message` TEXT, " +
+                    "`is_default` INTEGER NOT NULL DEFAULT 0, " +
+                    "FOREIGN KEY(`character_id`) REFERENCES `character`(`character_id`) ON UPDATE NO ACTION ON DELETE CASCADE)");
+
+            // 2. Create index for Scenario
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_scenario_character_id` ON `scenario` (`character_id`)");
+
+            // 3. Add scenario_id and persona_id to Conversation table
+            // We verify if columns exist to prevent crashes if migration ran partially before
+            boolean scenarioColExists = false;
+            boolean personaColExists = false;
+            try (Cursor cursor = database.query("SELECT * FROM conversation LIMIT 0")) {
+                if (cursor != null) {
+                    if (cursor.getColumnIndex("scenario_id") != -1) scenarioColExists = true;
+                    if (cursor.getColumnIndex("persona_id") != -1) personaColExists = true;
+                }
+            } catch (Exception e) { e.printStackTrace(); }
+
+            if (!scenarioColExists) {
+                database.execSQL("ALTER TABLE conversation ADD COLUMN scenario_id INTEGER");
+            }
+            if (!personaColExists) {
+                database.execSQL("ALTER TABLE conversation ADD COLUMN persona_id INTEGER");
+            }
         }
     };
 
@@ -79,7 +129,7 @@ public abstract class AppDatabase extends RoomDatabase {
                 if (INSTANCE == null) {
                     INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
                                     AppDatabase.class, DATABASE_NAME)
-                            .addMigrations(MIGRATION_6_7, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+                            .addMigrations(MIGRATION_6_7, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
                             .fallbackToDestructiveMigration()
                             .build();
                 }

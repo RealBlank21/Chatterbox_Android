@@ -38,6 +38,7 @@ public class ConversationViewModel extends AndroidViewModel {
     private final CharacterRepository characterRepository;
     private final UserRepository userRepository;
     private final ConversationRepository conversationRepository;
+    private final ScenarioRepository scenarioRepository;
     private final PersonaDao personaDao;
     private final ApiService apiService;
     private final ExecutorService executorService;
@@ -52,7 +53,6 @@ public class ConversationViewModel extends AndroidViewModel {
     private LiveData<User> currentUser;
     private LiveData<Persona> activePersona;
 
-    // --- NEW: Loading State ---
     private final MutableLiveData<Boolean> isGenerating = new MutableLiveData<>(false);
 
     public ConversationViewModel(@NonNull Application application) {
@@ -61,6 +61,7 @@ public class ConversationViewModel extends AndroidViewModel {
         characterRepository = CharacterRepository.getInstance(application);
         userRepository = UserRepository.getInstance(application);
         conversationRepository = ConversationRepository.getInstance(application);
+        scenarioRepository = ScenarioRepository.getInstance(application);
         personaDao = AppDatabase.getInstance(application).personaDao();
 
         apiService = ApiClient.getClient().create(ApiService.class);
@@ -88,7 +89,6 @@ public class ConversationViewModel extends AndroidViewModel {
         this.currentCharacter = characterRepository.getCharacterById(characterId);
         this.currentUser = userRepository.getUser();
 
-        // Initialize Active Persona LiveData
         this.activePersona = Transformations.switchMap(currentUser, user -> {
             if (user == null || user.getCurrentPersonaId() == -1) {
                 return new MutableLiveData<>(null);
@@ -104,28 +104,71 @@ public class ConversationViewModel extends AndroidViewModel {
     public LiveData<User> getCurrentUser() { return currentUser; }
     public LiveData<Persona> getActivePersona() { return activePersona; }
     public LiveData<Integer> getConversationId() { return conversationIdInput; }
-    public LiveData<Boolean> getIsGenerating() { return isGenerating; } // Expose state
+    public LiveData<Boolean> getIsGenerating() { return isGenerating; }
+
+    public ScenarioRepository getScenarioRepository() { return scenarioRepository; }
+
+    public LiveData<Scenario> getScenarioByIdLive(int id) {
+        return scenarioRepository.getScenarioByIdLive(id);
+    }
+
+    public LiveData<Scenario> getDefaultScenarioLive(int characterId) {
+        return scenarioRepository.getDefaultScenarioLive(characterId);
+    }
+
+    public void createConversationAndSendMessage(String content, String imagePath, User user, Character character, Integer personaId, Integer scenarioId) {
+        executorService.execute(() -> {
+            String title = "New Chat";
+            if (content != null && !content.trim().isEmpty()) {
+                String cleanContent = content.trim().replace("\n", " ");
+                title = cleanContent.length() > 50 ? cleanContent.substring(0, 50) + "..." : cleanContent;
+            } else if (imagePath != null) {
+                title = "Image sent";
+            }
+
+            Conversation newConversation = new Conversation(character.getId(), title);
+            String greetingText = character.getFirstMessage();
+
+            if (scenarioId == null || scenarioId == -1) {
+                Scenario defaultScenario = scenarioRepository.getDefaultScenarioSync(character.getId());
+                if (defaultScenario != null) {
+                    newConversation.setScenarioId(defaultScenario.getId());
+                    if (!TextUtils.isEmpty(defaultScenario.getFirstMessage())) {
+                        greetingText = defaultScenario.getFirstMessage();
+                    }
+                } else {
+                    newConversation.setScenarioId(null);
+                }
+            } else {
+                newConversation.setScenarioId(scenarioId);
+                Scenario selected = scenarioRepository.getScenarioByIdSync(scenarioId);
+                if (selected != null && !TextUtils.isEmpty(selected.getFirstMessage())) {
+                    greetingText = selected.getFirstMessage();
+                }
+            }
+
+            if (personaId != null && personaId != -1) {
+                newConversation.setPersonaId(personaId);
+            } else {
+                newConversation.setPersonaId(null);
+            }
+
+            final String finalGreetingText = greetingText;
+
+            conversationRepository.insert(newConversation, newId -> {
+                int id = newId.intValue();
+                if (!TextUtils.isEmpty(finalGreetingText)) {
+                    Message greeting = new Message("assistant", finalGreetingText, id);
+                    messageRepository.insert(greeting);
+                }
+                conversationIdInput.postValue(id);
+                sendMessageWithId(content, imagePath, id, user, character);
+            });
+        });
+    }
 
     public void createConversationAndSendMessage(String content, String imagePath, User user, Character character) {
-        String title = "New Chat";
-        if (content != null && !content.trim().isEmpty()) {
-            String cleanContent = content.trim().replace("\n", " ");
-            title = cleanContent.length() > 50 ? cleanContent.substring(0, 50) + "..." : cleanContent;
-        } else if (imagePath != null) {
-            title = "Image sent";
-        }
-
-        Conversation newConversation = new Conversation(character.getId(), title);
-
-        conversationRepository.insert(newConversation, newId -> {
-            int id = newId.intValue();
-            if (!TextUtils.isEmpty(character.getFirstMessage())) {
-                Message greeting = new Message("assistant", character.getFirstMessage(), id);
-                messageRepository.insert(greeting);
-            }
-            conversationIdInput.postValue(id);
-            sendMessageWithId(content, imagePath, id, user, character);
-        });
+        createConversationAndSendMessage(content, imagePath, user, character, null, null);
     }
 
     public void sendMessage(String content, String imagePath, int conversationId, User user, Character character) {
@@ -134,16 +177,7 @@ public class ConversationViewModel extends AndroidViewModel {
 
     public void continueConversation(int conversationId, User user, Character character) {
         if (conversationId == -1) {
-            Conversation newConversation = new Conversation(character.getId(), "New Chat");
-            conversationRepository.insert(newConversation, newId -> {
-                int id = newId.intValue();
-                if (!TextUtils.isEmpty(character.getFirstMessage())) {
-                    Message greeting = new Message("assistant", character.getFirstMessage(), id);
-                    messageRepository.insert(greeting);
-                }
-                conversationIdInput.postValue(id);
-                triggerApiCall("", null, id, user, character, true);
-            });
+            createConversationAndSendMessage("", null, user, character, null, null);
         } else {
             triggerApiCall("", null, conversationId, user, character, true);
         }
@@ -176,7 +210,6 @@ public class ConversationViewModel extends AndroidViewModel {
         if (user == null || character == null) return;
 
         executorService.execute(() -> {
-            // 1. Set Loading State to TRUE
             isGenerating.postValue(true);
 
             try {
@@ -185,6 +218,8 @@ public class ConversationViewModel extends AndroidViewModel {
                     messageRepository.insertSync(userMessage);
                     conversationRepository.updateLastUpdatedSync(conversationId, System.currentTimeMillis());
                 }
+
+                Conversation conversation = conversationRepository.getConversationByIdSync(conversationId);
 
                 List<Message> messageHistory = messageRepository.getMessagesForConversationSync(conversationId);
                 List<RequestMessage> requestMessages = new ArrayList<>();
@@ -208,10 +243,14 @@ public class ConversationViewModel extends AndroidViewModel {
                 String globalPrompt = user.getGlobalSystemPrompt() != null ? user.getGlobalSystemPrompt() : "";
                 String characterPersonality = character.getPersonality() != null ? character.getPersonality() : "";
 
-                // --- Append Persona Info ---
+                int personaIdToUse = user.getCurrentPersonaId();
+                if (conversation != null && conversation.getPersonaId() != null) {
+                    personaIdToUse = conversation.getPersonaId();
+                }
+
                 StringBuilder personaPromptBuilder = new StringBuilder();
-                if (user.getCurrentPersonaId() != -1) {
-                    Persona persona = personaDao.getPersonaById(user.getCurrentPersonaId());
+                if (personaIdToUse != -1) {
+                    Persona persona = personaDao.getPersonaById(personaIdToUse);
                     if (persona != null) {
                         personaPromptBuilder.append("User Persona:\n");
                         if (persona.getName() != null && !persona.getName().isEmpty()) {
@@ -224,12 +263,25 @@ public class ConversationViewModel extends AndroidViewModel {
                     }
                 }
                 String personaPrompt = personaPromptBuilder.toString();
-                // ---------------------------
+
+                StringBuilder scenarioPromptBuilder = new StringBuilder();
+                if (conversation != null && conversation.getScenarioId() != null) {
+                    Scenario selectedScenario = scenarioRepository.getScenarioByIdSync(conversation.getScenarioId());
+                    if (selectedScenario != null) {
+                        scenarioPromptBuilder.append("Scenario Context:\n");
+                        if (!TextUtils.isEmpty(selectedScenario.getName())) {
+                            scenarioPromptBuilder.append("Scenario: ").append(selectedScenario.getName()).append("\n");
+                        }
+                        scenarioPromptBuilder.append(selectedScenario.getDescription()).append("\n\n");
+                    }
+                }
+                String scenarioPrompt = scenarioPromptBuilder.toString();
 
                 globalPrompt = globalPrompt.replace("{day}", formattedDay).replace("{time}", formattedTime);
                 characterPersonality = characterPersonality.replace("{day}", formattedDay).replace("{time}", formattedTime);
 
-                String finalSystemPrompt = globalPrompt + "\n" + personaPrompt + characterPersonality;
+                String finalSystemPrompt = globalPrompt + "\n" + personaPrompt + characterPersonality + "\n" + scenarioPrompt;
+
                 if (character.isTimeAware()) {
                     finalSystemPrompt += "\nThis conversation was started on " + formattedDay + " at " + formattedTime + ".";
                 }
@@ -327,7 +379,6 @@ public class ConversationViewModel extends AndroidViewModel {
                 }
 
             } finally {
-                // 2. Set Loading State to FALSE (Always runs)
                 isGenerating.postValue(false);
             }
         });

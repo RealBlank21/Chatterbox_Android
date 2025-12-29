@@ -40,6 +40,11 @@ public interface ConversationDao {
     @Query("SELECT * FROM conversation WHERE conversation_id = :id")
     LiveData<Conversation> getConversationById(int id);
 
+    // --- NEW METHOD FOR VIEWMODEL ---
+    @Query("SELECT * FROM conversation WHERE conversation_id = :id")
+    Conversation getConversationByIdSync(int id);
+    // --------------------------------
+
     @Query("SELECT * FROM conversation WHERE character_fk = :characterId ORDER BY last_updated DESC")
     List<Conversation> getConversationsForCharacter(int characterId);
 
@@ -51,7 +56,6 @@ public interface ConversationDao {
             "ORDER BY conversation.last_updated DESC")
     LiveData<List<ConversationWithCharacter>> getAllConversationsWithCharacter();
 
-    // --- NEW PAGED QUERY ---
     @Transaction
     @Query("SELECT conversation.*, character.name, " +
             "(SELECT COUNT(*) FROM chat_message WHERE conversation_fk = conversation.conversation_id) AS message_count " +

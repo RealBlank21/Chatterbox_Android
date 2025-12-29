@@ -29,6 +29,13 @@ public class Conversation implements Serializable {
     @ColumnInfo(name = "is_active")
     private Boolean isActive;
 
+    // --- NEW FIELDS ---
+    @ColumnInfo(name = "scenario_id")
+    private Integer scenarioId; // Nullable (Can be null if using default/none)
+
+    @ColumnInfo(name = "persona_id")
+    private Integer personaId; // Nullable (Can be null if using default user profile)
+
     public Conversation() { }
 
     @Ignore
@@ -39,8 +46,12 @@ public class Conversation implements Serializable {
         this.createdAt = now;
         this.lastUpdated = now;
         this.isActive = true;
+        // Default to null for new fields initially
+        this.scenarioId = null;
+        this.personaId = null;
     }
 
+    // --- Existing Getters/Setters ---
     public int getId() { return id; }
     public int getCharacterId() { return characterId; }
     public String getTitle() { return title; }
@@ -54,4 +65,11 @@ public class Conversation implements Serializable {
     public void setCreatedAt(long createdAt) { this.createdAt = createdAt; }
     public void setLastUpdated(long lastUpdated) { this.lastUpdated = lastUpdated; }
     public void setIsActive(Boolean isActive) { this.isActive = isActive; }
+
+    // --- NEW Getters/Setters ---
+    public Integer getScenarioId() { return scenarioId; }
+    public void setScenarioId(Integer scenarioId) { this.scenarioId = scenarioId; }
+
+    public Integer getPersonaId() { return personaId; }
+    public void setPersonaId(Integer personaId) { this.personaId = personaId; }
 }

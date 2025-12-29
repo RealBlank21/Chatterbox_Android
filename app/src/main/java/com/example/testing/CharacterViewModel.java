@@ -14,6 +14,8 @@ public class CharacterViewModel extends AndroidViewModel {
     private final CharacterRepository characterRepository;
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
+    private final ScenarioRepository scenarioRepository;
+    private final PersonaDao personaDao;
 
     private final MutableLiveData<Boolean> showHiddenInput = new MutableLiveData<>(false);
     private final MutableLiveData<String> searchQueryInput = new MutableLiveData<>("");
@@ -29,6 +31,8 @@ public class CharacterViewModel extends AndroidViewModel {
         characterRepository = CharacterRepository.getInstance(application);
         conversationRepository = ConversationRepository.getInstance(application);
         messageRepository = MessageRepository.getInstance(application);
+        scenarioRepository = ScenarioRepository.getInstance(application);
+        personaDao = AppDatabase.getInstance(application).personaDao();
 
         MediatorLiveData<FilterParams> filterParams = new MediatorLiveData<>();
         filterParams.setValue(new FilterParams(false, "", ""));
@@ -44,6 +48,26 @@ public class CharacterViewModel extends AndroidViewModel {
                 characterRepository.getFilteredCharacters(params.isHidden, params.searchQuery, params.tagFilter));
 
         allTags = characterRepository.getAllTags();
+    }
+
+    public LiveData<List<Scenario>> getScenariosForCharacter(int characterId) {
+        return scenarioRepository.getScenariosForCharacter(characterId);
+    }
+
+    public void insertScenario(Scenario scenario) {
+        scenarioRepository.insert(scenario);
+    }
+
+    public void updateScenario(Scenario scenario) {
+        scenarioRepository.update(scenario);
+    }
+
+    public void deleteScenario(Scenario scenario) {
+        scenarioRepository.delete(scenario);
+    }
+
+    public LiveData<List<Persona>> getAllPersonas() {
+        return personaDao.getAllPersonas();
     }
 
     private static class FilterParams {

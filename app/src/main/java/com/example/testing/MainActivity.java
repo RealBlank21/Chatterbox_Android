@@ -5,11 +5,16 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.util.TypedValue;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.ListView;
 import android.widget.PopupMenu;
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
@@ -21,6 +26,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends BaseActivity {
@@ -107,9 +113,23 @@ public class MainActivity extends BaseActivity {
         });
 
         adapter.setOnItemLongClickListener((character, anchorView) -> {
-            Intent intent = new Intent(MainActivity.this, AddEditCharacterActivity.class);
-            intent.putExtra("CHARACTER_ID", character.getId());
-            startActivity(intent);
+            PopupMenu popup = new PopupMenu(MainActivity.this, anchorView);
+            popup.getMenuInflater().inflate(R.menu.character_options_menu, popup.getMenu());
+
+            popup.setOnMenuItemClickListener(item -> {
+                int itemId = item.getItemId();
+                if (itemId == R.id.option_edit) {
+                    Intent intent = new Intent(MainActivity.this, AddEditCharacterActivity.class);
+                    intent.putExtra("CHARACTER_ID", character.getId());
+                    startActivity(intent);
+                    return true;
+                } else if (itemId == R.id.option_custom_option) {
+                    showPersonaSelectionDialog(character);
+                    return true;
+                }
+                return false;
+            });
+            popup.show();
         });
 
         adapter.setOnItemClickListener(character -> {
@@ -127,6 +147,104 @@ public class MainActivity extends BaseActivity {
                 startActivity(intent);
                 characterViewModel.doneNavigating();
             }
+        });
+    }
+
+    private void showPersonaSelectionDialog(Character character) {
+        characterViewModel.getAllPersonas().observe(this, personas -> {
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            LayoutInflater inflater = this.getLayoutInflater();
+            View dialogView = inflater.inflate(R.layout.dialog_selection, null);
+            builder.setView(dialogView);
+
+            AlertDialog dialog = builder.create();
+            if (dialog.getWindow() != null) {
+                dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            }
+
+            TextView title = dialogView.findViewById(R.id.text_view_dialog_title);
+            title.setText("Select Persona");
+
+            ListView listView = dialogView.findViewById(R.id.list_view_selection);
+            Button btnCancel = dialogView.findViewById(R.id.button_dialog_cancel);
+
+            List<String> names = new ArrayList<>();
+            List<Integer> ids = new ArrayList<>();
+
+            names.add("Current");
+            ids.add(-1);
+
+            if (personas != null) {
+                for (Persona p : personas) {
+                    names.add(p.getName());
+                    ids.add(p.getId());
+                }
+            }
+
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(this, R.layout.item_selection_row, names);
+            listView.setAdapter(adapter);
+
+            listView.setOnItemClickListener((parent, view, position, id) -> {
+                int selectedPersonaId = ids.get(position);
+                dialog.dismiss();
+                showScenarioSelectionDialog(character, selectedPersonaId);
+            });
+
+            btnCancel.setOnClickListener(v -> dialog.dismiss());
+
+            dialog.show();
+        });
+    }
+
+    private void showScenarioSelectionDialog(Character character, int personaId) {
+        characterViewModel.getScenariosForCharacter(character.getId()).observe(this, scenarios -> {
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            LayoutInflater inflater = this.getLayoutInflater();
+            View dialogView = inflater.inflate(R.layout.dialog_selection, null);
+            builder.setView(dialogView);
+
+            AlertDialog dialog = builder.create();
+            if (dialog.getWindow() != null) {
+                dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            }
+
+            TextView title = dialogView.findViewById(R.id.text_view_dialog_title);
+            title.setText("Select Scenario");
+
+            ListView listView = dialogView.findViewById(R.id.list_view_selection);
+            Button btnCancel = dialogView.findViewById(R.id.button_dialog_cancel);
+
+            List<String> names = new ArrayList<>();
+            List<Integer> ids = new ArrayList<>();
+
+            names.add("Default");
+            ids.add(-1);
+
+            if (scenarios != null) {
+                for (Scenario s : scenarios) {
+                    names.add(s.getName());
+                    ids.add(s.getId());
+                }
+            }
+
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(this, R.layout.item_selection_row, names);
+            listView.setAdapter(adapter);
+
+            listView.setOnItemClickListener((parent, view, position, id) -> {
+                int selectedScenarioId = ids.get(position);
+                dialog.dismiss();
+
+                Intent intent = new Intent(MainActivity.this, ConversationActivity.class);
+                intent.putExtra("CHARACTER_ID", character.getId());
+                intent.putExtra("CONVERSATION_ID", -1);
+                intent.putExtra("PERSONA_ID", personaId);
+                intent.putExtra("SCENARIO_ID", selectedScenarioId);
+                startActivity(intent);
+            });
+
+            btnCancel.setOnClickListener(v -> dialog.dismiss());
+
+            dialog.show();
         });
     }
 

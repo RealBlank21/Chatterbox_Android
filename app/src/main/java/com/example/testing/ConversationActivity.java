@@ -30,6 +30,8 @@ import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -61,23 +63,22 @@ public class ConversationActivity extends BaseActivity {
     private RecyclerView recyclerViewMessages;
     private MessageAdapter messageAdapter;
 
-    // Preview UI
     private CardView cardViewImagePreview;
     private ImageView imageViewPreview;
     private ImageButton buttonRemoveImage;
 
-    // Custom Action Bar Views
     private ImageView actionBarImage;
     private TextView actionBarName;
 
     private ConversationViewModel conversationViewModel;
     private int conversationId = -1;
+    private Integer selectedPersonaId = null;
+    private Integer selectedScenarioId = null;
 
     private User currentUser;
     private Character currentCharacter;
 
     private List<Message> currentMessages = new ArrayList<>();
-
     private String selectedImagePath = null;
 
     private final ActivityResultLauncher<PickVisualMediaRequest> pickMedia =
@@ -92,12 +93,10 @@ public class ConversationActivity extends BaseActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_conversation);
 
-        // --- Custom Action Bar Setup ---
         ActionBar actionBar = getSupportActionBar();
         if (actionBar != null) {
             actionBar.setDisplayShowCustomEnabled(true);
             actionBar.setDisplayShowTitleEnabled(false);
-            // Ensure back arrow is visible (usually implied, but explicit here)
             actionBar.setDisplayHomeAsUpEnabled(true);
 
             LayoutInflater inflater = LayoutInflater.from(this);
@@ -113,11 +112,17 @@ public class ConversationActivity extends BaseActivity {
             actionBarImage = customView.findViewById(R.id.image_view_title_profile);
             actionBarName = customView.findViewById(R.id.text_view_title_name);
         }
-        // -------------------------------
 
         Intent intent = getIntent();
         int characterId = intent.getIntExtra("CHARACTER_ID", -1);
         conversationId = intent.getIntExtra("CONVERSATION_ID", -1);
+
+        if (intent.hasExtra("PERSONA_ID")) {
+            selectedPersonaId = intent.getIntExtra("PERSONA_ID", -1);
+        }
+        if (intent.hasExtra("SCENARIO_ID")) {
+            selectedScenarioId = intent.getIntExtra("SCENARIO_ID", -1);
+        }
 
         if (characterId == -1) {
             Toast.makeText(this, "Error: Invalid Character ID", Toast.LENGTH_SHORT).show();
@@ -167,10 +172,7 @@ public class ConversationActivity extends BaseActivity {
             if (character != null) {
                 this.currentCharacter = character;
 
-                // Update Custom Action Bar
-                if (actionBarName != null) {
-                    actionBarName.setText(character.getName());
-                }
+                if (actionBarName != null) actionBarName.setText(character.getName());
                 if (actionBarImage != null) {
                     String imagePath = character.getCharacterProfileImagePath();
                     if (!TextUtils.isEmpty(imagePath)) {
@@ -179,22 +181,34 @@ public class ConversationActivity extends BaseActivity {
                         actionBarImage.setImageResource(R.mipmap.ic_launcher_round);
                     }
                 }
-                // ------------------------
 
                 checkIfReadyToSend();
+                buttonAttachImage.setVisibility(character.isAllowImageInput() ? View.VISIBLE : View.GONE);
 
-                if (character.isAllowImageInput()) {
-                    buttonAttachImage.setVisibility(View.VISIBLE);
-                } else {
-                    buttonAttachImage.setVisibility(View.GONE);
-                }
+                // --- NEW LOGIC: Determine Effective First Message ---
+                if (conversationId == -1) {
+                    LiveData<Scenario> scenarioLiveData;
+                    if (selectedScenarioId != null && selectedScenarioId != -1) {
+                        scenarioLiveData = conversationViewModel.getScenarioByIdLive(selectedScenarioId);
+                    } else {
+                        scenarioLiveData = conversationViewModel.getDefaultScenarioLive(character.getId());
+                    }
 
-                if (conversationId == -1 && !TextUtils.isEmpty(character.getFirstMessage())) {
-                    List<Message> transientList = new ArrayList<>();
-                    transientList.add(new Message("assistant", character.getFirstMessage(), -1));
-                    messageAdapter.setMessages(transientList);
-                    currentMessages = transientList;
+                    scenarioLiveData.observe(this, scenario -> {
+                        String firstMsg = character.getFirstMessage();
+                        if (scenario != null && !TextUtils.isEmpty(scenario.getFirstMessage())) {
+                            firstMsg = scenario.getFirstMessage();
+                        }
+
+                        if (!TextUtils.isEmpty(firstMsg)) {
+                            List<Message> transientList = new ArrayList<>();
+                            transientList.add(new Message("assistant", firstMsg, -1));
+                            messageAdapter.setMessages(transientList);
+                            currentMessages = transientList;
+                        }
+                    });
                 }
+                // ----------------------------------------------------
             }
         });
 
@@ -208,11 +222,10 @@ public class ConversationActivity extends BaseActivity {
         });
 
         conversationViewModel.getActivePersona().observe(this, persona -> {
-            EditText messageInput = findViewById(R.id.edit_text_message); // Verify this ID
             if (persona != null) {
-                messageInput.setHint("Chatting as " + persona.getName());
+                editTextMessage.setHint("Chatting as " + persona.getName());
             } else {
-                messageInput.setHint("Type a message");
+                editTextMessage.setHint("Type a message");
             }
         });
 
@@ -507,7 +520,7 @@ public class ConversationActivity extends BaseActivity {
             String imageToSend = selectedImagePath;
 
             if (conversationId == -1) {
-                conversationViewModel.createConversationAndSendMessage(messageContent, imageToSend, currentUser, currentCharacter);
+                conversationViewModel.createConversationAndSendMessage(messageContent, imageToSend, currentUser, currentCharacter, selectedPersonaId, selectedScenarioId);
             } else {
                 conversationViewModel.sendMessage(messageContent, imageToSend, conversationId, currentUser, currentCharacter);
             }

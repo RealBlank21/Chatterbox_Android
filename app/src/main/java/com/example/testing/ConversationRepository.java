@@ -13,13 +13,12 @@ public class ConversationRepository {
     private static volatile ConversationRepository INSTANCE;
     private final ConversationDao conversationDao;
     private final ExecutorService executorService;
-    private final Handler mainHandler; // To post results back to UI thread
+    private final Handler mainHandler;
 
     public interface InsertCallback {
         void onInsertFinished(Long newId);
     }
 
-    // Callback for paged data
     public interface DataCallback<T> {
         void onDataLoaded(T data);
     }
@@ -42,7 +41,6 @@ public class ConversationRepository {
         return INSTANCE;
     }
 
-    // --- PAGINATION METHOD ---
     public void loadConversationsPaged(int limit, int offset, DataCallback<List<ConversationWithCharacter>> callback) {
         executorService.execute(() -> {
             List<ConversationWithCharacter> data = conversationDao.getConversationsWithCharacterPaged(limit, offset);
@@ -102,6 +100,12 @@ public class ConversationRepository {
     public LiveData<Conversation> getConversationById(int conversationId) {
         return conversationDao.getConversationById(conversationId);
     }
+
+    // --- NEW METHOD FOR VIEWMODEL ---
+    public Conversation getConversationByIdSync(int conversationId) {
+        return conversationDao.getConversationByIdSync(conversationId);
+    }
+    // --------------------------------
 
     public LiveData<List<ConversationWithCharacter>> getAllConversationsWithCharacter() {
         return conversationDao.getAllConversationsWithCharacter();
