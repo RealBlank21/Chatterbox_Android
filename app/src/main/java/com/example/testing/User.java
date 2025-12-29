@@ -16,37 +16,37 @@ public class User implements Serializable {
     private int configId = 1;
 
     @ColumnInfo(name = "username")
-    private String username;
+    private String username = "";
 
     @ColumnInfo(name = "email")
-    private String email;
+    private String email = "";
 
     @ColumnInfo(name = "profile_image_path")
-    private String profileImagePath;
+    private String profileImagePath = "";
 
     @ColumnInfo(name = "api_key")
-    private String apiKey;
+    private String apiKey = "";
 
     @ColumnInfo(name = "preferred_model")
-    private String preferredModel;
+    private String preferredModel = "";
 
     @ColumnInfo(name = "global_system_prompt")
-    private String globalSystemPrompt;
+    private String globalSystemPrompt = "";
 
     @ColumnInfo(name = "default_context_limit", defaultValue = "0")
-    private int defaultContextLimit;
+    private int defaultContextLimit = 0;
 
     @ColumnInfo(name = "theme_color_primary", defaultValue = "0")
-    private int themeColorPrimary;
+    private int themeColorPrimary = 0;
 
     @ColumnInfo(name = "theme_color_secondary", defaultValue = "0")
-    private int themeColorSecondary;
+    private int themeColorSecondary = 0;
 
     @ColumnInfo(name = "character_list_mode", defaultValue = "list")
-    private String characterListMode;
+    private String characterListMode = "list";
 
     @ColumnInfo(name = "current_persona_id", defaultValue = "-1")
-    private int currentPersonaId;
+    private int currentPersonaId = -1;
 
     @Ignore
     public User(String username, String email, String profileImagePath,
@@ -80,14 +80,14 @@ public class User implements Serializable {
                 int defaultContextLimit, int themeColorPrimary, int themeColorSecondary, String characterListMode, int currentPersonaId) {
         this.username = username;
         this.email = email;
-        this.profileImagePath = profileImagePath;
-        this.apiKey = apiKey;
-        this.preferredModel = preferredModel;
-        this.globalSystemPrompt = globalSystemPrompt;
+        this.profileImagePath = profileImagePath != null ? profileImagePath : "";
+        this.apiKey = apiKey != null ? apiKey : "";
+        this.preferredModel = preferredModel != null ? preferredModel : "";
+        this.globalSystemPrompt = globalSystemPrompt != null ? globalSystemPrompt : "";
         this.defaultContextLimit = defaultContextLimit;
         this.themeColorPrimary = themeColorPrimary;
         this.themeColorSecondary = themeColorSecondary;
-        this.characterListMode = characterListMode;
+        this.characterListMode = characterListMode != null ? characterListMode : "list";
         this.currentPersonaId = currentPersonaId;
     }
 

@@ -16,28 +16,28 @@ public class Character {
     private long createdAt;
 
     @ColumnInfo(name = "name")
-    private String name;
+    private String name = "";
 
     @ColumnInfo(name = "model")
-    private String model;
+    private String model = "";
 
     @ColumnInfo(name = "personality")
-    private String personality;
+    private String personality = "";
 
     @ColumnInfo(name = "first_message")
-    private String firstMessage;
+    private String firstMessage = "";
 
     @ColumnInfo(name = "is_active")
-    private Boolean isActive;
+    private Boolean isActive = true;
 
     @ColumnInfo(name = "character_profile_image_path")
-    private String characterProfileImagePath;
+    private String characterProfileImagePath = "";
 
     @ColumnInfo(name = "voice_reference_id")
-    private String voiceReferenceId;
+    private String voiceReferenceId = "";
 
     @ColumnInfo(name = "voice_reference_name")
-    private String voiceReferenceName;
+    private String voiceReferenceName = "";
 
     @ColumnInfo(name = "temperature")
     private Float temperature;
@@ -61,7 +61,7 @@ public class Character {
     private Integer contextLimit;
 
     @ColumnInfo(name = "tags", defaultValue = "")
-    private String tags;
+    private String tags = "";
 
     @ColumnInfo(name = "conversation_count")
     private int conversationCount;
@@ -80,9 +80,9 @@ public class Character {
         this.firstMessage = firstMessage;
         this.model = model;
         this.isActive = true;
-        this.characterProfileImagePath = characterProfileImagePath;
-        this.voiceReferenceId = voiceReferenceId;
-        this.voiceReferenceName = voiceReferenceName;
+        this.characterProfileImagePath = characterProfileImagePath != null ? characterProfileImagePath : "";
+        this.voiceReferenceId = voiceReferenceId != null ? voiceReferenceId : "";
+        this.voiceReferenceName = voiceReferenceName != null ? voiceReferenceName : "";
         this.temperature = temperature;
         this.maxTokens = maxTokens;
         this.isFavorite = false;
