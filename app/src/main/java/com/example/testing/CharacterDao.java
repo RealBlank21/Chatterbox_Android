@@ -33,9 +33,30 @@ public interface CharacterDao {
     @Query("SELECT * FROM character WHERE character_id = :id")
     LiveData<Character> getCharacterById(int id);
 
-    @Query("SELECT c.*, COUNT(conv.conversation_id) as conversation_count " +
+    @Query("SELECT " +
+            "c.character_id, " +
+            "c.created_at, " +
+            "c.name, " +
+            "c.model, " +
+            "c.personality, " +
+            "COALESCE(NULLIF(s.first_message, ''), c.first_message) as first_message, " +
+            "c.is_active, " +
+            "COALESCE(NULLIF(s.image_path, ''), c.character_profile_image_path) as character_profile_image_path, " +
+            "c.voice_reference_id, " +
+            "c.voice_reference_name, " +
+            "c.temperature, " +
+            "c.max_tokens, " +
+            "c.is_favorite, " +
+            "c.is_hidden, " +
+            "c.is_time_aware, " +
+            "c.allow_image_input, " +
+            "c.context_limit, " +
+            "c.tags, " +
+            "c.default_scenario, " +
+            "COUNT(DISTINCT conv.conversation_id) as conversation_count " +
             "FROM character c " +
             "LEFT JOIN conversation conv ON c.character_id = conv.character_fk " +
+            "LEFT JOIN scenario s ON c.character_id = s.character_id AND s.is_default = 1 " +
             "WHERE c.is_hidden = :isHidden " +
             "AND c.name LIKE '%' || :searchQuery || '%' " +
             "AND (:tagFilter IS NULL OR :tagFilter = '' OR c.tags LIKE '%' || :tagFilter || '%') " +

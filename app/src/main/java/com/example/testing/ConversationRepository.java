@@ -12,6 +12,7 @@ public class ConversationRepository {
 
     private static volatile ConversationRepository INSTANCE;
     private final ConversationDao conversationDao;
+    private final MessageDao messageDao;
     private final ExecutorService executorService;
     private final Handler mainHandler;
 
@@ -26,6 +27,7 @@ public class ConversationRepository {
     private ConversationRepository(Application application) {
         AppDatabase db = AppDatabase.getInstance(application);
         this.conversationDao = db.conversationDao();
+        this.messageDao = db.messageDao();
         this.executorService = Executors.newSingleThreadExecutor();
         this.mainHandler = new Handler(Looper.getMainLooper());
     }
@@ -86,26 +88,33 @@ public class ConversationRepository {
     }
 
     public void deleteAll() {
-        executorService.execute(() -> conversationDao.deleteAll());
+        executorService.execute(() -> {
+            messageDao.deleteAll();
+            conversationDao.deleteAll();
+        });
     }
 
     public void delete(Conversation conversation) {
-        executorService.execute(() -> conversationDao.delete(conversation));
+        executorService.execute(() -> {
+            messageDao.deleteMessagesByConversationId(conversation.getId());
+            conversationDao.delete(conversation);
+        });
     }
 
     public void deleteConversations(List<Integer> ids) {
-        executorService.execute(() -> conversationDao.deleteConversationsByIds(ids));
+        executorService.execute(() -> {
+            messageDao.deleteMessagesByConversationIds(ids);
+            conversationDao.deleteConversationsByIds(ids);
+        });
     }
 
     public LiveData<Conversation> getConversationById(int conversationId) {
         return conversationDao.getConversationById(conversationId);
     }
 
-    // --- NEW METHOD FOR VIEWMODEL ---
     public Conversation getConversationByIdSync(int conversationId) {
         return conversationDao.getConversationByIdSync(conversationId);
     }
-    // --------------------------------
 
     public LiveData<List<ConversationWithCharacter>> getAllConversationsWithCharacter() {
         return conversationDao.getAllConversationsWithCharacter();

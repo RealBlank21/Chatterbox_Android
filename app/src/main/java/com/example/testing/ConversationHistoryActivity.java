@@ -42,7 +42,6 @@ public class ConversationHistoryActivity extends BaseActivity {
         recyclerView.setLayoutManager(layoutManager);
         recyclerView.setHasFixedSize(true);
 
-        // Controls
         layoutDeleteControls = findViewById(R.id.layout_delete_controls);
         buttonSelectAll = findViewById(R.id.button_select_all);
         buttonDeleteSelected = findViewById(R.id.button_delete_selected);
@@ -52,35 +51,13 @@ public class ConversationHistoryActivity extends BaseActivity {
 
         viewModel = new ViewModelProvider(this).get(ConversationHistoryViewModel.class);
 
-        // Observe data changes
         viewModel.getAllConversations().observe(this, conversationWithCharacters -> {
             adapter.setConversations(conversationWithCharacters);
-            // If we were selecting all, and list changed (deleted), reset selection
             if (adapter.isDeleteMode() && conversationWithCharacters.isEmpty()) {
                 toggleDeleteMode(false);
             }
         });
 
-        // Add Scroll Listener for Pagination
-        recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            @Override
-            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
-                super.onScrolled(recyclerView, dx, dy);
-
-                if (dy > 0) { // Scrolling down
-                    int visibleItemCount = layoutManager.getChildCount();
-                    int totalItemCount = layoutManager.getItemCount();
-                    int firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition();
-
-                    if ((visibleItemCount + firstVisibleItemPosition) >= totalItemCount
-                            && firstVisibleItemPosition >= 0) {
-                        viewModel.loadNextPage();
-                    }
-                }
-            }
-        });
-
-        // Click logic for navigation
         adapter.setOnItemClickListener(conversation -> {
             Intent intent = new Intent(ConversationHistoryActivity.this, ConversationActivity.class);
             intent.putExtra("CONVERSATION_ID", conversation.getId());
@@ -88,7 +65,6 @@ public class ConversationHistoryActivity extends BaseActivity {
             startActivity(intent);
         });
 
-        // Selection logic for UI updates
         adapter.setOnSelectionChangedListener(count -> {
             buttonDeleteSelected.setText("Delete (" + count + ")");
             buttonDeleteSelected.setEnabled(count > 0);
@@ -109,7 +85,6 @@ public class ConversationHistoryActivity extends BaseActivity {
         });
     }
 
-    // --- Menu Logic ---
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
@@ -132,10 +107,10 @@ public class ConversationHistoryActivity extends BaseActivity {
         adapter.setDeleteMode(enable);
         if (enable) {
             layoutDeleteControls.setVisibility(View.VISIBLE);
-            deleteMenuItem.setIcon(android.R.drawable.ic_menu_close_clear_cancel); // Change icon to 'X'
+            deleteMenuItem.setIcon(android.R.drawable.ic_menu_close_clear_cancel);
         } else {
             layoutDeleteControls.setVisibility(View.GONE);
-            deleteMenuItem.setIcon(android.R.drawable.ic_menu_delete); // Change icon back to trash
+            deleteMenuItem.setIcon(android.R.drawable.ic_menu_delete);
         }
     }
 
@@ -147,7 +122,7 @@ public class ConversationHistoryActivity extends BaseActivity {
                 .setPositiveButton("Delete", (dialog, which) -> {
                     viewModel.deleteConversations(selectedIds);
                     Toast.makeText(this, "Deleted " + count + " conversations", Toast.LENGTH_SHORT).show();
-                    toggleDeleteMode(false); // Exit delete mode after deletion
+                    toggleDeleteMode(false);
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
