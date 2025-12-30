@@ -4,9 +4,10 @@ import androidx.room.Entity;
 import androidx.room.Ignore;
 import androidx.room.PrimaryKey;
 import androidx.room.ColumnInfo;
+import java.io.Serializable;
 
 @Entity(tableName = "character")
-public class Character {
+public class Character implements Serializable {
 
     @PrimaryKey(autoGenerate = true)
     @ColumnInfo(name = "character_id")
@@ -66,6 +67,9 @@ public class Character {
     @ColumnInfo(name = "conversation_count")
     private int conversationCount;
 
+    @ColumnInfo(name = "default_scenario", defaultValue = "")
+    private String defaultScenario = "";
+
     public Character() { }
 
     @Ignore
@@ -73,7 +77,7 @@ public class Character {
                      String model, String characterProfileImagePath,
                      String voiceReferenceId, String voiceReferenceName,
                      Float temperature, Integer maxTokens, boolean isTimeAware,
-                     boolean allowImageInput, Integer contextLimit, String tags) {
+                     boolean allowImageInput, Integer contextLimit, String tags, String defaultScenario) {
         this.createdAt = System.currentTimeMillis();
         this.name = name;
         this.personality = personality;
@@ -91,6 +95,17 @@ public class Character {
         this.allowImageInput = allowImageInput;
         this.contextLimit = contextLimit;
         this.tags = tags != null ? tags : "";
+        this.defaultScenario = defaultScenario != null ? defaultScenario : "";
+    }
+
+    // Backward compatibility constructors
+    @Ignore
+    public Character(String name, String personality, String firstMessage,
+                     String model, String characterProfileImagePath,
+                     String voiceReferenceId, String voiceReferenceName,
+                     Float temperature, Integer maxTokens, boolean isTimeAware,
+                     boolean allowImageInput, Integer contextLimit, String tags) {
+        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, temperature, maxTokens, isTimeAware, allowImageInput, contextLimit, tags, "");
     }
 
     @Ignore
@@ -99,7 +114,7 @@ public class Character {
                      String voiceReferenceId, String voiceReferenceName,
                      Float temperature, Integer maxTokens, boolean isTimeAware,
                      boolean allowImageInput, Integer contextLimit) {
-        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, temperature, maxTokens, isTimeAware, allowImageInput, contextLimit, "");
+        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, temperature, maxTokens, isTimeAware, allowImageInput, contextLimit, "", "");
     }
 
     @Ignore
@@ -107,14 +122,14 @@ public class Character {
                      String model, String characterProfileImagePath,
                      String voiceReferenceId, String voiceReferenceName,
                      Float temperature, Integer maxTokens, boolean isTimeAware, boolean allowImageInput) {
-        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, temperature, maxTokens, isTimeAware, allowImageInput, null, "");
+        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, temperature, maxTokens, isTimeAware, allowImageInput, null, "", "");
     }
 
     @Ignore
     public Character(String name, String personality, String firstMessage,
                      String model, String characterProfileImagePath,
                      String voiceReferenceId, String voiceReferenceName) {
-        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, null, null, false, false, null, "");
+        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, null, null, false, false, null, "", "");
     }
 
     public int getId() { return id; }
@@ -136,6 +151,7 @@ public class Character {
     public int getConversationCount() { return conversationCount; }
     public Integer getContextLimit() { return contextLimit; }
     public String getTags() { return tags; }
+    public String getDefaultScenario() { return defaultScenario; }
 
     public void setId(int id) { this.id = id; }
     public void setCreatedAt(long createdAt) { this.createdAt = createdAt; }
@@ -156,4 +172,5 @@ public class Character {
     public void setConversationCount(int conversationCount) { this.conversationCount = conversationCount; }
     public void setContextLimit(Integer contextLimit) { this.contextLimit = contextLimit; }
     public void setTags(String tags) { this.tags = tags; }
+    public void setDefaultScenario(String defaultScenario) { this.defaultScenario = defaultScenario; }
 }

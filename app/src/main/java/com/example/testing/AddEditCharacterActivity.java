@@ -9,14 +9,12 @@ import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.util.TypedValue;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
-import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -38,6 +36,7 @@ import com.canhub.cropper.CropImageContract;
 import com.canhub.cropper.CropImageContractOptions;
 import com.canhub.cropper.CropImageOptions;
 import com.example.testing.network.response.Model;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.switchmaterial.SwitchMaterial;
@@ -54,7 +53,7 @@ public class AddEditCharacterActivity extends BaseActivity {
 
     private ImageView imageViewProfilePreview;
     private Button buttonSelectImage;
-    private EditText editTextName, editTextPersonality, editTextFirstMessage, editTextTemperature, editTextMaxTokens, editTextContextLimit;
+    private EditText editTextName, editTextPersonality, editTextDefaultScenario, editTextFirstMessage, editTextTemperature, editTextMaxTokens, editTextContextLimit;
     private AutoCompleteTextView editTextModel;
     private ImageButton buttonRefreshModels;
     private TextView textViewModelInfo;
@@ -69,6 +68,10 @@ public class AddEditCharacterActivity extends BaseActivity {
     private LinearLayout layoutPersonalityContainer;
     private ImageView imageViewPersonalityArrow;
 
+    private LinearLayout layoutDefaultScenarioHeader;
+    private LinearLayout layoutDefaultScenarioContainer;
+    private ImageView imageViewDefaultScenarioArrow;
+
     private AutoCompleteTextView editTextNewTag;
     private ImageButton buttonAddTag;
     private ChipGroup chipGroupTags;
@@ -76,7 +79,7 @@ public class AddEditCharacterActivity extends BaseActivity {
 
     private RecyclerView recyclerViewScenarios;
     private ScenarioAdapter scenarioAdapter;
-    private Button buttonAddScenario;
+    private MaterialButton buttonAddScenario;
     private LinearLayout layoutScenariosContainer;
 
     private CharacterViewModel characterViewModel;
@@ -86,6 +89,10 @@ public class AddEditCharacterActivity extends BaseActivity {
     private boolean isFavorite = false;
     private boolean isHidden = false;
     private long createdAt;
+    // Persist voice data if editing
+    private String currentVoiceReferenceId = "";
+    private String currentVoiceReferenceName = "";
+    private int conversationCount = 0;
 
     private ArrayAdapter<String> modelsAdapter;
     private List<String> modelIds = new ArrayList<>();
@@ -128,6 +135,7 @@ public class AddEditCharacterActivity extends BaseActivity {
         buttonSelectImage = findViewById(R.id.button_select_image);
         editTextName = findViewById(R.id.edit_text_character_name);
         editTextPersonality = findViewById(R.id.edit_text_character_personality);
+        editTextDefaultScenario = findViewById(R.id.edit_text_default_scenario);
         editTextModel = findViewById(R.id.edit_text_character_model);
         buttonRefreshModels = findViewById(R.id.button_refresh_models);
         textViewModelInfo = findViewById(R.id.text_view_model_info);
@@ -146,6 +154,10 @@ public class AddEditCharacterActivity extends BaseActivity {
         layoutPersonalityContainer = findViewById(R.id.layout_personality_container);
         imageViewPersonalityArrow = findViewById(R.id.image_view_personality_arrow);
 
+        layoutDefaultScenarioHeader = findViewById(R.id.layout_default_scenario_header);
+        layoutDefaultScenarioContainer = findViewById(R.id.layout_default_scenario_container);
+        imageViewDefaultScenarioArrow = findViewById(R.id.image_view_default_scenario_arrow);
+
         editTextNewTag = findViewById(R.id.edit_text_new_tag);
         buttonAddTag = findViewById(R.id.button_add_tag);
         chipGroupTags = findViewById(R.id.chip_group_character_tags);
@@ -153,6 +165,12 @@ public class AddEditCharacterActivity extends BaseActivity {
         recyclerViewScenarios = findViewById(R.id.recycler_view_scenarios);
         buttonAddScenario = findViewById(R.id.button_add_scenario);
         layoutScenariosContainer = findViewById(R.id.layout_scenarios_container);
+
+        // Apply Custom Secondary Color to Add Scenario Button (Text and Border)
+        int secondaryColor = ThemeUtils.getSecondaryColor(this);
+        buttonAddScenario.setTextColor(secondaryColor);
+        buttonAddScenario.setStrokeColor(ColorStateList.valueOf(secondaryColor));
+        buttonAddScenario.setStrokeWidth((int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 1, getResources().getDisplayMetrics()));
 
         recyclerViewScenarios.setLayoutManager(new LinearLayoutManager(this));
         scenarioAdapter = new ScenarioAdapter();
@@ -233,6 +251,16 @@ public class AddEditCharacterActivity extends BaseActivity {
             }
         });
 
+        layoutDefaultScenarioHeader.setOnClickListener(v -> {
+            if (layoutDefaultScenarioContainer.getVisibility() == View.VISIBLE) {
+                layoutDefaultScenarioContainer.setVisibility(View.GONE);
+                imageViewDefaultScenarioArrow.setImageResource(android.R.drawable.arrow_down_float);
+            } else {
+                layoutDefaultScenarioContainer.setVisibility(View.VISIBLE);
+                imageViewDefaultScenarioArrow.setImageResource(android.R.drawable.arrow_up_float);
+            }
+        });
+
         getSupportActionBar().setHomeAsUpIndicator(android.R.drawable.ic_menu_close_clear_cancel);
 
         buttonSelectImage.setOnClickListener(v -> {
@@ -244,7 +272,10 @@ public class AddEditCharacterActivity extends BaseActivity {
         scenarioAdapter.setOnScenarioActionListener(new ScenarioAdapter.OnScenarioActionListener() {
             @Override
             public void onEdit(Scenario scenario) {
-                showScenarioDialog(scenario);
+                Intent intent = new Intent(AddEditCharacterActivity.this, AddEditScenarioActivity.class);
+                intent.putExtra(AddEditScenarioActivity.EXTRA_CHARACTER_ID, currentCharacterId);
+                intent.putExtra(AddEditScenarioActivity.EXTRA_SCENARIO, scenario);
+                startActivity(intent);
             }
 
             @Override
@@ -258,7 +289,11 @@ public class AddEditCharacterActivity extends BaseActivity {
             }
         });
 
-        buttonAddScenario.setOnClickListener(v -> showScenarioDialog(null));
+        buttonAddScenario.setOnClickListener(v -> {
+            Intent intent = new Intent(AddEditCharacterActivity.this, AddEditScenarioActivity.class);
+            intent.putExtra(AddEditScenarioActivity.EXTRA_CHARACTER_ID, currentCharacterId);
+            startActivity(intent);
+        });
 
         Intent intent = getIntent();
         if (intent.hasExtra("CHARACTER_ID")) {
@@ -269,6 +304,9 @@ public class AddEditCharacterActivity extends BaseActivity {
                     editingCharacter = character;
                     editTextName.setText(character.getName());
                     editTextPersonality.setText(character.getPersonality());
+                    if (character.getDefaultScenario() != null) {
+                        editTextDefaultScenario.setText(character.getDefaultScenario());
+                    }
 
                     editTextModel.setText(character.getModel());
                     updateModelInfo(character.getModel());
@@ -285,6 +323,11 @@ public class AddEditCharacterActivity extends BaseActivity {
                     if (!TextUtils.isEmpty(currentProfileImagePath)) {
                         Glide.with(this).load(currentProfileImagePath).into(imageViewProfilePreview);
                     }
+
+                    // Preserve existing fields that are not in this UI
+                    currentVoiceReferenceId = character.getVoiceReferenceId();
+                    currentVoiceReferenceName = character.getVoiceReferenceName();
+                    conversationCount = character.getConversationCount();
 
                     isFavorite = character.isFavorite();
                     isHidden = character.isHidden();
@@ -304,67 +347,6 @@ public class AddEditCharacterActivity extends BaseActivity {
             setTitle("Add Character");
             layoutScenariosContainer.setVisibility(View.GONE);
         }
-    }
-
-    private void showScenarioDialog(Scenario scenarioToEdit) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        LayoutInflater inflater = this.getLayoutInflater();
-        View dialogView = inflater.inflate(R.layout.dialog_add_scenario, null);
-        builder.setView(dialogView);
-
-        AlertDialog dialog = builder.create();
-        // Remove default background so our rounded corners or dark background works perfectly
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-        }
-
-        TextView title = dialogView.findViewById(R.id.text_view_dialog_title);
-        EditText editName = dialogView.findViewById(R.id.edit_scenario_name);
-        EditText editDesc = dialogView.findViewById(R.id.edit_scenario_description);
-        EditText editFirstMsg = dialogView.findViewById(R.id.edit_scenario_first_message);
-        CheckBox checkDefault = dialogView.findViewById(R.id.check_scenario_default);
-        Button btnSave = dialogView.findViewById(R.id.button_dialog_save);
-        Button btnCancel = dialogView.findViewById(R.id.button_dialog_cancel);
-
-        if (scenarioToEdit != null) {
-            title.setText("Edit Scenario");
-            editName.setText(scenarioToEdit.getName());
-            editDesc.setText(scenarioToEdit.getDescription());
-            editFirstMsg.setText(scenarioToEdit.getFirstMessage());
-            checkDefault.setChecked(scenarioToEdit.isDefault());
-        } else {
-            title.setText("Add Scenario");
-        }
-
-        btnSave.setOnClickListener(v -> {
-            String name = editName.getText().toString().trim();
-            String desc = editDesc.getText().toString().trim();
-            String firstMsg = editFirstMsg.getText().toString().trim();
-            boolean isDefault = checkDefault.isChecked();
-
-            if (name.isEmpty()) {
-                Toast.makeText(this, "Name required", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            if (scenarioToEdit == null) {
-                // Create New
-                Scenario newScenario = new Scenario(currentCharacterId, name, desc, firstMsg, isDefault);
-                characterViewModel.insertScenario(newScenario);
-            } else {
-                // Update Existing
-                scenarioToEdit.setName(name);
-                scenarioToEdit.setDescription(desc);
-                scenarioToEdit.setFirstMessage(firstMsg);
-                scenarioToEdit.setDefault(isDefault);
-                characterViewModel.updateScenario(scenarioToEdit);
-            }
-            dialog.dismiss();
-        });
-
-        btnCancel.setOnClickListener(v -> dialog.dismiss());
-
-        dialog.show();
     }
 
     private void addNewTag(String tag) {
@@ -467,6 +449,7 @@ public class AddEditCharacterActivity extends BaseActivity {
     private void saveCharacter() {
         String name = editTextName.getText().toString();
         String personality = editTextPersonality.getText().toString();
+        String defaultScenario = editTextDefaultScenario.getText().toString();
         String model = editTextModel.getText().toString();
         String firstMessage = editTextFirstMessage.getText().toString();
         String tempStr = editTextTemperature.getText().toString();
@@ -516,9 +499,10 @@ public class AddEditCharacterActivity extends BaseActivity {
         }
         String tags = tagsBuilder.toString();
 
-        Character character = new Character(name, personality, firstMessage, model, currentProfileImagePath, "", "", temperature, maxTokens, isTimeAware, allowImageInput, contextLimit, tags);
+        Character character = new Character(name, personality, firstMessage, model, currentProfileImagePath, currentVoiceReferenceId, currentVoiceReferenceName, temperature, maxTokens, isTimeAware, allowImageInput, contextLimit, tags, defaultScenario);
         character.setFavorite(isFavorite);
         character.setHidden(isHidden);
+        character.setConversationCount(conversationCount);
 
         if (currentCharacterId != -1) {
             character.setId(currentCharacterId);

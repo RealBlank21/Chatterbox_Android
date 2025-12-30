@@ -86,6 +86,51 @@
                 android:minLines="5" />
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/layout_default_scenario_header"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackground">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Default Scenario"
+                android:textStyle="bold"
+                android:textSize="16sp"/>
+
+            <ImageView
+                android:id="@+id/image_view_default_scenario_arrow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@android:drawable/arrow_down_float"/>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layout_default_scenario_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <EditText
+                android:id="@+id/edit_text_default_scenario"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="top"
+                android:hint="Base/Default Scenario description..."
+                android:inputType="textMultiLine"
+                android:minLines="5" />
+        </LinearLayout>
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -302,7 +347,7 @@
                 android:nestedScrollingEnabled="false"
                 android:layout_marginBottom="8dp"/>
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/button_add_scenario"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

@@ -1,12 +1,15 @@
 package com.example.testing;
 
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+import com.bumptech.glide.Glide;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -48,6 +51,7 @@ public class ScenarioAdapter extends RecyclerView.Adapter<ScenarioAdapter.Scenar
     }
 
     class ScenarioViewHolder extends RecyclerView.ViewHolder {
+        ImageView imageViewThumb;
         TextView textViewName;
         TextView textViewDescription;
         TextView textViewIsDefault;
@@ -56,6 +60,7 @@ public class ScenarioAdapter extends RecyclerView.Adapter<ScenarioAdapter.Scenar
 
         public ScenarioViewHolder(@NonNull View itemView) {
             super(itemView);
+            imageViewThumb = itemView.findViewById(R.id.image_view_scenario_thumb);
             textViewName = itemView.findViewById(R.id.text_view_scenario_name);
             textViewDescription = itemView.findViewById(R.id.text_view_scenario_description);
             textViewIsDefault = itemView.findViewById(R.id.text_view_is_default);
@@ -91,6 +96,16 @@ public class ScenarioAdapter extends RecyclerView.Adapter<ScenarioAdapter.Scenar
                 textViewIsDefault.setText("Default");
             } else {
                 textViewIsDefault.setVisibility(View.GONE);
+            }
+
+            if (!TextUtils.isEmpty(scenario.getImagePath())) {
+                Glide.with(itemView.getContext())
+                        .load(scenario.getImagePath())
+                        .placeholder(R.drawable.ic_launcher_foreground)
+                        .error(R.drawable.ic_launcher_foreground)
+                        .into(imageViewThumb);
+            } else {
+                imageViewThumb.setImageResource(R.drawable.ic_launcher_foreground);
             }
         }
     }

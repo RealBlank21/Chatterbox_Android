@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:gravity="center_horizontal">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Scenario Details"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
+
+        <ImageView
+            android:id="@+id/image_view_scenario_preview"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_marginBottom="8dp"
+            android:background="#404040"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_launcher_foreground"
+            android:contentDescription="Scenario Image" />
+
+        <Button
+            android:id="@+id/button_select_scenario_image"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Select Image"
+            android:layout_marginBottom="16dp"/>
+
+        <EditText
+            android:id="@+id/edit_scenario_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Scenario Name (e.g., School Life)"
+            android:textColor="@android:color/white"
+            android:textColorHint="#B0B0B0"
+            android:backgroundTint="#808080"
+            android:layout_marginBottom="16dp"
+            android:inputType="textCapSentences"
+            android:minHeight="48dp"/>
+
+        <EditText
+            android:id="@+id/edit_scenario_description"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Context/Prompt Description"
+            android:textColor="@android:color/white"
+            android:textColorHint="#B0B0B0"
+            android:backgroundTint="#808080"
+            android:minLines="5"
+            android:gravity="top"
+            android:layout_marginBottom="16dp"
+            android:inputType="textMultiLine|textCapSentences" />
+
+        <EditText
+            android:id="@+id/edit_scenario_first_message"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="First Message (Optional Override)"
+            android:textColor="@android:color/white"
+            android:textColorHint="#B0B0B0"
+            android:backgroundTint="#808080"
+            android:minLines="3"
+            android:gravity="top"
+            android:layout_marginBottom="24dp"
+            android:inputType="textMultiLine|textCapSentences" />
+
+        <CheckBox
+            android:id="@+id/check_scenario_default"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Set as Default Scenario"
+            android:textColor="@android:color/white"
+            android:buttonTint="@android:color/white"
+            android:layout_marginBottom="24dp"
+            android:minHeight="48dp"/>
+
+        <Button
+            android:id="@+id/button_save_scenario"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="SAVE SCENARIO"
+            android:textStyle="bold"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:padding="12dp"/>
+
+    </LinearLayout>
+</ScrollView>

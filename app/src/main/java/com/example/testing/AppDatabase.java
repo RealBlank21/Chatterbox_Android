@@ -8,7 +8,7 @@ import androidx.room.RoomDatabase;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {User.class, Character.class, Conversation.class, Message.class, Persona.class, Scenario.class}, version = 17, exportSchema = false)
+@Database(entities = {User.class, Character.class, Conversation.class, Message.class, Persona.class, Scenario.class}, version = 19, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
 
     public abstract UserDao userDao();
@@ -90,7 +90,6 @@ public abstract class AppDatabase extends RoomDatabase {
     static final Migration MIGRATION_16_17 = new Migration(16, 17) {
         @Override
         public void migrate(SupportSQLiteDatabase database) {
-            // 1. Create the Scenario table with first_message
             database.execSQL("CREATE TABLE IF NOT EXISTS `scenario` (" +
                     "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
                     "`character_id` INTEGER NOT NULL, " +
@@ -100,11 +99,8 @@ public abstract class AppDatabase extends RoomDatabase {
                     "`is_default` INTEGER NOT NULL DEFAULT 0, " +
                     "FOREIGN KEY(`character_id`) REFERENCES `character`(`character_id`) ON UPDATE NO ACTION ON DELETE CASCADE)");
 
-            // 2. Create index for Scenario
             database.execSQL("CREATE INDEX IF NOT EXISTS `index_scenario_character_id` ON `scenario` (`character_id`)");
 
-            // 3. Add scenario_id and persona_id to Conversation table
-            // We verify if columns exist to prevent crashes if migration ran partially before
             boolean scenarioColExists = false;
             boolean personaColExists = false;
             try (Cursor cursor = database.query("SELECT * FROM conversation LIMIT 0")) {
@@ -123,13 +119,27 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    static final Migration MIGRATION_17_18 = new Migration(17, 18) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE scenario ADD COLUMN image_path TEXT");
+        }
+    };
+
+    static final Migration MIGRATION_18_19 = new Migration(18, 19) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE character ADD COLUMN default_scenario TEXT DEFAULT ''");
+        }
+    };
+
     public static AppDatabase getInstance(final Context context) {
         if (INSTANCE == null) {
             synchronized (AppDatabase.class) {
                 if (INSTANCE == null) {
                     INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
                                     AppDatabase.class, DATABASE_NAME)
-                            .addMigrations(MIGRATION_6_7, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
+                            .addMigrations(MIGRATION_6_7, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
                             .fallbackToDestructiveMigration()
                             .build();
                 }

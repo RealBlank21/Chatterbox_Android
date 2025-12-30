@@ -265,6 +265,7 @@ public class ConversationViewModel extends AndroidViewModel {
                 String personaPrompt = personaPromptBuilder.toString();
 
                 StringBuilder scenarioPromptBuilder = new StringBuilder();
+                // Check if a specific scenario is attached to the conversation
                 if (conversation != null && conversation.getScenarioId() != null) {
                     Scenario selectedScenario = scenarioRepository.getScenarioByIdSync(conversation.getScenarioId());
                     if (selectedScenario != null) {
@@ -273,6 +274,12 @@ public class ConversationViewModel extends AndroidViewModel {
                             scenarioPromptBuilder.append("Scenario: ").append(selectedScenario.getName()).append("\n");
                         }
                         scenarioPromptBuilder.append(selectedScenario.getDescription()).append("\n\n");
+                    }
+                } else {
+                    // Fallback to Character's default scenario string if no specific scenario object is active
+                    if (!TextUtils.isEmpty(character.getDefaultScenario())) {
+                        scenarioPromptBuilder.append("Scenario Context:\n");
+                        scenarioPromptBuilder.append(character.getDefaultScenario()).append("\n\n");
                     }
                 }
                 String scenarioPrompt = scenarioPromptBuilder.toString();
