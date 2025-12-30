@@ -31,7 +31,6 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 import androidx.lifecycle.LiveData;
-import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -173,19 +172,14 @@ public class ConversationActivity extends BaseActivity {
                 this.currentCharacter = character;
 
                 if (actionBarName != null) actionBarName.setText(character.getName());
-                if (actionBarImage != null) {
-                    String imagePath = character.getCharacterProfileImagePath();
-                    if (!TextUtils.isEmpty(imagePath)) {
-                        Glide.with(this).load(imagePath).circleCrop().into(actionBarImage);
-                    } else {
-                        actionBarImage.setImageResource(R.mipmap.ic_launcher_round);
-                    }
-                }
+
+                // Initialize with character profile image
+                updateActionBarImage(character.getCharacterProfileImagePath());
 
                 checkIfReadyToSend();
                 buttonAttachImage.setVisibility(character.isAllowImageInput() ? View.VISIBLE : View.GONE);
 
-                // --- NEW LOGIC: Determine Effective First Message ---
+                // --- NEW LOGIC: Determine Effective First Message & Scenario Image (New Chat) ---
                 if (conversationId == -1) {
                     LiveData<Scenario> scenarioLiveData;
                     if (selectedScenarioId != null && selectedScenarioId != -1) {
@@ -196,8 +190,13 @@ public class ConversationActivity extends BaseActivity {
 
                     scenarioLiveData.observe(this, scenario -> {
                         String firstMsg = character.getFirstMessage();
-                        if (scenario != null && !TextUtils.isEmpty(scenario.getFirstMessage())) {
-                            firstMsg = scenario.getFirstMessage();
+                        if (scenario != null) {
+                            if (!TextUtils.isEmpty(scenario.getFirstMessage())) {
+                                firstMsg = scenario.getFirstMessage();
+                            }
+                            if (!TextUtils.isEmpty(scenario.getImagePath())) {
+                                updateActionBarImage(scenario.getImagePath());
+                            }
                         }
 
                         if (!TextUtils.isEmpty(firstMsg)) {
@@ -211,6 +210,20 @@ public class ConversationActivity extends BaseActivity {
                 // ----------------------------------------------------
             }
         });
+
+        // --- NEW LOGIC: Update Action Bar Image from Active Scenario (Existing Chat) ---
+        conversationViewModel.getConversationScenario().observe(this, scenario -> {
+            if (scenario != null && !TextUtils.isEmpty(scenario.getImagePath())) {
+                updateActionBarImage(scenario.getImagePath());
+            } else if (currentCharacter != null) {
+                // Fallback to character image if scenario has no image or no scenario
+                // But only if we are in an existing conversation to avoid race conditions with initial setup
+                if (conversationId != -1) {
+                    updateActionBarImage(currentCharacter.getCharacterProfileImagePath());
+                }
+            }
+        });
+        // -------------------------------------------------------------------------------
 
         conversationViewModel.getCurrentUser().observe(this, user -> {
             if (user != null && !TextUtils.isEmpty(user.getApiKey())) {
@@ -269,6 +282,16 @@ public class ConversationActivity extends BaseActivity {
         });
 
         buttonRemoveImage.setOnClickListener(v -> clearSelectedImage());
+    }
+
+    private void updateActionBarImage(String imagePath) {
+        if (actionBarImage != null) {
+            if (!TextUtils.isEmpty(imagePath)) {
+                Glide.with(this).load(imagePath).circleCrop().into(actionBarImage);
+            } else {
+                actionBarImage.setImageResource(R.mipmap.ic_launcher_round);
+            }
+        }
     }
 
     private void saveImageToInternalStorage(Uri uri) {

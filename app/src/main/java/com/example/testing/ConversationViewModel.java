@@ -53,6 +53,10 @@ public class ConversationViewModel extends AndroidViewModel {
     private LiveData<User> currentUser;
     private LiveData<Persona> activePersona;
 
+    // New LiveData for Conversation and Scenario
+    private final LiveData<Conversation> currentConversation;
+    private final LiveData<Scenario> conversationScenario;
+
     private final MutableLiveData<Boolean> isGenerating = new MutableLiveData<>(false);
 
     public ConversationViewModel(@NonNull Application application) {
@@ -76,6 +80,21 @@ public class ConversationViewModel extends AndroidViewModel {
             } else {
                 return messageRepository.getMessagesForConversation(id);
             }
+        });
+
+        currentConversation = Transformations.switchMap(conversationIdInput, id -> {
+            if (id == -1) {
+                return new MutableLiveData<>(null);
+            } else {
+                return conversationRepository.getConversationById(id);
+            }
+        });
+
+        conversationScenario = Transformations.switchMap(currentConversation, conversation -> {
+            if (conversation == null || conversation.getScenarioId() == null) {
+                return new MutableLiveData<>(null);
+            }
+            return scenarioRepository.getScenarioByIdLive(conversation.getScenarioId());
         });
     }
 
@@ -105,6 +124,8 @@ public class ConversationViewModel extends AndroidViewModel {
     public LiveData<Persona> getActivePersona() { return activePersona; }
     public LiveData<Integer> getConversationId() { return conversationIdInput; }
     public LiveData<Boolean> getIsGenerating() { return isGenerating; }
+    public LiveData<Conversation> getCurrentConversation() { return currentConversation; }
+    public LiveData<Scenario> getConversationScenario() { return conversationScenario; }
 
     public ScenarioRepository getScenarioRepository() { return scenarioRepository; }
 
