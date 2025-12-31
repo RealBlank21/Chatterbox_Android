@@ -41,9 +41,14 @@ import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,6 +58,7 @@ public class AddEditCharacterActivity extends BaseActivity {
 
     private ImageView imageViewProfilePreview;
     private Button buttonSelectImage;
+    private Button buttonImportJson;
     private EditText editTextName, editTextPersonality, editTextDefaultScenario, editTextFirstMessage, editTextTemperature, editTextMaxTokens, editTextContextLimit;
     private AutoCompleteTextView editTextModel;
     private ImageButton buttonRefreshModels;
@@ -89,7 +95,6 @@ public class AddEditCharacterActivity extends BaseActivity {
     private boolean isFavorite = false;
     private boolean isHidden = false;
     private long createdAt;
-    // Persist voice data if editing
     private String currentVoiceReferenceId = "";
     private String currentVoiceReferenceName = "";
     private int conversationCount = 0;
@@ -126,6 +131,13 @@ public class AddEditCharacterActivity extends BaseActivity {
                 }
             });
 
+    private final ActivityResultLauncher<String[]> openJsonFile =
+            registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+                if (uri != null) {
+                    importCharacterFromJson(uri);
+                }
+            });
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -133,6 +145,7 @@ public class AddEditCharacterActivity extends BaseActivity {
 
         imageViewProfilePreview = findViewById(R.id.image_view_profile_preview);
         buttonSelectImage = findViewById(R.id.button_select_image);
+        buttonImportJson = findViewById(R.id.button_import_json);
         editTextName = findViewById(R.id.edit_text_character_name);
         editTextPersonality = findViewById(R.id.edit_text_character_personality);
         editTextDefaultScenario = findViewById(R.id.edit_text_default_scenario);
@@ -166,7 +179,6 @@ public class AddEditCharacterActivity extends BaseActivity {
         buttonAddScenario = findViewById(R.id.button_add_scenario);
         layoutScenariosContainer = findViewById(R.id.layout_scenarios_container);
 
-        // Apply Custom Secondary Color to Add Scenario Button (Text and Border)
         int secondaryColor = ThemeUtils.getSecondaryColor(this);
         buttonAddScenario.setTextColor(secondaryColor);
         buttonAddScenario.setStrokeColor(ColorStateList.valueOf(secondaryColor));
@@ -269,6 +281,10 @@ public class AddEditCharacterActivity extends BaseActivity {
                     .build());
         });
 
+        buttonImportJson.setOnClickListener(v -> {
+            openJsonFile.launch(new String[]{"application/json", "text/plain", "*/*"});
+        });
+
         scenarioAdapter.setOnScenarioActionListener(new ScenarioAdapter.OnScenarioActionListener() {
             @Override
             public void onEdit(Scenario scenario) {
@@ -324,7 +340,6 @@ public class AddEditCharacterActivity extends BaseActivity {
                         Glide.with(this).load(currentProfileImagePath).into(imageViewProfilePreview);
                     }
 
-                    // Preserve existing fields that are not in this UI
                     currentVoiceReferenceId = character.getVoiceReferenceId();
                     currentVoiceReferenceName = character.getVoiceReferenceName();
                     conversationCount = character.getConversationCount();
@@ -443,6 +458,95 @@ public class AddEditCharacterActivity extends BaseActivity {
         } catch (Exception e) {
             e.printStackTrace();
             Toast.makeText(this, "Failed to save image", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void importCharacterFromJson(Uri uri) {
+        try {
+            InputStream inputStream = getContentResolver().openInputStream(uri);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+            StringBuilder stringBuilder = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                stringBuilder.append(line);
+            }
+            inputStream.close();
+            reader.close();
+
+            JSONObject rootJson = new JSONObject(stringBuilder.toString());
+            JSONObject charData = rootJson;
+
+            if (rootJson.has("data") && !rootJson.has("name")) {
+                charData = rootJson.getJSONObject("data");
+            }
+
+            if (charData.has("name")) editTextName.setText(charData.optString("name"));
+
+            String personality = charData.optString("personality");
+            if (TextUtils.isEmpty(personality)) personality = charData.optString("description");
+            if (TextUtils.isEmpty(personality)) personality = charData.optString("system_prompt");
+            if (!TextUtils.isEmpty(personality)) {
+                editTextPersonality.setText(personality);
+                if (layoutPersonalityContainer.getVisibility() != View.VISIBLE) {
+                    layoutPersonalityContainer.setVisibility(View.VISIBLE);
+                    imageViewPersonalityArrow.setImageResource(android.R.drawable.arrow_up_float);
+                }
+            }
+
+            String firstMessage = charData.optString("first_message");
+            if (TextUtils.isEmpty(firstMessage)) firstMessage = charData.optString("first_mes");
+            if (!TextUtils.isEmpty(firstMessage)) editTextFirstMessage.setText(firstMessage);
+
+            String scenario = charData.optString("default_scenario");
+            if (TextUtils.isEmpty(scenario)) scenario = charData.optString("scenario");
+            if (!TextUtils.isEmpty(scenario)) {
+                editTextDefaultScenario.setText(scenario);
+                if (layoutDefaultScenarioContainer.getVisibility() != View.VISIBLE) {
+                    layoutDefaultScenarioContainer.setVisibility(View.VISIBLE);
+                    imageViewDefaultScenarioArrow.setImageResource(android.R.drawable.arrow_up_float);
+                }
+            }
+
+            if (charData.has("model")) {
+                String model = charData.optString("model");
+                editTextModel.setText(model);
+                updateModelInfo(model);
+            }
+
+            if (charData.has("temperature")) editTextTemperature.setText(String.valueOf(charData.optDouble("temperature")));
+            if (charData.has("max_tokens")) editTextMaxTokens.setText(String.valueOf(charData.optInt("max_tokens")));
+            if (charData.has("context_limit")) editTextContextLimit.setText(String.valueOf(charData.optInt("context_limit")));
+
+            if (charData.has("tags")) {
+                currentTags.clear();
+                chipGroupTags.removeAllViews();
+                Object tagsObj = charData.get("tags");
+                if (tagsObj instanceof JSONArray) {
+                    JSONArray tagsArray = (JSONArray) tagsObj;
+                    for (int i = 0; i < tagsArray.length(); i++) {
+                        String tag = tagsArray.optString(i);
+                        if (!tag.isEmpty()) {
+                            currentTags.add(tag);
+                            addTagChip(tag);
+                        }
+                    }
+                } else if (tagsObj instanceof String) {
+                    String tagsStr = (String) tagsObj;
+                    String[] tags = tagsStr.split(",");
+                    for (String tag : tags) {
+                        if (!tag.trim().isEmpty()) {
+                            currentTags.add(tag.trim());
+                            addTagChip(tag.trim());
+                        }
+                    }
+                }
+            }
+
+            Toast.makeText(this, "Character imported successfully", Toast.LENGTH_SHORT).show();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Failed to import JSON", Toast.LENGTH_SHORT).show();
         }
     }
 
