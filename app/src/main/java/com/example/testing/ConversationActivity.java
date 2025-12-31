@@ -1,9 +1,11 @@
 package com.example.testing;
 
+import android.app.Dialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
@@ -14,6 +16,7 @@ import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -68,6 +71,7 @@ public class ConversationActivity extends BaseActivity {
 
     private ImageView actionBarImage;
     private TextView actionBarName;
+    private TextView actionBarTag;
 
     private ConversationViewModel conversationViewModel;
     private int conversationId = -1;
@@ -79,6 +83,7 @@ public class ConversationActivity extends BaseActivity {
 
     private List<Message> currentMessages = new ArrayList<>();
     private String selectedImagePath = null;
+    private String currentActionBarImagePath = null;
 
     private final ActivityResultLauncher<PickVisualMediaRequest> pickMedia =
             registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
@@ -110,6 +115,13 @@ public class ConversationActivity extends BaseActivity {
 
             actionBarImage = customView.findViewById(R.id.image_view_title_profile);
             actionBarName = customView.findViewById(R.id.text_view_title_name);
+            actionBarTag = customView.findViewById(R.id.text_view_title_tag);
+
+            actionBarImage.setOnClickListener(v -> {
+                if (!TextUtils.isEmpty(currentActionBarImagePath)) {
+                    showFullScreenImage(currentActionBarImagePath);
+                }
+            });
         }
 
         Intent intent = getIntent();
@@ -173,13 +185,11 @@ public class ConversationActivity extends BaseActivity {
 
                 if (actionBarName != null) actionBarName.setText(character.getName());
 
-                // Initialize with character profile image
                 updateActionBarImage(character.getCharacterProfileImagePath());
 
                 checkIfReadyToSend();
                 buttonAttachImage.setVisibility(character.isAllowImageInput() ? View.VISIBLE : View.GONE);
 
-                // --- NEW LOGIC: Determine Effective First Message & Scenario Image (New Chat) ---
                 if (conversationId == -1) {
                     LiveData<Scenario> scenarioLiveData;
                     if (selectedScenarioId != null && selectedScenarioId != -1) {
@@ -197,6 +207,9 @@ public class ConversationActivity extends BaseActivity {
                             if (!TextUtils.isEmpty(scenario.getImagePath())) {
                                 updateActionBarImage(scenario.getImagePath());
                             }
+                            updateActionBarTag(scenario.getName());
+                        } else {
+                            updateActionBarTag(null);
                         }
 
                         if (!TextUtils.isEmpty(firstMsg)) {
@@ -207,23 +220,24 @@ public class ConversationActivity extends BaseActivity {
                         }
                     });
                 }
-                // ----------------------------------------------------
             }
         });
 
-        // --- NEW LOGIC: Update Action Bar Image from Active Scenario (Existing Chat) ---
         conversationViewModel.getConversationScenario().observe(this, scenario -> {
-            if (scenario != null && !TextUtils.isEmpty(scenario.getImagePath())) {
-                updateActionBarImage(scenario.getImagePath());
-            } else if (currentCharacter != null) {
-                // Fallback to character image if scenario has no image or no scenario
-                // But only if we are in an existing conversation to avoid race conditions with initial setup
-                if (conversationId != -1) {
-                    updateActionBarImage(currentCharacter.getCharacterProfileImagePath());
+            if (scenario != null) {
+                if (!TextUtils.isEmpty(scenario.getImagePath())) {
+                    updateActionBarImage(scenario.getImagePath());
+                }
+                updateActionBarTag(scenario.getName());
+            } else {
+                updateActionBarTag(null);
+                if (currentCharacter != null) {
+                    if (conversationId != -1) {
+                        updateActionBarImage(currentCharacter.getCharacterProfileImagePath());
+                    }
                 }
             }
         });
-        // -------------------------------------------------------------------------------
 
         conversationViewModel.getCurrentUser().observe(this, user -> {
             if (user != null && !TextUtils.isEmpty(user.getApiKey())) {
@@ -285,11 +299,49 @@ public class ConversationActivity extends BaseActivity {
     }
 
     private void updateActionBarImage(String imagePath) {
+        currentActionBarImagePath = imagePath;
         if (actionBarImage != null) {
             if (!TextUtils.isEmpty(imagePath)) {
                 Glide.with(this).load(imagePath).circleCrop().into(actionBarImage);
             } else {
                 actionBarImage.setImageResource(R.mipmap.ic_launcher_round);
+            }
+        }
+    }
+
+    private void showFullScreenImage(String imagePath) {
+        Dialog dialog = new Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        ImageView view = new ImageView(this);
+        view.setLayoutParams(new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+        view.setScaleType(ImageView.ScaleType.FIT_CENTER);
+
+        Glide.with(this).load(imagePath).into(view);
+
+        view.setOnClickListener(v -> dialog.dismiss());
+        dialog.setContentView(view);
+        dialog.show();
+    }
+
+    private void updateActionBarTag(String tagName) {
+        if (actionBarTag != null) {
+            if (!TextUtils.isEmpty(tagName)) {
+                actionBarTag.setText(tagName);
+                actionBarTag.setVisibility(View.VISIBLE);
+
+                int secondaryColor = ThemeUtils.getSecondaryColor(this);
+                float radius = 8 * getResources().getDisplayMetrics().density;
+
+                GradientDrawable shape = new GradientDrawable();
+                shape.setShape(GradientDrawable.RECTANGLE);
+                shape.setCornerRadius(radius);
+                shape.setColor(secondaryColor);
+
+                actionBarTag.setBackground(shape);
+            } else {
+                actionBarTag.setVisibility(View.GONE);
             }
         }
     }
