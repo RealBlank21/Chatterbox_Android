@@ -56,8 +56,13 @@ public class SettingsActivity extends BaseActivity {
     private EditText editTextContextLimit;
     private TextView textViewCredits;
     private Button buttonSave;
+
+    // Backup Buttons
     private Button buttonExport;
     private Button buttonImport;
+    private Button buttonExportCharacters;
+    private Button buttonImportCharacters;
+
     private View saveContainer;
 
     // Persona Inputs
@@ -93,8 +98,9 @@ public class SettingsActivity extends BaseActivity {
     private ArrayAdapter<String> modelsAdapter;
     private List<String> modelIds = new ArrayList<>();
 
+    // Full Backup Launchers
     private final ActivityResultLauncher<String> createDocumentLauncher =
-            registerForActivityResult(new ActivityResultContracts.CreateDocument("application/json"), uri -> {
+            registerForActivityResult(new ActivityResultContracts.CreateDocument("application/zip"), uri -> {
                 if (uri != null) {
                     settingsViewModel.exportBackup(uri, getContentResolver());
                 } else {
@@ -108,6 +114,25 @@ public class SettingsActivity extends BaseActivity {
                     settingsViewModel.importBackup(uri, getContentResolver());
                 } else {
                     Toast.makeText(this, "Import cancelled", Toast.LENGTH_SHORT).show();
+                }
+            });
+
+    // Character Export Launchers
+    private final ActivityResultLauncher<String> createCharacterExportLauncher =
+            registerForActivityResult(new ActivityResultContracts.CreateDocument("application/zip"), uri -> {
+                if (uri != null) {
+                    settingsViewModel.exportCharacters(uri, getContentResolver());
+                } else {
+                    Toast.makeText(this, "Character export cancelled", Toast.LENGTH_SHORT).show();
+                }
+            });
+
+    private final ActivityResultLauncher<String[]> openCharacterImportLauncher =
+            registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+                if (uri != null) {
+                    settingsViewModel.importCharacters(uri, getContentResolver());
+                } else {
+                    Toast.makeText(this, "Character import cancelled", Toast.LENGTH_SHORT).show();
                 }
             });
 
@@ -165,8 +190,11 @@ public class SettingsActivity extends BaseActivity {
         editTextPersonaDescription = findViewById(R.id.edit_text_persona_description);
 
         buttonSave = findViewById(R.id.button_save_settings);
+
         buttonExport = findViewById(R.id.button_export_data);
         buttonImport = findViewById(R.id.button_import_data);
+        buttonExportCharacters = findViewById(R.id.button_export_characters);
+        buttonImportCharacters = findViewById(R.id.button_import_characters);
 
         radioGroupListMode = findViewById(R.id.radio_group_list_mode);
         radioModeList = findViewById(R.id.radio_mode_list);
@@ -393,14 +421,26 @@ public class SettingsActivity extends BaseActivity {
 
         buttonSave.setOnClickListener(v -> saveSettings());
 
+        // Full Backup
         buttonExport.setOnClickListener(v -> {
             String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
-            String fileName = "chatterbox_backup_" + timeStamp + ".json";
+            String fileName = "chatterbox_backup_" + timeStamp + ".zip";
             createDocumentLauncher.launch(fileName);
         });
 
         buttonImport.setOnClickListener(v -> {
-            openDocumentLauncher.launch(new String[]{"application/json"});
+            openDocumentLauncher.launch(new String[]{"application/zip", "application/octet-stream"});
+        });
+
+        // Character Export
+        buttonExportCharacters.setOnClickListener(v -> {
+            String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+            String fileName = "characters_export_" + timeStamp + ".zip";
+            createCharacterExportLauncher.launch(fileName);
+        });
+
+        buttonImportCharacters.setOnClickListener(v -> {
+            openCharacterImportLauncher.launch(new String[]{"application/zip", "application/octet-stream"});
         });
     }
 
@@ -411,10 +451,6 @@ public class SettingsActivity extends BaseActivity {
      */
     private void syncPersonaSelection() {
         if (personaList.isEmpty() || initialPersonaLoaded) return;
-
-        // If activePersonaId is -1 (default not set), we might default to the first one
-        // or wait. If the list is populated, we should probably just pick the first one
-        // if activeId is invalid, effectively making it the candidate for "active".
 
         int indexToSelect = 0; // Default to first
         boolean found = false;
@@ -429,8 +465,6 @@ public class SettingsActivity extends BaseActivity {
             }
         }
 
-        // If we found the active one, or just defaulting to 0, set it.
-        // We consider initial load done if we have data.
         spinnerPersona.setSelection(indexToSelect);
         selectedPersona = personaList.get(indexToSelect);
         updatePersonaInputs(selectedPersona);

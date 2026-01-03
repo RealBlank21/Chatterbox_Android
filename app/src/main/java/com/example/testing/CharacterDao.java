@@ -13,7 +13,7 @@ import java.util.List;
 public interface CharacterDao {
 
     @Insert
-    void insert(Character character);
+    long insert(Character character);
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void insertAll(List<Character> characters);

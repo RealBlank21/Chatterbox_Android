@@ -8,13 +8,28 @@ import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 public class SettingsViewModel extends AndroidViewModel {
 
@@ -64,7 +79,6 @@ public class SettingsViewModel extends AndroidViewModel {
     public void deletePersona(Persona persona) {
         executorService.execute(() -> {
             personaDao.delete(persona);
-            // If we deleted the current persona, reset selection logic is handled in Activity or by next fetch
         });
     }
 
@@ -104,15 +118,82 @@ public class SettingsViewModel extends AndroidViewModel {
                 List<Conversation> conversations = db.conversationDao().getAllConversationsSync();
                 List<Message> messages = db.messageDao().getAllMessagesSync();
                 List<Persona> personas = db.personaDao().getAllPersonasSync();
+                List<Scenario> scenarios = db.scenarioDao().getAllScenariosSync();
 
-                BackupData backupData = new BackupData(user, characters, conversations, messages, personas);
-                String json = new Gson().toJson(backupData);
-
-                try (OutputStream outputStream = resolver.openOutputStream(uri)) {
-                    if (outputStream != null) {
-                        outputStream.write(json.getBytes());
-                        showToast("Backup Exported Successfully");
+                // Prepare data for JSON by converting absolute paths to relative 'images/' paths
+                for (Character c : characters) {
+                    if (c.getCharacterProfileImagePath() != null && !c.getCharacterProfileImagePath().isEmpty()) {
+                        File imgFile = new File(c.getCharacterProfileImagePath());
+                        // Store only filename in the backup JSON, prefixed with folder
+                        c.setCharacterProfileImagePath("images/" + imgFile.getName());
                     }
+                }
+
+                for (Scenario s : scenarios) {
+                    if (s.getImagePath() != null && !s.getImagePath().isEmpty()) {
+                        File imgFile = new File(s.getImagePath());
+                        s.setImagePath("images/" + imgFile.getName());
+                    }
+                }
+
+                BackupData backupData = new BackupData(user, characters, conversations, messages, personas, scenarios);
+
+                // Use GsonBuilder to enable pretty printing
+                String json = new GsonBuilder().setPrettyPrinting().create().toJson(backupData);
+
+                try (OutputStream outputStream = resolver.openOutputStream(uri);
+                     ZipOutputStream zipOut = new ZipOutputStream(new BufferedOutputStream(outputStream))) {
+
+                    // 1. Write JSON file
+                    ZipEntry jsonEntry = new ZipEntry("backup.json");
+                    zipOut.putNextEntry(jsonEntry);
+                    zipOut.write(json.getBytes());
+                    zipOut.closeEntry();
+
+                    // 2. Write Images
+                    // We need to re-query or iterate the ORIGINAL lists from DB to get the actual file paths
+                    List<Character> rawCharacters = db.characterDao().getAllCharactersSync();
+                    List<Scenario> rawScenarios = db.scenarioDao().getAllScenariosSync();
+
+                    byte[] buffer = new byte[4096];
+
+                    for (Character c : rawCharacters) {
+                        String path = c.getCharacterProfileImagePath();
+                        if (path != null && !path.isEmpty()) {
+                            File file = new File(path);
+                            if (file.exists()) {
+                                ZipEntry entry = new ZipEntry("images/" + file.getName());
+                                zipOut.putNextEntry(entry);
+                                try (FileInputStream fis = new FileInputStream(file)) {
+                                    int count;
+                                    while ((count = fis.read(buffer)) != -1) {
+                                        zipOut.write(buffer, 0, count);
+                                    }
+                                }
+                                zipOut.closeEntry();
+                            }
+                        }
+                    }
+
+                    for (Scenario s : rawScenarios) {
+                        String path = s.getImagePath();
+                        if (path != null && !path.isEmpty()) {
+                            File file = new File(path);
+                            if (file.exists()) {
+                                ZipEntry entry = new ZipEntry("images/" + file.getName());
+                                zipOut.putNextEntry(entry);
+                                try (FileInputStream fis = new FileInputStream(file)) {
+                                    int count;
+                                    while ((count = fis.read(buffer)) != -1) {
+                                        zipOut.write(buffer, 0, count);
+                                    }
+                                }
+                                zipOut.closeEntry();
+                            }
+                        }
+                    }
+
+                    showToast("Backup Exported Successfully");
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -124,43 +205,281 @@ public class SettingsViewModel extends AndroidViewModel {
     public void importBackup(Uri uri, ContentResolver resolver) {
         executorService.execute(() -> {
             try {
-                StringBuilder stringBuilder = new StringBuilder();
-                try (InputStream inputStream = resolver.openInputStream(uri);
-                     BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        stringBuilder.append(line);
+                File cacheDir = getApplication().getCacheDir();
+                File tempZip = new File(cacheDir, "temp_restore.zip");
+
+                // Copy stream to temp file first
+                try (InputStream in = resolver.openInputStream(uri);
+                     OutputStream out = new FileOutputStream(tempZip)) {
+                    byte[] buffer = new byte[4096];
+                    int len;
+                    while ((len = in.read(buffer)) > 0) out.write(buffer, 0, len);
+                }
+
+                String jsonContent = null;
+                File imagesDir = new File(getApplication().getFilesDir(), "profile_images");
+                if (!imagesDir.exists()) imagesDir.mkdirs();
+
+                try (ZipInputStream zipIn = new ZipInputStream(new BufferedInputStream(new FileInputStream(tempZip)))) {
+                    ZipEntry entry;
+                    byte[] buffer = new byte[4096];
+
+                    while ((entry = zipIn.getNextEntry()) != null) {
+                        String entryName = entry.getName();
+
+                        if (entryName.equals("backup.json")) {
+                            // Read JSON
+                            StringBuilder sb = new StringBuilder();
+                            int len;
+                            while ((len = zipIn.read(buffer)) > 0) {
+                                sb.append(new String(buffer, 0, len));
+                            }
+                            jsonContent = sb.toString();
+                        } else if (entryName.startsWith("images/")) {
+                            // Extract Image
+                            File destFile = new File(imagesDir, new File(entryName).getName());
+                            try (FileOutputStream fos = new FileOutputStream(destFile)) {
+                                int len;
+                                while ((len = zipIn.read(buffer)) > 0) {
+                                    fos.write(buffer, 0, len);
+                                }
+                            }
+                        }
+                        zipIn.closeEntry();
                     }
                 }
 
-                String json = stringBuilder.toString();
-                BackupData backupData = new Gson().fromJson(json, BackupData.class);
-
-                if (backupData == null) {
-                    showToast("Invalid Backup File");
+                if (jsonContent == null) {
+                    showToast("Invalid Backup: No backup.json found");
                     return;
                 }
 
+                BackupData backupData = new Gson().fromJson(jsonContent, BackupData.class);
+
+                if (backupData == null) {
+                    showToast("Invalid Backup Data");
+                    return;
+                }
+
+                // Restore Data
                 db.runInTransaction(() -> {
                     db.messageDao().deleteAll();
                     db.conversationDao().deleteAll();
+                    db.scenarioDao().deleteAll();
                     db.characterDao().deleteAll();
-                    db.personaDao().deleteAll(); // Clear old personas? Maybe
+                    db.personaDao().deleteAll();
 
                     if (backupData.user != null) db.userDao().insertOrUpdate(backupData.user);
-                    if (backupData.characters != null) db.characterDao().insertAll(backupData.characters);
-                    if (backupData.conversations != null) db.conversationDao().insertAll(backupData.conversations);
-                    if (backupData.messages != null) db.messageDao().insertAll(backupData.messages);
-                    if (backupData.personas != null && !backupData.personas.isEmpty()) {
-                        // We need to loop insert to generate IDs or just insertAll if IDs are preserved
-                        // Simplest is to clear table and insertAll
+
+                    if (backupData.personas != null) {
                         for (Persona p : backupData.personas) {
                             db.personaDao().insert(p);
                         }
                     }
+
+                    // Fix Image Paths for Characters
+                    if (backupData.characters != null) {
+                        for (Character c : backupData.characters) {
+                            String relPath = c.getCharacterProfileImagePath();
+                            if (relPath != null && relPath.startsWith("images/")) {
+                                File imgFile = new File(imagesDir, new File(relPath).getName());
+                                c.setCharacterProfileImagePath(imgFile.getAbsolutePath());
+                            }
+                            db.characterDao().insert(c);
+                        }
+                    }
+
+                    // Fix Image Paths for Scenarios
+                    if (backupData.scenarios != null) {
+                        for (Scenario s : backupData.scenarios) {
+                            String relPath = s.getImagePath();
+                            if (relPath != null && relPath.startsWith("images/")) {
+                                File imgFile = new File(imagesDir, new File(relPath).getName());
+                                s.setImagePath(imgFile.getAbsolutePath());
+                            }
+                            db.scenarioDao().insert(s);
+                        }
+                    }
+
+                    if (backupData.conversations != null) db.conversationDao().insertAll(backupData.conversations);
+                    if (backupData.messages != null) db.messageDao().insertAll(backupData.messages);
                 });
 
+                // Cleanup
+                tempZip.delete();
+
                 showToast("Backup Restored Successfully");
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                showToast("Import Failed: " + e.getMessage());
+            }
+        });
+    }
+
+    public void exportCharacters(Uri uri, ContentResolver resolver) {
+        executorService.execute(() -> {
+            try {
+                List<Character> characters = db.characterDao().getAllCharactersSync();
+                List<ScenarioExportData> exportList = new ArrayList<>();
+
+                // Helper set to track which images we actually need to zip to avoid duplicates
+                Set<String> imagesToZip = new HashSet<>();
+
+                for (Character c : characters) {
+                    List<Scenario> scenarios = db.scenarioDao().getScenariosForCharacterSync(c.getId());
+
+                    // Handle Character Image
+                    String originalCharImg = c.getCharacterProfileImagePath();
+                    if (originalCharImg != null && !originalCharImg.isEmpty()) {
+                        File imgFile = new File(originalCharImg);
+                        if (imgFile.exists()) {
+                            imagesToZip.add(originalCharImg);
+                            // Set relative path for export object
+                            c.setCharacterProfileImagePath("images/" + imgFile.getName());
+                        }
+                    }
+
+                    // Handle Scenario Images
+                    for (Scenario s : scenarios) {
+                        String originalScenImg = s.getImagePath();
+                        if (originalScenImg != null && !originalScenImg.isEmpty()) {
+                            File imgFile = new File(originalScenImg);
+                            if (imgFile.exists()) {
+                                imagesToZip.add(originalScenImg);
+                                // Set relative path for export object
+                                s.setImagePath("images/" + imgFile.getName());
+                            }
+                        }
+                    }
+
+                    exportList.add(new ScenarioExportData(c, scenarios));
+                }
+
+                String json = new GsonBuilder().setPrettyPrinting().create().toJson(exportList);
+
+                try (OutputStream outputStream = resolver.openOutputStream(uri);
+                     ZipOutputStream zipOut = new ZipOutputStream(new BufferedOutputStream(outputStream))) {
+
+                    // Write JSON
+                    ZipEntry jsonEntry = new ZipEntry("characters.json");
+                    zipOut.putNextEntry(jsonEntry);
+                    zipOut.write(json.getBytes());
+                    zipOut.closeEntry();
+
+                    // Write Images
+                    byte[] buffer = new byte[4096];
+                    for (String path : imagesToZip) {
+                        File file = new File(path);
+                        if (file.exists()) {
+                            ZipEntry entry = new ZipEntry("images/" + file.getName());
+                            zipOut.putNextEntry(entry);
+                            try (FileInputStream fis = new FileInputStream(file)) {
+                                int count;
+                                while ((count = fis.read(buffer)) != -1) {
+                                    zipOut.write(buffer, 0, count);
+                                }
+                            }
+                            zipOut.closeEntry();
+                        }
+                    }
+
+                    showToast("Characters Exported Successfully");
+                }
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                showToast("Export Failed: " + e.getMessage());
+            }
+        });
+    }
+
+    public void importCharacters(Uri uri, ContentResolver resolver) {
+        executorService.execute(() -> {
+            try {
+                File cacheDir = getApplication().getCacheDir();
+                File tempZip = new File(cacheDir, "temp_char_restore.zip");
+
+                // Copy stream to file
+                try (InputStream in = resolver.openInputStream(uri);
+                     OutputStream out = new FileOutputStream(tempZip)) {
+                    byte[] buffer = new byte[4096];
+                    int len;
+                    while ((len = in.read(buffer)) > 0) out.write(buffer, 0, len);
+                }
+
+                String jsonContent = null;
+                File imagesDir = new File(getApplication().getFilesDir(), "profile_images");
+                if (!imagesDir.exists()) imagesDir.mkdirs();
+
+                try (ZipInputStream zipIn = new ZipInputStream(new BufferedInputStream(new FileInputStream(tempZip)))) {
+                    ZipEntry entry;
+                    byte[] buffer = new byte[4096];
+
+                    while ((entry = zipIn.getNextEntry()) != null) {
+                        String entryName = entry.getName();
+                        if (entryName.equals("characters.json")) {
+                            StringBuilder sb = new StringBuilder();
+                            int len;
+                            while ((len = zipIn.read(buffer)) > 0) sb.append(new String(buffer, 0, len));
+                            jsonContent = sb.toString();
+                        } else if (entryName.startsWith("images/")) {
+                            File destFile = new File(imagesDir, new File(entryName).getName());
+                            try (FileOutputStream fos = new FileOutputStream(destFile)) {
+                                int len;
+                                while ((len = zipIn.read(buffer)) > 0) fos.write(buffer, 0, len);
+                            }
+                        }
+                        zipIn.closeEntry();
+                    }
+                }
+
+                if (jsonContent == null) {
+                    showToast("Invalid File: characters.json not found");
+                    return;
+                }
+
+                Type listType = new TypeToken<List<ScenarioExportData>>(){}.getType();
+                List<ScenarioExportData> importList = new Gson().fromJson(jsonContent, listType);
+
+                if (importList == null) {
+                    showToast("Invalid Character Data");
+                    return;
+                }
+
+                db.runInTransaction(() -> {
+                    for (ScenarioExportData data : importList) {
+                        Character c = data.character;
+                        List<Scenario> scenarios = data.scenarios;
+
+                        // Fix Image Path
+                        if (c.getCharacterProfileImagePath() != null && c.getCharacterProfileImagePath().startsWith("images/")) {
+                            File img = new File(imagesDir, new File(c.getCharacterProfileImagePath()).getName());
+                            c.setCharacterProfileImagePath(img.getAbsolutePath());
+                        }
+
+                        // Reset ID for insertion (Append mode)
+                        c.setId(0);
+                        long newCharId = db.characterDao().insert(c);
+
+                        if (scenarios != null) {
+                            for (Scenario s : scenarios) {
+                                s.setId(0); // Reset ID
+                                s.setCharacterId((int) newCharId); // Link to new character
+
+                                // Fix Scenario Image Path
+                                if (s.getImagePath() != null && s.getImagePath().startsWith("images/")) {
+                                    File img = new File(imagesDir, new File(s.getImagePath()).getName());
+                                    s.setImagePath(img.getAbsolutePath());
+                                }
+                                db.scenarioDao().insert(s);
+                            }
+                        }
+                    }
+                });
+
+                tempZip.delete();
+                showToast("Characters Imported Successfully");
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -180,13 +499,25 @@ public class SettingsViewModel extends AndroidViewModel {
         List<Conversation> conversations;
         List<Message> messages;
         List<Persona> personas;
+        List<Scenario> scenarios;
 
-        public BackupData(User user, List<Character> characters, List<Conversation> conversations, List<Message> messages, List<Persona> personas) {
+        public BackupData(User user, List<Character> characters, List<Conversation> conversations, List<Message> messages, List<Persona> personas, List<Scenario> scenarios) {
             this.user = user;
             this.characters = characters;
             this.conversations = conversations;
             this.messages = messages;
             this.personas = personas;
+            this.scenarios = scenarios;
+        }
+    }
+
+    private static class ScenarioExportData {
+        Character character;
+        List<Scenario> scenarios;
+
+        public ScenarioExportData(Character character, List<Scenario> scenarios) {
+            this.character = character;
+            this.scenarios = scenarios;
         }
     }
 }

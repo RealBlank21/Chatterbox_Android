@@ -13,11 +13,20 @@ public interface ScenarioDao {
     @Insert
     long insert(Scenario scenario);
 
+    @Insert
+    void insertAll(List<Scenario> scenarios);
+
     @Update
     void update(Scenario scenario);
 
     @Delete
     void delete(Scenario scenario);
+
+    @Query("DELETE FROM scenario")
+    void deleteAll();
+
+    @Query("SELECT * FROM scenario")
+    List<Scenario> getAllScenariosSync();
 
     @Query("SELECT * FROM scenario WHERE character_id = :characterId ORDER BY id DESC")
     LiveData<List<Scenario>> getScenariosForCharacter(int characterId);

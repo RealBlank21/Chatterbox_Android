@@ -443,35 +443,86 @@
             </LinearLayout>
         </ScrollView>
 
-        <LinearLayout
-            android:id="@+id/layout_backup"
+        <ScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:padding="16dp"
-            android:gravity="center_horizontal"
+            android:id="@+id/layout_backup"
             android:visibility="gone">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Import / Export Data"
-                android:textAppearance="?attr/textAppearanceListItem"
-                android:layout_marginBottom="24dp"/>
-
-            <Button
-                android:id="@+id/button_export_data"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:text="Export Data" />
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:gravity="center_horizontal">
 
-            <Button
-                android:id="@+id/button_import_data"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Import Data" />
-        </LinearLayout>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Full App Backup"
+                    android:textStyle="bold"
+                    android:textAppearance="?attr/textAppearanceListItem"
+                    android:layout_marginBottom="8dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Backs up everything including chats and settings. Warning: Importing this will overwrite current data."
+                    android:textSize="12sp"
+                    android:gravity="center"
+                    android:layout_marginBottom="16dp"/>
+
+                <Button
+                    android:id="@+id/button_export_data"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:text="Export Full Backup" />
+
+                <Button
+                    android:id="@+id/button_import_data"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="24dp"
+                    android:text="Import Full Backup" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="?android:attr/listDivider"
+                    android:layout_marginBottom="24dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Character Data Only"
+                    android:textStyle="bold"
+                    android:textAppearance="?attr/textAppearanceListItem"
+                    android:layout_marginBottom="8dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Export characters and scenarios to share or transfer. Importing appends to your list."
+                    android:textSize="12sp"
+                    android:gravity="center"
+                    android:layout_marginBottom="16dp"/>
+
+                <Button
+                    android:id="@+id/button_export_characters"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:text="Export Characters" />
+
+                <Button
+                    android:id="@+id/button_import_characters"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Import Characters" />
+
+            </LinearLayout>
+        </ScrollView>
 
     </FrameLayout>
 
