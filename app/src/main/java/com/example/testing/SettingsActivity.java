@@ -1,5 +1,6 @@
 package com.example.testing;
 
+import android.content.DialogInterface;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.text.Editable;
@@ -23,6 +24,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.cardview.widget.CardView;
 import androidx.lifecycle.ViewModelProvider;
 
@@ -62,6 +64,7 @@ public class SettingsActivity extends BaseActivity {
     private Button buttonImport;
     private Button buttonExportCharacters;
     private Button buttonImportCharacters;
+    private Button buttonClearData;
 
     private View saveContainer;
 
@@ -195,6 +198,7 @@ public class SettingsActivity extends BaseActivity {
         buttonImport = findViewById(R.id.button_import_data);
         buttonExportCharacters = findViewById(R.id.button_export_characters);
         buttonImportCharacters = findViewById(R.id.button_import_characters);
+        buttonClearData = findViewById(R.id.button_clear_data);
 
         radioGroupListMode = findViewById(R.id.radio_group_list_mode);
         radioModeList = findViewById(R.id.radio_mode_list);
@@ -441,6 +445,16 @@ public class SettingsActivity extends BaseActivity {
 
         buttonImportCharacters.setOnClickListener(v -> {
             openCharacterImportLauncher.launch(new String[]{"application/zip", "application/octet-stream"});
+        });
+
+        // Clear Data
+        buttonClearData.setOnClickListener(v -> {
+            new AlertDialog.Builder(this)
+                    .setTitle("Clear All Data")
+                    .setMessage("Are you sure you want to delete all characters, messages, and personas? This action cannot be undone.")
+                    .setPositiveButton("Clear Data", (dialog, which) -> settingsViewModel.clearAllData())
+                    .setNegativeButton("Cancel", null)
+                    .show();
         });
     }
 

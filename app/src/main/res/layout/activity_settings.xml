@@ -519,7 +519,31 @@
                     android:id="@+id/button_import_characters"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="24dp"
                     android:text="Import Characters" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="?android:attr/listDivider"
+                    android:layout_marginBottom="24dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Danger Zone"
+                    android:textStyle="bold"
+                    android:textColor="#F44336"
+                    android:textAppearance="?attr/textAppearanceListItem"
+                    android:layout_marginBottom="8dp"/>
+
+                <Button
+                    android:id="@+id/button_clear_data"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Clear All Data"
+                    android:backgroundTint="#F44336"
+                    android:textColor="@android:color/white"/>
 
             </LinearLayout>
         </ScrollView>

@@ -110,6 +110,25 @@ public class SettingsViewModel extends AndroidViewModel {
         repository.insertOrUpdate(currentUser);
     }
 
+    public void clearAllData() {
+        executorService.execute(() -> {
+            try {
+                db.runInTransaction(() -> {
+                    db.messageDao().deleteAll();
+                    db.conversationDao().deleteAll();
+                    db.scenarioDao().deleteAll();
+                    db.characterDao().deleteAll();
+                    db.personaDao().deleteAll();
+                    // We do NOT delete the User table to preserve API keys and settings
+                });
+                showToast("All data cleared successfully");
+            } catch (Exception e) {
+                e.printStackTrace();
+                showToast("Failed to clear data: " + e.getMessage());
+            }
+        });
+    }
+
     public void exportBackup(Uri uri, ContentResolver resolver) {
         executorService.execute(() -> {
             try {
