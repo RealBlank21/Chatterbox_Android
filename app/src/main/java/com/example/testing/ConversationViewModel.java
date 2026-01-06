@@ -15,6 +15,8 @@ import com.example.testing.network.ApiService;
 import com.example.testing.network.request.ApiRequest;
 import com.example.testing.network.request.RequestMessage;
 import com.example.testing.network.response.ChatCompletionResponse;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -53,7 +55,6 @@ public class ConversationViewModel extends AndroidViewModel {
     private LiveData<User> currentUser;
     private LiveData<Persona> activePersona;
 
-    // New LiveData for Conversation and Scenario
     private final LiveData<Conversation> currentConversation;
     private final LiveData<Scenario> conversationScenario;
 
@@ -286,7 +287,6 @@ public class ConversationViewModel extends AndroidViewModel {
                 String personaPrompt = personaPromptBuilder.toString();
 
                 StringBuilder scenarioPromptBuilder = new StringBuilder();
-                // Check if a specific scenario is attached to the conversation
                 if (conversation != null && conversation.getScenarioId() != null) {
                     Scenario selectedScenario = scenarioRepository.getScenarioByIdSync(conversation.getScenarioId());
                     if (selectedScenario != null) {
@@ -297,7 +297,6 @@ public class ConversationViewModel extends AndroidViewModel {
                         scenarioPromptBuilder.append(selectedScenario.getDescription()).append("\n\n");
                     }
                 } else {
-                    // Fallback to Character's default scenario string if no specific scenario object is active
                     if (!TextUtils.isEmpty(character.getDefaultScenario())) {
                         scenarioPromptBuilder.append("Scenario Context:\n");
                         scenarioPromptBuilder.append(character.getDefaultScenario()).append("\n\n");
@@ -361,7 +360,7 @@ public class ConversationViewModel extends AndroidViewModel {
                                 if (jsonPart.equals("[DONE]")) break;
 
                                 try {
-                                    ChatCompletionResponse chunk = new com.google.gson.Gson().fromJson(jsonPart, ChatCompletionResponse.class);
+                                    ChatCompletionResponse chunk = new Gson().fromJson(jsonPart, ChatCompletionResponse.class);
 
                                     if (chunk.getUsage() != null) {
                                         currentAiMessage.setPromptTokens(chunk.getUsage().getPromptTokens());
@@ -398,7 +397,34 @@ public class ConversationViewModel extends AndroidViewModel {
                         messageRepository.updateSync(currentAiMessage);
 
                     } else {
-                        currentAiMessage.setContent("Error: " + response.code() + " " + response.message());
+                        String errorMsg = "Error: " + response.code() + " " + response.message();
+                        try {
+                            if (response.errorBody() != null) {
+                                String errorBody = response.errorBody().string();
+                                try {
+                                    JsonObject jsonObject = new Gson().fromJson(errorBody, JsonObject.class);
+                                    if (jsonObject != null && jsonObject.has("error")) {
+                                        if (jsonObject.get("error").isJsonObject()) {
+                                            JsonObject errorObj = jsonObject.getAsJsonObject("error");
+                                            if (errorObj.has("message")) {
+                                                errorMsg += "\n" + errorObj.get("message").getAsString();
+                                            } else {
+                                                errorMsg += "\n" + errorObj.toString();
+                                            }
+                                        } else if (jsonObject.get("error").isJsonPrimitive()) {
+                                            errorMsg += "\n" + jsonObject.get("error").getAsString();
+                                        }
+                                    } else {
+                                        errorMsg += "\n" + errorBody;
+                                    }
+                                } catch (Exception e) {
+                                    errorMsg += "\n" + errorBody;
+                                }
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                        currentAiMessage.setContent(errorMsg);
                         messageRepository.updateSync(currentAiMessage);
                     }
                 } catch (IOException e) {
