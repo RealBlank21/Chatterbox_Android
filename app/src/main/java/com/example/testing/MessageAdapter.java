@@ -44,6 +44,7 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
     private OnMessageLongClickListener longClickListener;
     private int editingPosition = -1;
     private OnMessageEditListener editListener;
+    private OnImageClickListener imageClickListener;
 
     // Image Handling
     private final GalleryImageDao galleryImageDao;
@@ -56,6 +57,10 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
         void onMessageEdited(Message message);
     }
 
+    public interface OnImageClickListener {
+        void onImageClick(String imagePath);
+    }
+
     // Constructor updated to require DAO
     public MessageAdapter(GalleryImageDao galleryImageDao) {
         this.galleryImageDao = galleryImageDao;
@@ -65,6 +70,10 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
 
     public void setOnMessageEditListener(OnMessageEditListener listener) {
         this.editListener = listener;
+    }
+
+    public void setOnImageClickListener(OnImageClickListener listener) {
+        this.imageClickListener = listener;
     }
 
     public void setEditingPosition(int position) {
@@ -249,6 +258,11 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
                             .load(message.getImagePath())
                             .transform(new RoundedCorners(16))
                             .into(imageViewMessage);
+                    imageViewMessage.setOnClickListener(v -> {
+                        if (imageClickListener != null) {
+                            imageClickListener.onImageClick(message.getImagePath());
+                        }
+                    });
                 }
                 // Priority 2: AI sent Gallery Image (new logic)
                 else if (imageUuid != null) {
@@ -269,11 +283,17 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
                         .load(path)
                         .transform(new RoundedCorners(16))
                         .into(target);
+                target.setOnClickListener(v -> {
+                    if (imageClickListener != null) {
+                        imageClickListener.onImageClick(path);
+                    }
+                });
                 return;
             }
 
             // Set placeholder or clear while loading
             target.setImageDrawable(null);
+            target.setOnClickListener(null);
 
             // Fetch from DB
             imageQueryExecutor.execute(() -> {
@@ -287,6 +307,11 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
                                     .load(img.getImagePath())
                                     .transform(new RoundedCorners(16))
                                     .into(target);
+                            target.setOnClickListener(v -> {
+                                if (imageClickListener != null) {
+                                    imageClickListener.onImageClick(img.getImagePath());
+                                }
+                            });
                         }
                     }
                 });

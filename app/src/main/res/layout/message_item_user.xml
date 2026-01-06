@@ -1,38 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:padding="8dp">
 
     <LinearLayout
-        android:layout_width="wrap_content"
+        android:id="@+id/layout_message_container"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_alignParentEnd="true"
         android:background="@drawable/bg_user_message"
         android:orientation="vertical"
-        android:maxWidth="340dp"
-        android:padding="4dp">
+        android:padding="4dp"
+        app:layout_constrainedWidth="true"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintWidth_default="wrap"
+        app:layout_constraintWidth_max="wrap"
+        app:layout_constraintWidth_percent="0.9">
 
         <ImageView
             android:id="@+id/image_view_message_image"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:maxHeight="300dp"
-            android:maxWidth="340dp"
-            android:paddingTop="8dp"
+            android:adjustViewBounds="true"
             android:paddingStart="8dp"
+            android:paddingTop="8dp"
             android:paddingEnd="8dp"
             android:paddingBottom="2dp"
-            android:adjustViewBounds="true"
             android:scaleType="fitCenter"
-            android:visibility="gone"/>
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/text_view_message"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:padding="8dp"
-            android:maxWidth="340dp"
             android:text="User message"
             android:textColor="@android:color/white"
             android:textSize="16sp" />
@@ -43,11 +48,11 @@
         android:id="@+id/layout_edit_message"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentEnd="true"
         android:background="@drawable/bg_user_message"
         android:orientation="vertical"
         android:padding="8dp"
-        android:visibility="gone">
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/layout_message_container">
 
         <EditText
             android:id="@+id/edit_text_message_content"
@@ -66,4 +71,4 @@
             android:text="Save" />
     </LinearLayout>
 
-</RelativeLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>
