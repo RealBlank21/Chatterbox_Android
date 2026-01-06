@@ -31,26 +31,19 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
-import androidx.lifecycle.LiveData;
-import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.bumptech.glide.Glide;
-import com.example.testing.network.request.RequestMessage;
 import com.example.testing.network.response.Model;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -158,7 +151,8 @@ public class ConversationActivity extends BaseActivity {
         recyclerViewMessages.setLayoutManager(layoutManager);
         recyclerViewMessages.setItemAnimator(null);
 
-        messageAdapter = new MessageAdapter();
+        // Updated to include the DAO for image loading
+        messageAdapter = new MessageAdapter(AppDatabase.getInstance(this).galleryImageDao());
         recyclerViewMessages.setAdapter(messageAdapter);
 
         conversationViewModel = new ViewModelProvider(this).get(ConversationViewModel.class);
@@ -191,7 +185,7 @@ public class ConversationActivity extends BaseActivity {
                 buttonAttachImage.setVisibility(character.isAllowImageInput() ? View.VISIBLE : View.GONE);
 
                 if (conversationId == -1) {
-                    LiveData<Scenario> scenarioLiveData;
+                    androidx.lifecycle.LiveData<Scenario> scenarioLiveData;
                     if (selectedScenarioId != null && selectedScenarioId != -1) {
                         scenarioLiveData = conversationViewModel.getScenarioByIdLive(selectedScenarioId);
                     } else {
@@ -518,51 +512,13 @@ public class ConversationActivity extends BaseActivity {
             return;
         }
 
-        List<RequestMessage> requestMessages = new ArrayList<>();
-
-        SimpleDateFormat dayFormatter = new SimpleDateFormat("EEE, MMM dd, yyyy", Locale.getDefault());
-        SimpleDateFormat timeFormatter = new SimpleDateFormat("h:mm a", Locale.getDefault());
-
-        long creationTimestamp = currentMessages.get(0).getTimestamp();
-        Date creationDate = new Date(creationTimestamp);
-        String formattedDay = dayFormatter.format(creationDate);
-        String formattedTime = timeFormatter.format(creationDate);
-
-        String globalPrompt = currentUser.getGlobalSystemPrompt() != null ? currentUser.getGlobalSystemPrompt() : "";
-        String characterPersonality = currentCharacter.getPersonality() != null ? currentCharacter.getPersonality() : "";
-
-        if (globalPrompt.contains("{day}")) globalPrompt = globalPrompt.replace("{day}", formattedDay);
-        if (globalPrompt.contains("{time}")) globalPrompt = globalPrompt.replace("{time}", formattedTime);
-        if (characterPersonality.contains("{day}")) characterPersonality = characterPersonality.replace("{day}", formattedDay);
-        if (characterPersonality.contains("{time}")) characterPersonality = characterPersonality.replace("{time}", formattedTime);
-
-        String finalSystemPrompt = globalPrompt + "\n" + characterPersonality;
-
-        if (currentCharacter.isTimeAware()) {
-            finalSystemPrompt += "\nThis conversation was started on " + formattedDay + " at " + formattedTime + ".";
-        }
-
-        if (!TextUtils.isEmpty(finalSystemPrompt.trim())) {
-            requestMessages.add(new RequestMessage("system", finalSystemPrompt.trim()));
-        }
-
-        for (Message msg : currentMessages) {
-            if (currentCharacter.isTimeAware() && "user".equals(msg.getRole())) {
-                Date msgDate = new Date(msg.getTimestamp());
-                String msgTime = dayFormatter.format(msgDate) + " at " + timeFormatter.format(msgDate);
-                requestMessages.add(new RequestMessage("system", "Current time: " + msgTime));
-            }
-            requestMessages.add(new RequestMessage(msg.getRole(), msg.getContent()));
-        }
-
-        Gson gson = new GsonBuilder().setPrettyPrinting().create();
-        String jsonHistory = gson.toJson(requestMessages);
-
-        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-        ClipData clip = ClipData.newPlainText("Conversation History JSON", jsonHistory);
-        clipboard.setPrimaryClip(clip);
-
-        Toast.makeText(this, "History copied to clipboard (JSON)", Toast.LENGTH_SHORT).show();
+        // Updated logic: Delegate to ViewModel to ensure exact parity with API call
+        conversationViewModel.getDebugConversationHistory(conversationId, currentUser, currentCharacter, jsonHistory -> {
+            ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            ClipData clip = ClipData.newPlainText("Conversation History JSON", jsonHistory);
+            clipboard.setPrimaryClip(clip);
+            Toast.makeText(this, "Full API History copied to clipboard (JSON)", Toast.LENGTH_SHORT).show();
+        });
     }
 
     private void checkIfReadyToSend() {

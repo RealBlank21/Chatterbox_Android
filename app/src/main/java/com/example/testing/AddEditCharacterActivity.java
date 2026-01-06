@@ -88,6 +88,9 @@ public class AddEditCharacterActivity extends BaseActivity {
     private MaterialButton buttonAddScenario;
     private LinearLayout layoutScenariosContainer;
 
+    // New Button for Gallery
+    private MaterialButton buttonManageImages;
+
     private CharacterViewModel characterViewModel;
     private int currentCharacterId = -1;
     private Character editingCharacter;
@@ -179,10 +182,19 @@ public class AddEditCharacterActivity extends BaseActivity {
         buttonAddScenario = findViewById(R.id.button_add_scenario);
         layoutScenariosContainer = findViewById(R.id.layout_scenarios_container);
 
+        // Initialize Manage Images Button
+        buttonManageImages = findViewById(R.id.button_manage_images);
+
         int secondaryColor = ThemeUtils.getSecondaryColor(this);
         buttonAddScenario.setTextColor(secondaryColor);
         buttonAddScenario.setStrokeColor(ColorStateList.valueOf(secondaryColor));
         buttonAddScenario.setStrokeWidth((int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 1, getResources().getDisplayMetrics()));
+
+        if (buttonManageImages != null) {
+            buttonManageImages.setTextColor(secondaryColor);
+            buttonManageImages.setStrokeColor(ColorStateList.valueOf(secondaryColor));
+            buttonManageImages.setStrokeWidth((int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 1, getResources().getDisplayMetrics()));
+        }
 
         recyclerViewScenarios.setLayoutManager(new LinearLayoutManager(this));
         scenarioAdapter = new ScenarioAdapter();
@@ -311,6 +323,16 @@ public class AddEditCharacterActivity extends BaseActivity {
             startActivity(intent);
         });
 
+        // Gallery Management Button Click
+        if (buttonManageImages != null) {
+            buttonManageImages.setOnClickListener(v -> {
+                Intent galleryIntent = new Intent(AddEditCharacterActivity.this, GalleryManagementActivity.class);
+                galleryIntent.putExtra(GalleryManagementActivity.EXTRA_OWNER_ID, currentCharacterId);
+                galleryIntent.putExtra(GalleryManagementActivity.EXTRA_OWNER_TYPE, "CHARACTER");
+                startActivity(galleryIntent);
+            });
+        }
+
         Intent intent = getIntent();
         if (intent.hasExtra("CHARACTER_ID")) {
             setTitle("Edit Character");
@@ -354,6 +376,12 @@ public class AddEditCharacterActivity extends BaseActivity {
             });
 
             layoutScenariosContainer.setVisibility(View.VISIBLE);
+
+            // Show gallery button only when editing
+            if (buttonManageImages != null) {
+                buttonManageImages.setVisibility(View.VISIBLE);
+            }
+
             characterViewModel.getScenariosForCharacter(currentCharacterId).observe(this, scenarios -> {
                 scenarioAdapter.setScenarios(scenarios);
             });
@@ -361,6 +389,10 @@ public class AddEditCharacterActivity extends BaseActivity {
         } else {
             setTitle("Add Character");
             layoutScenariosContainer.setVisibility(View.GONE);
+            // Hide gallery button for new characters (need ID first)
+            if (buttonManageImages != null) {
+                buttonManageImages.setVisibility(View.GONE);
+            }
         }
     }
 

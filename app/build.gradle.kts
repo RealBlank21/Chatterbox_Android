@@ -40,6 +40,7 @@ android {
 dependencies {
     implementation(libs.appcompat)
     implementation(libs.material)
+    implementation(libs.cardview)
     implementation(libs.room.runtime)
     ksp(libs.room.compiler)
     implementation(libs.lifecycle.viewmodel)
@@ -56,4 +57,5 @@ dependencies {
     androidTestImplementation(libs.espresso.core)
     implementation(libs.glide)
     implementation(libs.android.image.cropper)
+    implementation(libs.photoview)
 }

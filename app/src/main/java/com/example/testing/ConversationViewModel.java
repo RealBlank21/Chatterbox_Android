@@ -16,7 +16,8 @@ import com.example.testing.network.request.ApiRequest;
 import com.example.testing.network.request.RequestMessage;
 import com.example.testing.network.response.ChatCompletionResponse;
 import com.google.gson.Gson;
-import com.google.gson.JsonObject;
+import com.google.gson.GsonBuilder;
+
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -30,6 +31,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
+
 import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.Response;
@@ -41,6 +44,7 @@ public class ConversationViewModel extends AndroidViewModel {
     private final UserRepository userRepository;
     private final ConversationRepository conversationRepository;
     private final ScenarioRepository scenarioRepository;
+    private final GalleryImageRepository galleryImageRepository; // Added in previous step
     private final PersonaDao personaDao;
     private final ApiService apiService;
     private final ExecutorService executorService;
@@ -67,6 +71,7 @@ public class ConversationViewModel extends AndroidViewModel {
         userRepository = UserRepository.getInstance(application);
         conversationRepository = ConversationRepository.getInstance(application);
         scenarioRepository = ScenarioRepository.getInstance(application);
+        galleryImageRepository = GalleryImageRepository.getInstance(application); // Added initialization
         personaDao = AppDatabase.getInstance(application).personaDao();
 
         apiService = ApiClient.getClient().create(ApiService.class);
@@ -228,6 +233,144 @@ public class ConversationViewModel extends AndroidViewModel {
         messageRepository.update(message);
     }
 
+    // --- New Method: Get Debug History for Clipboard ---
+    public void getDebugConversationHistory(int conversationId, User user, Character character, Consumer<String> callback) {
+        executorService.execute(() -> {
+            Conversation conversation = conversationRepository.getConversationByIdSync(conversationId);
+            List<Message> messageHistory = messageRepository.getMessagesForConversationSync(conversationId);
+
+            List<RequestMessage> requestMessages = buildApiRequestMessages(conversation, user, character, messageHistory);
+
+            Gson gson = new GsonBuilder().setPrettyPrinting().create();
+            String jsonOutput = gson.toJson(requestMessages);
+
+            if (callback != null) {
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> callback.accept(jsonOutput));
+            }
+        });
+    }
+
+    // --- Helper Method: Shared Logic for Prompt Construction ---
+    private List<RequestMessage> buildApiRequestMessages(Conversation conversation, User user, Character character, List<Message> messageHistory) {
+        List<RequestMessage> requestMessages = new ArrayList<>();
+
+        long creationTimestamp = !messageHistory.isEmpty() ? messageHistory.get(0).getTimestamp() : System.currentTimeMillis();
+        Date creationDate = new Date(creationTimestamp);
+        String formattedDay = dayFormatter.format(creationDate);
+        String formattedTime = timeFormatter.format(creationDate);
+
+        int limit = character.getContextLimit() != null && character.getContextLimit() > 0
+                ? character.getContextLimit() : user.getDefaultContextLimit();
+
+        List<Message> messagesToSend = messageHistory;
+        if (limit > 0) {
+            int keepCount = limit * 2;
+            if (messageHistory.size() > keepCount) {
+                messagesToSend = messageHistory.subList(messageHistory.size() - keepCount, messageHistory.size());
+            }
+        }
+
+        String globalPrompt = user.getGlobalSystemPrompt() != null ? user.getGlobalSystemPrompt() : "";
+        String characterPersonality = character.getPersonality() != null ? character.getPersonality() : "";
+
+        int personaIdToUse = user.getCurrentPersonaId();
+        if (conversation != null && conversation.getPersonaId() != null) {
+            personaIdToUse = conversation.getPersonaId();
+        }
+
+        StringBuilder personaPromptBuilder = new StringBuilder();
+        if (personaIdToUse != -1) {
+            Persona persona = personaDao.getPersonaById(personaIdToUse);
+            if (persona != null) {
+                personaPromptBuilder.append("User Persona:\n");
+                if (persona.getName() != null && !persona.getName().isEmpty()) {
+                    personaPromptBuilder.append("Name: ").append(persona.getName()).append("\n");
+                }
+                if (persona.getDescription() != null && !persona.getDescription().isEmpty()) {
+                    personaPromptBuilder.append("Description: ").append(persona.getDescription()).append("\n");
+                }
+                personaPromptBuilder.append("\n");
+            }
+        }
+        String personaPrompt = personaPromptBuilder.toString();
+
+        StringBuilder scenarioPromptBuilder = new StringBuilder();
+        if (conversation != null && conversation.getScenarioId() != null) {
+            Scenario selectedScenario = scenarioRepository.getScenarioByIdSync(conversation.getScenarioId());
+            if (selectedScenario != null) {
+                scenarioPromptBuilder.append("Scenario Context:\n");
+                if (!TextUtils.isEmpty(selectedScenario.getName())) {
+                    scenarioPromptBuilder.append("Scenario: ").append(selectedScenario.getName()).append("\n");
+                }
+                scenarioPromptBuilder.append(selectedScenario.getDescription()).append("\n\n");
+            }
+        } else {
+            if (!TextUtils.isEmpty(character.getDefaultScenario())) {
+                scenarioPromptBuilder.append("Scenario Context:\n");
+                scenarioPromptBuilder.append(character.getDefaultScenario()).append("\n\n");
+            }
+        }
+        String scenarioPrompt = scenarioPromptBuilder.toString();
+
+        // Image Inventory Injection
+        StringBuilder imagePromptBuilder = new StringBuilder();
+        List<GalleryImage> characterImages = galleryImageRepository.getImagesForOwnerSync(character.getId(), "CHARACTER");
+        List<GalleryImage> personaImages = new ArrayList<>();
+        if (personaIdToUse != -1) {
+            personaImages = galleryImageRepository.getImagesForOwnerSync(personaIdToUse, "PERSONA");
+        }
+
+        if (!characterImages.isEmpty() || !personaImages.isEmpty()) {
+            imagePromptBuilder.append("\n[SYSTEM: IMAGE TOOLS]\n");
+            imagePromptBuilder.append("You have access to a gallery of images. You MUST use the tag $image:UUID$ if your action, expression, or the situation matches one of the descriptions below.\n");
+            // Add this line:
+            imagePromptBuilder.append("Send the tag on its own line or part of the text. DO NOT wrap the tag in asterisks (*) or code blocks.\n");
+            imagePromptBuilder.append("You may only use one image per conversation.");
+            imagePromptBuilder.append("Available Images:\n");
+
+            for (GalleryImage img : characterImages) {
+                imagePromptBuilder.append("- ID: ").append(img.getUuid()).append("\n");
+                imagePromptBuilder.append("  Context/Description: ").append(img.getDescription()).append("\n");
+            }
+            for (GalleryImage img : personaImages) {
+                imagePromptBuilder.append("- ID: ").append(img.getUuid()).append("\n");
+                imagePromptBuilder.append("  Context/Description: ").append(img.getDescription()).append("\n");
+            }
+            imagePromptBuilder.append("\n");
+        }
+        String imagePrompt = imagePromptBuilder.toString();
+
+        globalPrompt = globalPrompt.replace("{day}", formattedDay).replace("{time}", formattedTime);
+        characterPersonality = characterPersonality.replace("{day}", formattedDay).replace("{time}", formattedTime);
+
+        String finalSystemPrompt = globalPrompt + "\n" + personaPrompt + characterPersonality + "\n" + scenarioPrompt + "\n" + imagePrompt;
+
+        if (character.isTimeAware()) {
+            finalSystemPrompt += "\nThis conversation was started on " + formattedDay + " at " + formattedTime + ".";
+        }
+        if (!TextUtils.isEmpty(finalSystemPrompt.trim())) {
+            requestMessages.add(new RequestMessage("system", finalSystemPrompt.trim()));
+        }
+
+        for (Message msg : messagesToSend) {
+            if (character.isTimeAware() && "user".equals(msg.getRole())) {
+                Date msgDate = new Date(msg.getTimestamp());
+                String msgTime = dayFormatter.format(msgDate) + " at " + timeFormatter.format(msgDate);
+                requestMessages.add(new RequestMessage("system", "Current time: " + msgTime));
+            }
+            requestMessages.add(new RequestMessage(msg.getRole(), msg.getContent()));
+        }
+
+        if (!messagesToSend.isEmpty()) {
+            Message lastMessage = messagesToSend.get(messagesToSend.size() - 1);
+            if ("assistant".equals(lastMessage.getRole()) && "length".equals(lastMessage.getFinishReason())) {
+                requestMessages.add(new RequestMessage("system", "Continue from where you stopped."));
+            }
+        }
+
+        return requestMessages;
+    }
+
     private void triggerApiCall(String content, String imagePath, int conversationId, User user, Character character, boolean isRegeneration) {
         if (user == null || character == null) return;
 
@@ -242,95 +385,10 @@ public class ConversationViewModel extends AndroidViewModel {
                 }
 
                 Conversation conversation = conversationRepository.getConversationByIdSync(conversationId);
-
                 List<Message> messageHistory = messageRepository.getMessagesForConversationSync(conversationId);
-                List<RequestMessage> requestMessages = new ArrayList<>();
 
-                long creationTimestamp = !messageHistory.isEmpty() ? messageHistory.get(0).getTimestamp() : System.currentTimeMillis();
-                Date creationDate = new Date(creationTimestamp);
-                String formattedDay = dayFormatter.format(creationDate);
-                String formattedTime = timeFormatter.format(creationDate);
-
-                int limit = character.getContextLimit() != null && character.getContextLimit() > 0
-                        ? character.getContextLimit() : user.getDefaultContextLimit();
-
-                List<Message> messagesToSend = messageHistory;
-                if (limit > 0) {
-                    int keepCount = limit * 2;
-                    if (messageHistory.size() > keepCount) {
-                        messagesToSend = messageHistory.subList(messageHistory.size() - keepCount, messageHistory.size());
-                    }
-                }
-
-                String globalPrompt = user.getGlobalSystemPrompt() != null ? user.getGlobalSystemPrompt() : "";
-                String characterPersonality = character.getPersonality() != null ? character.getPersonality() : "";
-
-                int personaIdToUse = user.getCurrentPersonaId();
-                if (conversation != null && conversation.getPersonaId() != null) {
-                    personaIdToUse = conversation.getPersonaId();
-                }
-
-                StringBuilder personaPromptBuilder = new StringBuilder();
-                if (personaIdToUse != -1) {
-                    Persona persona = personaDao.getPersonaById(personaIdToUse);
-                    if (persona != null) {
-                        personaPromptBuilder.append("User Persona:\n");
-                        if (persona.getName() != null && !persona.getName().isEmpty()) {
-                            personaPromptBuilder.append("Name: ").append(persona.getName()).append("\n");
-                        }
-                        if (persona.getDescription() != null && !persona.getDescription().isEmpty()) {
-                            personaPromptBuilder.append("Description: ").append(persona.getDescription()).append("\n");
-                        }
-                        personaPromptBuilder.append("\n");
-                    }
-                }
-                String personaPrompt = personaPromptBuilder.toString();
-
-                StringBuilder scenarioPromptBuilder = new StringBuilder();
-                if (conversation != null && conversation.getScenarioId() != null) {
-                    Scenario selectedScenario = scenarioRepository.getScenarioByIdSync(conversation.getScenarioId());
-                    if (selectedScenario != null) {
-                        scenarioPromptBuilder.append("Scenario Context:\n");
-                        if (!TextUtils.isEmpty(selectedScenario.getName())) {
-                            scenarioPromptBuilder.append("Scenario: ").append(selectedScenario.getName()).append("\n");
-                        }
-                        scenarioPromptBuilder.append(selectedScenario.getDescription()).append("\n\n");
-                    }
-                } else {
-                    if (!TextUtils.isEmpty(character.getDefaultScenario())) {
-                        scenarioPromptBuilder.append("Scenario Context:\n");
-                        scenarioPromptBuilder.append(character.getDefaultScenario()).append("\n\n");
-                    }
-                }
-                String scenarioPrompt = scenarioPromptBuilder.toString();
-
-                globalPrompt = globalPrompt.replace("{day}", formattedDay).replace("{time}", formattedTime);
-                characterPersonality = characterPersonality.replace("{day}", formattedDay).replace("{time}", formattedTime);
-
-                String finalSystemPrompt = globalPrompt + "\n" + personaPrompt + characterPersonality + "\n" + scenarioPrompt;
-
-                if (character.isTimeAware()) {
-                    finalSystemPrompt += "\nThis conversation was started on " + formattedDay + " at " + formattedTime + ".";
-                }
-                if (!TextUtils.isEmpty(finalSystemPrompt.trim())) {
-                    requestMessages.add(new RequestMessage("system", finalSystemPrompt.trim()));
-                }
-
-                for (Message msg : messagesToSend) {
-                    if (character.isTimeAware() && "user".equals(msg.getRole())) {
-                        Date msgDate = new Date(msg.getTimestamp());
-                        String msgTime = dayFormatter.format(msgDate) + " at " + timeFormatter.format(msgDate);
-                        requestMessages.add(new RequestMessage("system", "Current time: " + msgTime));
-                    }
-                    requestMessages.add(new RequestMessage(msg.getRole(), msg.getContent()));
-                }
-
-                if (!messagesToSend.isEmpty()) {
-                    Message lastMessage = messagesToSend.get(messagesToSend.size() - 1);
-                    if ("assistant".equals(lastMessage.getRole())) {
-                        requestMessages.add(new RequestMessage("system", "Continue from where you stopped."));
-                    }
-                }
+                // Use the shared helper method to build requests
+                List<RequestMessage> requestMessages = buildApiRequestMessages(conversation, user, character, messageHistory);
 
                 String model = !TextUtils.isEmpty(character.getModel()) ? character.getModel() : user.getPreferredModel();
                 if (TextUtils.isEmpty(model)) return;
@@ -397,34 +455,7 @@ public class ConversationViewModel extends AndroidViewModel {
                         messageRepository.updateSync(currentAiMessage);
 
                     } else {
-                        String errorMsg = "Error: " + response.code() + " " + response.message();
-                        try {
-                            if (response.errorBody() != null) {
-                                String errorBody = response.errorBody().string();
-                                try {
-                                    JsonObject jsonObject = new Gson().fromJson(errorBody, JsonObject.class);
-                                    if (jsonObject != null && jsonObject.has("error")) {
-                                        if (jsonObject.get("error").isJsonObject()) {
-                                            JsonObject errorObj = jsonObject.getAsJsonObject("error");
-                                            if (errorObj.has("message")) {
-                                                errorMsg += "\n" + errorObj.get("message").getAsString();
-                                            } else {
-                                                errorMsg += "\n" + errorObj.toString();
-                                            }
-                                        } else if (jsonObject.get("error").isJsonPrimitive()) {
-                                            errorMsg += "\n" + jsonObject.get("error").getAsString();
-                                        }
-                                    } else {
-                                        errorMsg += "\n" + errorBody;
-                                    }
-                                } catch (Exception e) {
-                                    errorMsg += "\n" + errorBody;
-                                }
-                            }
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                        currentAiMessage.setContent(errorMsg);
+                        currentAiMessage.setContent("Error: " + response.code() + " " + response.message());
                         messageRepository.updateSync(currentAiMessage);
                     }
                 } catch (IOException e) {

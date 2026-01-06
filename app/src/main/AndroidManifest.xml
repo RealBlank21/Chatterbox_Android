@@ -58,6 +58,11 @@
             android:name="com.canhub.cropper.CropImageActivity"
             android:theme="@style/Base.Theme.AppCompat" />
 
+        <activity
+            android:name=".GalleryManagementActivity"
+            android:label="Gallery Management"
+            android:parentActivityName=".AddEditCharacterActivity" />
+
     </application>
 
 </manifest>

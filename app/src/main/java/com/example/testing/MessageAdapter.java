@@ -1,6 +1,9 @@
 package com.example.testing;
 
+import android.content.Context;
 import android.graphics.Color;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -21,7 +24,13 @@ import io.noties.markwon.ext.latex.JLatexMathPlugin;
 import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageViewHolder> {
 
@@ -36,8 +45,22 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
     private int editingPosition = -1;
     private OnMessageEditListener editListener;
 
+    // Image Handling
+    private final GalleryImageDao galleryImageDao;
+    private final ExecutorService imageQueryExecutor;
+    private final Handler mainHandler;
+    private final Map<String, String> uuidToPathCache = new HashMap<>(); // Simple cache
+    private static final Pattern IMAGE_TAG_PATTERN = Pattern.compile("\\$image:([a-f0-9\\-]+)\\$");
+
     public interface OnMessageEditListener {
         void onMessageEdited(Message message);
+    }
+
+    // Constructor updated to require DAO
+    public MessageAdapter(GalleryImageDao galleryImageDao) {
+        this.galleryImageDao = galleryImageDao;
+        this.imageQueryExecutor = Executors.newFixedThreadPool(2);
+        this.mainHandler = new Handler(Looper.getMainLooper());
     }
 
     public void setOnMessageEditListener(OnMessageEditListener listener) {
@@ -72,8 +95,11 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
         if (markwonUser == null) {
             float textSize = parent.getContext().getResources().getDisplayMetrics().scaledDensity * 16;
 
-            markwonUser = Markwon.builder(parent.getContext())
-                    .usePlugin(TablePlugin.create(parent.getContext()))
+            // Re-using context for Markwon builder
+            Context context = parent.getContext();
+
+            markwonUser = Markwon.builder(context)
+                    .usePlugin(TablePlugin.create(context))
                     .usePlugin(MarkwonInlineParserPlugin.create())
                     .usePlugin(JLatexMathPlugin.create(textSize, builder -> {
                         builder.inlinesEnabled(true);
@@ -81,12 +107,12 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
                     }))
                     .build();
 
-            markwonCharacter = Markwon.builder(parent.getContext())
-                    .usePlugin(TablePlugin.create(parent.getContext()))
+            markwonCharacter = Markwon.builder(context)
+                    .usePlugin(TablePlugin.create(context))
                     .usePlugin(MarkwonInlineParserPlugin.create())
                     .usePlugin(JLatexMathPlugin.create(textSize, builder -> {
                         builder.inlinesEnabled(true);
-                        builder.theme().textColor(Color.BLACK);
+                        builder.theme().textColor(Color.BLACK); // Ensure black text for character
                     }))
                     .build();
         }
@@ -184,28 +210,87 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
         }
 
         public void showDisplayMode(Message message, Markwon markwon) {
-            String content = message.getContent();
+            String rawContent = message.getContent();
+            String displayText = rawContent;
+            String imageUuid = null;
 
-            if (content != null) {
-                content = content.replace("\\[", "$$").replace("\\]", "$$");
-                content = content.replace("\\(", "$").replace("\\)", "$");
+            // 1. Check for Image Tag
+            if (rawContent != null) {
+                Matcher matcher = IMAGE_TAG_PATTERN.matcher(rawContent);
+                if (matcher.find()) {
+                    imageUuid = matcher.group(1);
+                    // Remove the tag from the text displayed to the user
+                    displayText = rawContent.replace(matcher.group(0), "").trim();
+                }
             }
 
-            markwon.setMarkdown(textViewMessage, content != null ? content : "");
-            textViewMessage.setVisibility(View.VISIBLE);
+            // 2. Render Text
+            if (displayText != null) {
+                displayText = displayText.replace("\\[", "$$").replace("\\]", "$$");
+                displayText = displayText.replace("\\(", "$").replace("\\)", "$");
+            }
+
+            markwon.setMarkdown(textViewMessage, displayText != null ? displayText : "");
+
+            // Hide text view if empty (e.g. message was ONLY an image)
+            if (TextUtils.isEmpty(displayText)) {
+                textViewMessage.setVisibility(View.GONE);
+            } else {
+                textViewMessage.setVisibility(View.VISIBLE);
+            }
             layoutEditMessage.setVisibility(View.GONE);
 
+            // 3. Render Image
             if (imageViewMessage != null) {
+                // Priority 1: User uploaded image (existing logic)
                 if (!TextUtils.isEmpty(message.getImagePath())) {
                     imageViewMessage.setVisibility(View.VISIBLE);
                     Glide.with(itemView.getContext())
                             .load(message.getImagePath())
                             .transform(new RoundedCorners(16))
                             .into(imageViewMessage);
-                } else {
+                }
+                // Priority 2: AI sent Gallery Image (new logic)
+                else if (imageUuid != null) {
+                    imageViewMessage.setVisibility(View.VISIBLE);
+                    loadGalleryImage(imageUuid, imageViewMessage);
+                }
+                else {
                     imageViewMessage.setVisibility(View.GONE);
                 }
             }
+        }
+
+        private void loadGalleryImage(String uuid, ImageView target) {
+            // Check cache first
+            if (uuidToPathCache.containsKey(uuid)) {
+                String path = uuidToPathCache.get(uuid);
+                Glide.with(itemView.getContext())
+                        .load(path)
+                        .transform(new RoundedCorners(16))
+                        .into(target);
+                return;
+            }
+
+            // Set placeholder or clear while loading
+            target.setImageDrawable(null);
+
+            // Fetch from DB
+            imageQueryExecutor.execute(() -> {
+                GalleryImage img = galleryImageDao.getImageByUuid(uuid);
+                mainHandler.post(() -> {
+                    if (img != null && img.getImagePath() != null) {
+                        uuidToPathCache.put(uuid, img.getImagePath());
+                        // Verify the view holder still needs this image (basic check)
+                        if (target.getWindowToken() != null) {
+                            Glide.with(itemView.getContext())
+                                    .load(img.getImagePath())
+                                    .transform(new RoundedCorners(16))
+                                    .into(target);
+                        }
+                    }
+                });
+            });
         }
 
         public void showEditMode(Message message) {

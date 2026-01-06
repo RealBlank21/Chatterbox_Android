@@ -8,7 +8,7 @@ import androidx.room.RoomDatabase;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {User.class, Character.class, Conversation.class, Message.class, Persona.class, Scenario.class}, version = 19, exportSchema = false)
+@Database(entities = {User.class, Character.class, Conversation.class, Message.class, Persona.class, Scenario.class, GalleryImage.class}, version = 20, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
 
     public abstract UserDao userDao();
@@ -17,6 +17,7 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract MessageDao messageDao();
     public abstract PersonaDao personaDao();
     public abstract ScenarioDao scenarioDao();
+    public abstract GalleryImageDao galleryImageDao();
 
     private static volatile AppDatabase INSTANCE;
     private static final String DATABASE_NAME = "chatterbox-db";
@@ -133,13 +134,30 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    static final Migration MIGRATION_19_20 = new Migration(19, 20) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            database.execSQL("CREATE TABLE IF NOT EXISTS `gallery_image` (" +
+                    "`uuid` TEXT NOT NULL, " +
+                    "`image_path` TEXT, " +
+                    "`label` TEXT, " +
+                    "`description` TEXT, " +
+                    "`owner_id` INTEGER NOT NULL, " +
+                    "`owner_type` TEXT, " +
+                    "`created_at` INTEGER NOT NULL, " +
+                    "PRIMARY KEY(`uuid`))");
+
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_gallery_image_owner` ON `gallery_image` (`owner_id`, `owner_type`)");
+        }
+    };
+
     public static AppDatabase getInstance(final Context context) {
         if (INSTANCE == null) {
             synchronized (AppDatabase.class) {
                 if (INSTANCE == null) {
                     INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
                                     AppDatabase.class, DATABASE_NAME)
-                            .addMigrations(MIGRATION_6_7, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
+                            .addMigrations(MIGRATION_6_7, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20)
                             .fallbackToDestructiveMigration()
                             .build();
                 }
