@@ -309,7 +309,7 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
                                     .into(target);
                             target.setOnClickListener(v -> {
                                 if (imageClickListener != null) {
-                                    imageClickListener.onImageClick(img.getImagePath());
+                                       imageClickListener.onImageClick(img.getImagePath());
                                 }
                             });
                         }
