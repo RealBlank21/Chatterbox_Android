@@ -1,10 +1,7 @@
 package com.example.testing;
 
 import android.app.Application;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.text.TextUtils;
-import android.util.Base64;
 import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
@@ -19,8 +16,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -44,7 +39,6 @@ public class ConversationViewModel extends AndroidViewModel {
     private final UserRepository userRepository;
     private final ConversationRepository conversationRepository;
     private final ScenarioRepository scenarioRepository;
-    private final GalleryImageRepository galleryImageRepository; // Added in previous step
     private final PersonaDao personaDao;
     private final ApiService apiService;
     private final ExecutorService executorService;
@@ -71,7 +65,6 @@ public class ConversationViewModel extends AndroidViewModel {
         userRepository = UserRepository.getInstance(application);
         conversationRepository = ConversationRepository.getInstance(application);
         scenarioRepository = ScenarioRepository.getInstance(application);
-        galleryImageRepository = GalleryImageRepository.getInstance(application); // Added initialization
         personaDao = AppDatabase.getInstance(application).personaDao();
 
         apiService = ApiClient.getClient().create(ApiService.class);
@@ -149,8 +142,6 @@ public class ConversationViewModel extends AndroidViewModel {
             if (content != null && !content.trim().isEmpty()) {
                 String cleanContent = content.trim().replace("\n", " ");
                 title = cleanContent.length() > 50 ? cleanContent.substring(0, 50) + "..." : cleanContent;
-            } else if (imagePath != null) {
-                title = "Image sent";
             }
 
             Conversation newConversation = new Conversation(character.getId(), title);
@@ -189,7 +180,7 @@ public class ConversationViewModel extends AndroidViewModel {
                     messageRepository.insert(greeting);
                 }
                 conversationIdInput.postValue(id);
-                sendMessageWithId(content, imagePath, id, user, character);
+                sendMessageWithId(content, id, user, character);
             });
         });
     }
@@ -199,19 +190,19 @@ public class ConversationViewModel extends AndroidViewModel {
     }
 
     public void sendMessage(String content, String imagePath, int conversationId, User user, Character character) {
-        sendMessageWithId(content, imagePath, conversationId, user, character);
+        sendMessageWithId(content, conversationId, user, character);
     }
 
     public void continueConversation(int conversationId, User user, Character character) {
         if (conversationId == -1) {
             createConversationAndSendMessage("", null, user, character, null, null);
         } else {
-            triggerApiCall("", null, conversationId, user, character, true);
+            triggerApiCall("", conversationId, user, character, true);
         }
     }
 
-    private void sendMessageWithId(String content, String imagePath, int conversationId, User user, Character character) {
-        triggerApiCall(content, imagePath, conversationId, user, character, false);
+    private void sendMessageWithId(String content, int conversationId, User user, Character character) {
+        triggerApiCall(content, conversationId, user, character, false);
     }
 
     public void regenerateResponse(Message messageToRegenerate, User user, Character character) {
@@ -219,7 +210,7 @@ public class ConversationViewModel extends AndroidViewModel {
             if (messageToRegenerate != null) {
                 messageRepository.deleteSync(messageToRegenerate);
             }
-            triggerApiCall("", null, messageToRegenerate.getConversationId(), user, character, true);
+            triggerApiCall("", messageToRegenerate.getConversationId(), user, character, true);
         });
     }
 
@@ -233,7 +224,6 @@ public class ConversationViewModel extends AndroidViewModel {
         messageRepository.update(message);
     }
 
-    // --- New Method: Get Debug History for Clipboard ---
     public void getDebugConversationHistory(int conversationId, User user, Character character, Consumer<String> callback) {
         executorService.execute(() -> {
             Conversation conversation = conversationRepository.getConversationByIdSync(conversationId);
@@ -250,7 +240,6 @@ public class ConversationViewModel extends AndroidViewModel {
         });
     }
 
-    // --- Helper Method: Shared Logic for Prompt Construction ---
     private List<RequestMessage> buildApiRequestMessages(Conversation conversation, User user, Character character, List<Message> messageHistory) {
         List<RequestMessage> requestMessages = new ArrayList<>();
 
@@ -312,38 +301,10 @@ public class ConversationViewModel extends AndroidViewModel {
         }
         String scenarioPrompt = scenarioPromptBuilder.toString();
 
-        // Image Inventory Injection
-        StringBuilder imagePromptBuilder = new StringBuilder();
-        List<GalleryImage> characterImages = galleryImageRepository.getImagesForOwnerSync(character.getId(), "CHARACTER");
-        List<GalleryImage> personaImages = new ArrayList<>();
-        if (personaIdToUse != -1) {
-            personaImages = galleryImageRepository.getImagesForOwnerSync(personaIdToUse, "PERSONA");
-        }
-
-        if (!characterImages.isEmpty() || !personaImages.isEmpty()) {
-            imagePromptBuilder.append("\n[SYSTEM: IMAGE TOOLS]\n");
-            imagePromptBuilder.append("You have access to a gallery of images. You MUST use the tag $image:UUID$ if your action, expression, or the situation matches one of the descriptions below.\n");
-            // Add this line:
-            imagePromptBuilder.append("Send the tag on its own line or part of the text. DO NOT wrap the tag in asterisks (*) or code blocks.\n");
-            imagePromptBuilder.append("You may only use one image per conversation.");
-            imagePromptBuilder.append("Available Images:\n");
-
-            for (GalleryImage img : characterImages) {
-                imagePromptBuilder.append("- ID: ").append(img.getUuid()).append("\n");
-                imagePromptBuilder.append("  Context/Description: ").append(img.getDescription()).append("\n");
-            }
-            for (GalleryImage img : personaImages) {
-                imagePromptBuilder.append("- ID: ").append(img.getUuid()).append("\n");
-                imagePromptBuilder.append("  Context/Description: ").append(img.getDescription()).append("\n");
-            }
-            imagePromptBuilder.append("\n");
-        }
-        String imagePrompt = imagePromptBuilder.toString();
-
         globalPrompt = globalPrompt.replace("{day}", formattedDay).replace("{time}", formattedTime);
         characterPersonality = characterPersonality.replace("{day}", formattedDay).replace("{time}", formattedTime);
 
-        String finalSystemPrompt = globalPrompt + "\n" + personaPrompt + characterPersonality + "\n" + scenarioPrompt + "\n" + imagePrompt;
+        String finalSystemPrompt = globalPrompt + "\n" + personaPrompt + characterPersonality + "\n" + scenarioPrompt;
 
         if (character.isTimeAware()) {
             finalSystemPrompt += "\nThis conversation was started on " + formattedDay + " at " + formattedTime + ".";
@@ -371,7 +332,7 @@ public class ConversationViewModel extends AndroidViewModel {
         return requestMessages;
     }
 
-    private void triggerApiCall(String content, String imagePath, int conversationId, User user, Character character, boolean isRegeneration) {
+    private void triggerApiCall(String content, int conversationId, User user, Character character, boolean isRegeneration) {
         if (user == null || character == null) return;
 
         executorService.execute(() -> {
@@ -379,7 +340,7 @@ public class ConversationViewModel extends AndroidViewModel {
 
             try {
                 if (!isRegeneration) {
-                    Message userMessage = new Message("user", content, conversationId, imagePath);
+                    Message userMessage = new Message("user", content, conversationId);
                     messageRepository.insertSync(userMessage);
                     conversationRepository.updateLastUpdatedSync(conversationId, System.currentTimeMillis());
                 }
@@ -387,7 +348,6 @@ public class ConversationViewModel extends AndroidViewModel {
                 Conversation conversation = conversationRepository.getConversationByIdSync(conversationId);
                 List<Message> messageHistory = messageRepository.getMessagesForConversationSync(conversationId);
 
-                // Use the shared helper method to build requests
                 List<RequestMessage> requestMessages = buildApiRequestMessages(conversation, user, character, messageHistory);
 
                 String model = !TextUtils.isEmpty(character.getModel()) ? character.getModel() : user.getPreferredModel();
@@ -467,33 +427,5 @@ public class ConversationViewModel extends AndroidViewModel {
                 isGenerating.postValue(false);
             }
         });
-    }
-
-    private String encodeImageToBase64(String imagePath) {
-        try {
-            File imageFile = new File(imagePath);
-            if (!imageFile.exists()) return null;
-            Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
-            if (bitmap == null) return null;
-            int maxDimension = 1024;
-            if (bitmap.getWidth() > maxDimension || bitmap.getHeight() > maxDimension) {
-                float aspectRatio = (float) bitmap.getWidth() / bitmap.getHeight();
-                int newWidth = maxDimension;
-                int newHeight = maxDimension;
-                if (bitmap.getWidth() > bitmap.getHeight()) {
-                    newHeight = Math.round(maxDimension / aspectRatio);
-                } else {
-                    newWidth = Math.round(maxDimension * aspectRatio);
-                }
-                bitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true);
-            }
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream);
-            byte[] byteArray = outputStream.toByteArray();
-            return Base64.encodeToString(byteArray , Base64.NO_WRAP);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
     }
 }

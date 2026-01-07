@@ -2,21 +2,15 @@ package com.example.testing;
 
 import android.content.Context;
 import android.graphics.Color;
-import android.os.Handler;
-import android.os.Looper;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
-
-import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.resource.bitmap.RoundedCorners;
 
 import io.noties.markwon.Markwon;
 import io.noties.markwon.ext.tables.TablePlugin;
@@ -24,13 +18,7 @@ import io.noties.markwon.ext.latex.JLatexMathPlugin;
 import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageViewHolder> {
 
@@ -44,36 +32,16 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
     private OnMessageLongClickListener longClickListener;
     private int editingPosition = -1;
     private OnMessageEditListener editListener;
-    private OnImageClickListener imageClickListener;
-
-    // Image Handling
-    private final GalleryImageDao galleryImageDao;
-    private final ExecutorService imageQueryExecutor;
-    private final Handler mainHandler;
-    private final Map<String, String> uuidToPathCache = new HashMap<>(); // Simple cache
-    private static final Pattern IMAGE_TAG_PATTERN = Pattern.compile("\\$image:([a-f0-9\\-]+)\\$");
 
     public interface OnMessageEditListener {
         void onMessageEdited(Message message);
     }
 
-    public interface OnImageClickListener {
-        void onImageClick(String imagePath);
-    }
-
-    // Constructor updated to require DAO
-    public MessageAdapter(GalleryImageDao galleryImageDao) {
-        this.galleryImageDao = galleryImageDao;
-        this.imageQueryExecutor = Executors.newFixedThreadPool(2);
-        this.mainHandler = new Handler(Looper.getMainLooper());
+    public MessageAdapter() {
     }
 
     public void setOnMessageEditListener(OnMessageEditListener listener) {
         this.editListener = listener;
-    }
-
-    public void setOnImageClickListener(OnImageClickListener listener) {
-        this.imageClickListener = listener;
     }
 
     public void setEditingPosition(int position) {
@@ -103,8 +71,6 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
     public MessageViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         if (markwonUser == null) {
             float textSize = parent.getContext().getResources().getDisplayMetrics().scaledDensity * 16;
-
-            // Re-using context for Markwon builder
             Context context = parent.getContext();
 
             markwonUser = Markwon.builder(context)
@@ -121,7 +87,7 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
                     .usePlugin(MarkwonInlineParserPlugin.create())
                     .usePlugin(JLatexMathPlugin.create(textSize, builder -> {
                         builder.inlinesEnabled(true);
-                        builder.theme().textColor(Color.BLACK); // Ensure black text for character
+                        builder.theme().textColor(Color.BLACK);
                     }))
                     .build();
         }
@@ -194,7 +160,6 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
         View layoutEditMessage;
         EditText editTextMessageContent;
         Button buttonSaveEdit;
-        ImageView imageViewMessage;
 
         public MessageViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -202,7 +167,6 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
             layoutEditMessage = itemView.findViewById(R.id.layout_edit_message);
             editTextMessageContent = itemView.findViewById(R.id.edit_text_message_content);
             buttonSaveEdit = itemView.findViewById(R.id.button_save_edit);
-            imageViewMessage = itemView.findViewById(R.id.image_view_message_image);
 
             OnMessageLongClickListener listener = longClickListener;
             View.OnLongClickListener longClick = v -> {
@@ -215,25 +179,11 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
 
             itemView.setOnLongClickListener(longClick);
             textViewMessage.setOnLongClickListener(longClick);
-            if(imageViewMessage != null) imageViewMessage.setOnLongClickListener(longClick);
         }
 
         public void showDisplayMode(Message message, Markwon markwon) {
-            String rawContent = message.getContent();
-            String displayText = rawContent;
-            String imageUuid = null;
+            String displayText = message.getContent();
 
-            // 1. Check for Image Tag
-            if (rawContent != null) {
-                Matcher matcher = IMAGE_TAG_PATTERN.matcher(rawContent);
-                if (matcher.find()) {
-                    imageUuid = matcher.group(1);
-                    // Remove the tag from the text displayed to the user
-                    displayText = rawContent.replace(matcher.group(0), "").trim();
-                }
-            }
-
-            // 2. Render Text
             if (displayText != null) {
                 displayText = displayText.replace("\\[", "$$").replace("\\]", "$$");
                 displayText = displayText.replace("\\(", "$").replace("\\)", "$");
@@ -241,86 +191,16 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
 
             markwon.setMarkdown(textViewMessage, displayText != null ? displayText : "");
 
-            // Hide text view if empty (e.g. message was ONLY an image)
             if (TextUtils.isEmpty(displayText)) {
                 textViewMessage.setVisibility(View.GONE);
             } else {
                 textViewMessage.setVisibility(View.VISIBLE);
             }
             layoutEditMessage.setVisibility(View.GONE);
-
-            // 3. Render Image
-            if (imageViewMessage != null) {
-                // Priority 1: User uploaded image (existing logic)
-                if (!TextUtils.isEmpty(message.getImagePath())) {
-                    imageViewMessage.setVisibility(View.VISIBLE);
-                    Glide.with(itemView.getContext())
-                            .load(message.getImagePath())
-                            .transform(new RoundedCorners(16))
-                            .into(imageViewMessage);
-                    imageViewMessage.setOnClickListener(v -> {
-                        if (imageClickListener != null) {
-                            imageClickListener.onImageClick(message.getImagePath());
-                        }
-                    });
-                }
-                // Priority 2: AI sent Gallery Image (new logic)
-                else if (imageUuid != null) {
-                    imageViewMessage.setVisibility(View.VISIBLE);
-                    loadGalleryImage(imageUuid, imageViewMessage);
-                }
-                else {
-                    imageViewMessage.setVisibility(View.GONE);
-                }
-            }
-        }
-
-        private void loadGalleryImage(String uuid, ImageView target) {
-            // Check cache first
-            if (uuidToPathCache.containsKey(uuid)) {
-                String path = uuidToPathCache.get(uuid);
-                Glide.with(itemView.getContext())
-                        .load(path)
-                        .transform(new RoundedCorners(16))
-                        .into(target);
-                target.setOnClickListener(v -> {
-                    if (imageClickListener != null) {
-                        imageClickListener.onImageClick(path);
-                    }
-                });
-                return;
-            }
-
-            // Set placeholder or clear while loading
-            target.setImageDrawable(null);
-            target.setOnClickListener(null);
-
-            // Fetch from DB
-            imageQueryExecutor.execute(() -> {
-                GalleryImage img = galleryImageDao.getImageByUuid(uuid);
-                mainHandler.post(() -> {
-                    if (img != null && img.getImagePath() != null) {
-                        uuidToPathCache.put(uuid, img.getImagePath());
-                        // Verify the view holder still needs this image (basic check)
-                        if (target.getWindowToken() != null) {
-                            Glide.with(itemView.getContext())
-                                    .load(img.getImagePath())
-                                    .transform(new RoundedCorners(16))
-                                    .into(target);
-                            target.setOnClickListener(v -> {
-                                if (imageClickListener != null) {
-                                       imageClickListener.onImageClick(img.getImagePath());
-                                }
-                            });
-                        }
-                    }
-                });
-            });
         }
 
         public void showEditMode(Message message) {
             textViewMessage.setVisibility(View.GONE);
-            if (imageViewMessage != null) imageViewMessage.setVisibility(View.GONE);
             layoutEditMessage.setVisibility(View.VISIBLE);
             editTextMessageContent.setText(message.getContent());
             editTextMessageContent.requestFocus();

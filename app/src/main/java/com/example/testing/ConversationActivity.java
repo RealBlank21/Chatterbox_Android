@@ -6,7 +6,6 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.GradientDrawable;
-import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextUtils;
@@ -25,13 +24,9 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.PickVisualMediaRequest;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
-import androidx.cardview.widget.CardView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.lifecycle.ViewModelProvider;
@@ -39,14 +34,9 @@ import androidx.lifecycle.ViewModelProvider;
 import com.bumptech.glide.Glide;
 import com.example.testing.network.response.Model;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 public class ConversationActivity extends BaseActivity {
@@ -54,13 +44,8 @@ public class ConversationActivity extends BaseActivity {
     private EditText editTextMessage;
     private ImageButton buttonSend;
     private ProgressBar progressBarGenerating;
-    private ImageButton buttonAttachImage;
     private RecyclerView recyclerViewMessages;
     private MessageAdapter messageAdapter;
-
-    private CardView cardViewImagePreview;
-    private ImageView imageViewPreview;
-    private ImageButton buttonRemoveImage;
 
     private ImageView actionBarImage;
     private TextView actionBarName;
@@ -75,15 +60,7 @@ public class ConversationActivity extends BaseActivity {
     private Character currentCharacter;
 
     private List<Message> currentMessages = new ArrayList<>();
-    private String selectedImagePath = null;
     private String currentActionBarImagePath = null;
-
-    private final ActivityResultLauncher<PickVisualMediaRequest> pickMedia =
-            registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
-                if (uri != null) {
-                    saveImageToInternalStorage(uri);
-                }
-            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -137,11 +114,6 @@ public class ConversationActivity extends BaseActivity {
         editTextMessage = findViewById(R.id.edit_text_message);
         buttonSend = findViewById(R.id.button_send);
         progressBarGenerating = findViewById(R.id.progress_bar_generating);
-        buttonAttachImage = findViewById(R.id.button_attach_image);
-
-        cardViewImagePreview = findViewById(R.id.card_view_image_preview);
-        imageViewPreview = findViewById(R.id.image_view_preview);
-        buttonRemoveImage = findViewById(R.id.button_remove_image);
 
         buttonSend.setEnabled(false);
 
@@ -151,8 +123,7 @@ public class ConversationActivity extends BaseActivity {
         recyclerViewMessages.setLayoutManager(layoutManager);
         recyclerViewMessages.setItemAnimator(null);
 
-        // Updated to include the DAO for image loading
-        messageAdapter = new MessageAdapter(AppDatabase.getInstance(this).galleryImageDao());
+        messageAdapter = new MessageAdapter();
         recyclerViewMessages.setAdapter(messageAdapter);
 
         conversationViewModel = new ViewModelProvider(this).get(ConversationViewModel.class);
@@ -182,7 +153,6 @@ public class ConversationActivity extends BaseActivity {
                 updateActionBarImage(character.getCharacterProfileImagePath());
 
                 checkIfReadyToSend();
-                buttonAttachImage.setVisibility(character.isAllowImageInput() ? View.VISIBLE : View.GONE);
 
                 if (conversationId == -1) {
                     androidx.lifecycle.LiveData<Scenario> scenarioLiveData;
@@ -275,8 +245,6 @@ public class ConversationActivity extends BaseActivity {
             }
         });
 
-        messageAdapter.setOnImageClickListener(this::showFullScreenImage);
-
         editTextMessage.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) { checkIfReadyToSend(); }
@@ -284,14 +252,6 @@ public class ConversationActivity extends BaseActivity {
         });
 
         buttonSend.setOnClickListener(v -> handleSendAction());
-
-        buttonAttachImage.setOnClickListener(v -> {
-            pickMedia.launch(new PickVisualMediaRequest.Builder()
-                    .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
-                    .build());
-        });
-
-        buttonRemoveImage.setOnClickListener(v -> clearSelectedImage());
     }
 
     private void updateActionBarImage(String imagePath) {
@@ -340,46 +300,6 @@ public class ConversationActivity extends BaseActivity {
                 actionBarTag.setVisibility(View.GONE);
             }
         }
-    }
-
-    private void saveImageToInternalStorage(Uri uri) {
-        try {
-            InputStream inputStream = getContentResolver().openInputStream(uri);
-            File directory = new File(getFilesDir(), "chat_images");
-            if (!directory.exists()) {
-                directory.mkdirs();
-            }
-            File file = new File(directory, UUID.randomUUID().toString() + ".jpg");
-            OutputStream outputStream = new FileOutputStream(file);
-            byte[] buffer = new byte[1024];
-            int length;
-            while ((length = inputStream.read(buffer)) > 0) {
-                outputStream.write(buffer, 0, length);
-            }
-            outputStream.close();
-            inputStream.close();
-
-            selectedImagePath = file.getAbsolutePath();
-            showImagePreview();
-            checkIfReadyToSend();
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            Toast.makeText(this, "Failed to process image", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private void showImagePreview() {
-        if (selectedImagePath != null) {
-            cardViewImagePreview.setVisibility(View.VISIBLE);
-            Glide.with(this).load(selectedImagePath).centerCrop().into(imageViewPreview);
-        }
-    }
-
-    private void clearSelectedImage() {
-        selectedImagePath = null;
-        cardViewImagePreview.setVisibility(View.GONE);
-        checkIfReadyToSend();
     }
 
     @Override
@@ -514,7 +434,6 @@ public class ConversationActivity extends BaseActivity {
             return;
         }
 
-        // Updated logic: Delegate to ViewModel to ensure exact parity with API call
         conversationViewModel.getDebugConversationHistory(conversationId, currentUser, currentCharacter, jsonHistory -> {
             ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
             ClipData clip = ClipData.newPlainText("Conversation History JSON", jsonHistory);
@@ -529,7 +448,7 @@ public class ConversationActivity extends BaseActivity {
         }
 
         String text = editTextMessage.getText().toString().trim();
-        boolean hasContent = !TextUtils.isEmpty(text) || selectedImagePath != null;
+        boolean hasContent = !TextUtils.isEmpty(text);
         boolean hasCreds = currentUser != null && !TextUtils.isEmpty(currentUser.getApiKey()) && currentCharacter != null;
 
         if (hasContent) {
@@ -549,16 +468,16 @@ public class ConversationActivity extends BaseActivity {
 
         String messageContent = editTextMessage.getText().toString().trim();
 
-        if (!TextUtils.isEmpty(messageContent) || selectedImagePath != null) {
-            String imageToSend = selectedImagePath;
+        if (!TextUtils.isEmpty(messageContent)) {
 
             if (conversationId == -1) {
-                conversationViewModel.createConversationAndSendMessage(messageContent, imageToSend, currentUser, currentCharacter, selectedPersonaId, selectedScenarioId);
+                // Modified to pass null for image
+                conversationViewModel.createConversationAndSendMessage(messageContent, null, currentUser, currentCharacter, selectedPersonaId, selectedScenarioId);
             } else {
-                conversationViewModel.sendMessage(messageContent, imageToSend, conversationId, currentUser, currentCharacter);
+                // Modified to pass null for image
+                conversationViewModel.sendMessage(messageContent, null, conversationId, currentUser, currentCharacter);
             }
             editTextMessage.setText("");
-            clearSelectedImage();
 
         } else {
             conversationViewModel.continueConversation(conversationId, currentUser, currentCharacter);

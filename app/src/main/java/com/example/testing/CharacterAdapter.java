@@ -59,12 +59,6 @@ public class CharacterAdapter extends RecyclerView.Adapter<CharacterAdapter.Char
         }
         holder.textViewName.setText(displayName);
 
-        if (currentCharacter.isAllowImageInput()) {
-            holder.imageBadge.setVisibility(View.VISIBLE);
-        } else {
-            holder.imageBadge.setVisibility(View.GONE);
-        }
-
         String firstMessage = currentCharacter.getFirstMessage();
         if (!TextUtils.isEmpty(firstMessage)) {
             holder.textViewFirstMessage.setText(firstMessage);

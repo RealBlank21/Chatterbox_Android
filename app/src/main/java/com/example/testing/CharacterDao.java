@@ -49,7 +49,6 @@ public interface CharacterDao {
             "c.is_favorite, " +
             "c.is_hidden, " +
             "c.is_time_aware, " +
-            "c.allow_image_input, " +
             "c.context_limit, " +
             "c.tags, " +
             "c.default_scenario, " +

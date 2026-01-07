@@ -24,38 +24,6 @@
         android:orientation="vertical"
         android:background="?android:attr/colorBackground">
 
-        <androidx.cardview.widget.CardView
-            android:id="@+id/card_view_image_preview"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_margin="8dp"
-            app:cardCornerRadius="8dp"
-            android:visibility="gone">
-
-            <RelativeLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content">
-
-                <ImageView
-                    android:id="@+id/image_view_preview"
-                    android:layout_width="100dp"
-                    android:layout_height="100dp"
-                    android:scaleType="centerCrop"
-                    android:src="@mipmap/ic_launcher" />
-
-                <ImageButton
-                    android:id="@+id/button_remove_image"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:layout_alignParentEnd="true"
-                    android:layout_alignParentTop="true"
-                    android:background="#80000000"
-                    android:src="@android:drawable/ic_menu_close_clear_cancel"
-                    android:padding="4dp"/>
-            </RelativeLayout>
-
-        </androidx.cardview.widget.CardView>
-
         <LinearLayout
             android:id="@+id/layout_chatbox"
             android:layout_width="match_parent"
@@ -63,15 +31,6 @@
             android:orientation="horizontal"
             android:padding="8dp"
             android:gravity="center_vertical">
-
-            <ImageButton
-                android:id="@+id/button_attach_image"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_marginEnd="8dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@android:drawable/ic_menu_gallery"
-                android:visibility="gone"/>
 
             <EditText
                 android:id="@+id/edit_text_message"

@@ -55,9 +55,6 @@ public class Character implements Serializable {
     @ColumnInfo(name = "is_time_aware", defaultValue = "0")
     private boolean isTimeAware;
 
-    @ColumnInfo(name = "allow_image_input", defaultValue = "0")
-    private boolean allowImageInput;
-
     @ColumnInfo(name = "context_limit")
     private Integer contextLimit;
 
@@ -77,7 +74,7 @@ public class Character implements Serializable {
                      String model, String characterProfileImagePath,
                      String voiceReferenceId, String voiceReferenceName,
                      Float temperature, Integer maxTokens, boolean isTimeAware,
-                     boolean allowImageInput, Integer contextLimit, String tags, String defaultScenario) {
+                     Integer contextLimit, String tags, String defaultScenario) {
         this.createdAt = System.currentTimeMillis();
         this.name = name;
         this.personality = personality;
@@ -92,7 +89,6 @@ public class Character implements Serializable {
         this.isFavorite = false;
         this.isHidden = false;
         this.isTimeAware = isTimeAware;
-        this.allowImageInput = allowImageInput;
         this.contextLimit = contextLimit;
         this.tags = tags != null ? tags : "";
         this.defaultScenario = defaultScenario != null ? defaultScenario : "";
@@ -104,8 +100,8 @@ public class Character implements Serializable {
                      String model, String characterProfileImagePath,
                      String voiceReferenceId, String voiceReferenceName,
                      Float temperature, Integer maxTokens, boolean isTimeAware,
-                     boolean allowImageInput, Integer contextLimit, String tags) {
-        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, temperature, maxTokens, isTimeAware, allowImageInput, contextLimit, tags, "");
+                     Integer contextLimit, String tags) {
+        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, temperature, maxTokens, isTimeAware, contextLimit, tags, "");
     }
 
     @Ignore
@@ -113,23 +109,23 @@ public class Character implements Serializable {
                      String model, String characterProfileImagePath,
                      String voiceReferenceId, String voiceReferenceName,
                      Float temperature, Integer maxTokens, boolean isTimeAware,
-                     boolean allowImageInput, Integer contextLimit) {
-        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, temperature, maxTokens, isTimeAware, allowImageInput, contextLimit, "", "");
+                     Integer contextLimit) {
+        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, temperature, maxTokens, isTimeAware, contextLimit, "", "");
     }
 
     @Ignore
     public Character(String name, String personality, String firstMessage,
                      String model, String characterProfileImagePath,
                      String voiceReferenceId, String voiceReferenceName,
-                     Float temperature, Integer maxTokens, boolean isTimeAware, boolean allowImageInput) {
-        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, temperature, maxTokens, isTimeAware, allowImageInput, null, "", "");
+                     Float temperature, Integer maxTokens, boolean isTimeAware) {
+        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, temperature, maxTokens, isTimeAware, null, "", "");
     }
 
     @Ignore
     public Character(String name, String personality, String firstMessage,
                      String model, String characterProfileImagePath,
                      String voiceReferenceId, String voiceReferenceName) {
-        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, null, null, false, false, null, "", "");
+        this(name, personality, firstMessage, model, characterProfileImagePath, voiceReferenceId, voiceReferenceName, null, null, false, null, "", "");
     }
 
     public int getId() { return id; }
@@ -147,7 +143,6 @@ public class Character implements Serializable {
     public boolean isFavorite() { return isFavorite; }
     public boolean isHidden() { return isHidden; }
     public boolean isTimeAware() { return isTimeAware; }
-    public boolean isAllowImageInput() { return allowImageInput; }
     public int getConversationCount() { return conversationCount; }
     public Integer getContextLimit() { return contextLimit; }
     public String getTags() { return tags; }
@@ -168,7 +163,6 @@ public class Character implements Serializable {
     public void setFavorite(boolean favorite) { isFavorite = favorite; }
     public void setHidden(boolean hidden) { isHidden = hidden; }
     public void setTimeAware(boolean timeAware) { isTimeAware = timeAware; }
-    public void setAllowImageInput(boolean allowImageInput) { this.allowImageInput = allowImageInput; }
     public void setConversationCount(int conversationCount) { this.conversationCount = conversationCount; }
     public void setContextLimit(Integer contextLimit) { this.contextLimit = contextLimit; }
     public void setTags(String tags) { this.tags = tags; }

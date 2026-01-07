@@ -26,10 +26,6 @@ public class Message {
     @ColumnInfo(name = "conversation_fk")
     private int conversationId;
 
-    @Nullable
-    @ColumnInfo(name = "image_path")
-    private String imagePath;
-
     @ColumnInfo(name = "token_count", defaultValue = "0")
     private int tokenCount;
 
@@ -43,13 +39,12 @@ public class Message {
     @ColumnInfo(name = "finish_reason")
     private String finishReason;
 
-    public Message(int index, String role, String content, long timestamp, int conversationId, String imagePath, int tokenCount, int promptTokens, int completionTokens, String finishReason) {
+    public Message(int index, String role, String content, long timestamp, int conversationId, int tokenCount, int promptTokens, int completionTokens, String finishReason) {
         this.index = index;
         this.role = role;
         this.content = content;
         this.timestamp = timestamp;
         this.conversationId = conversationId;
-        this.imagePath = imagePath;
         this.tokenCount = tokenCount;
         this.promptTokens = promptTokens;
         this.completionTokens = completionTokens;
@@ -61,17 +56,11 @@ public class Message {
 
     @Ignore
     public Message(String role, String content, int conversationId) {
-        this(role, content, conversationId, null);
-    }
-
-    @Ignore
-    public Message(String role, String content, int conversationId, String imagePath) {
         this.index = 0;
         this.role = role;
         this.content = content;
         this.timestamp = System.currentTimeMillis();
         this.conversationId = conversationId;
-        this.imagePath = imagePath;
         this.tokenCount = 0;
         this.promptTokens = 0;
         this.completionTokens = 0;
@@ -83,8 +72,6 @@ public class Message {
     public String getContent() { return content; }
     public long getTimestamp() { return timestamp; }
     public int getConversationId() { return conversationId; }
-    @Nullable
-    public String getImagePath() { return imagePath; }
     public int getTokenCount() { return tokenCount; }
     public int getPromptTokens() { return promptTokens; }
     public int getCompletionTokens() { return completionTokens; }
@@ -96,7 +83,6 @@ public class Message {
     public void setContent(String content) { this.content = content; }
     public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
     public void setConversationId(int conversationId) { this.conversationId = conversationId; }
-    public void setImagePath(String imagePath) { this.imagePath = imagePath; }
     public void setTokenCount(int tokenCount) { this.tokenCount = tokenCount; }
     public void setPromptTokens(int promptTokens) { this.promptTokens = promptTokens; }
     public void setCompletionTokens(int completionTokens) { this.completionTokens = completionTokens; }

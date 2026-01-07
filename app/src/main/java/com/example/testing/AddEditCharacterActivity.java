@@ -64,7 +64,6 @@ public class AddEditCharacterActivity extends BaseActivity {
     private ImageButton buttonRefreshModels;
     private TextView textViewModelInfo;
     private SwitchMaterial switchTimeAwareness;
-    private SwitchMaterial switchAllowImageInput;
 
     private LinearLayout layoutModelSettingsHeader;
     private LinearLayout layoutModelSettingsContainer;
@@ -87,9 +86,6 @@ public class AddEditCharacterActivity extends BaseActivity {
     private ScenarioAdapter scenarioAdapter;
     private MaterialButton buttonAddScenario;
     private LinearLayout layoutScenariosContainer;
-
-    // New Button for Gallery
-    private MaterialButton buttonManageImages;
 
     private CharacterViewModel characterViewModel;
     private int currentCharacterId = -1;
@@ -160,7 +156,6 @@ public class AddEditCharacterActivity extends BaseActivity {
         editTextMaxTokens = findViewById(R.id.edit_text_max_tokens);
         editTextContextLimit = findViewById(R.id.edit_text_context_limit);
         switchTimeAwareness = findViewById(R.id.switch_time_awareness);
-        switchAllowImageInput = findViewById(R.id.switch_allow_image_input);
 
         layoutModelSettingsHeader = findViewById(R.id.layout_model_settings_header);
         layoutModelSettingsContainer = findViewById(R.id.layout_model_settings_container);
@@ -182,19 +177,10 @@ public class AddEditCharacterActivity extends BaseActivity {
         buttonAddScenario = findViewById(R.id.button_add_scenario);
         layoutScenariosContainer = findViewById(R.id.layout_scenarios_container);
 
-        // Initialize Manage Images Button
-        buttonManageImages = findViewById(R.id.button_manage_images);
-
         int secondaryColor = ThemeUtils.getSecondaryColor(this);
         buttonAddScenario.setTextColor(secondaryColor);
         buttonAddScenario.setStrokeColor(ColorStateList.valueOf(secondaryColor));
         buttonAddScenario.setStrokeWidth((int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 1, getResources().getDisplayMetrics()));
-
-        if (buttonManageImages != null) {
-            buttonManageImages.setTextColor(secondaryColor);
-            buttonManageImages.setStrokeColor(ColorStateList.valueOf(secondaryColor));
-            buttonManageImages.setStrokeWidth((int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 1, getResources().getDisplayMetrics()));
-        }
 
         recyclerViewScenarios.setLayoutManager(new LinearLayoutManager(this));
         scenarioAdapter = new ScenarioAdapter();
@@ -323,16 +309,6 @@ public class AddEditCharacterActivity extends BaseActivity {
             startActivity(intent);
         });
 
-        // Gallery Management Button Click
-        if (buttonManageImages != null) {
-            buttonManageImages.setOnClickListener(v -> {
-                Intent galleryIntent = new Intent(AddEditCharacterActivity.this, GalleryManagementActivity.class);
-                galleryIntent.putExtra(GalleryManagementActivity.EXTRA_OWNER_ID, currentCharacterId);
-                galleryIntent.putExtra(GalleryManagementActivity.EXTRA_OWNER_TYPE, "CHARACTER");
-                startActivity(galleryIntent);
-            });
-        }
-
         Intent intent = getIntent();
         if (intent.hasExtra("CHARACTER_ID")) {
             setTitle("Edit Character");
@@ -355,7 +331,6 @@ public class AddEditCharacterActivity extends BaseActivity {
                     if (character.getContextLimit() != null) editTextContextLimit.setText(String.valueOf(character.getContextLimit()));
 
                     switchTimeAwareness.setChecked(character.isTimeAware());
-                    switchAllowImageInput.setChecked(character.isAllowImageInput());
 
                     currentProfileImagePath = character.getCharacterProfileImagePath();
                     if (!TextUtils.isEmpty(currentProfileImagePath)) {
@@ -377,11 +352,6 @@ public class AddEditCharacterActivity extends BaseActivity {
 
             layoutScenariosContainer.setVisibility(View.VISIBLE);
 
-            // Show gallery button only when editing
-            if (buttonManageImages != null) {
-                buttonManageImages.setVisibility(View.VISIBLE);
-            }
-
             characterViewModel.getScenariosForCharacter(currentCharacterId).observe(this, scenarios -> {
                 scenarioAdapter.setScenarios(scenarios);
             });
@@ -389,10 +359,6 @@ public class AddEditCharacterActivity extends BaseActivity {
         } else {
             setTitle("Add Character");
             layoutScenariosContainer.setVisibility(View.GONE);
-            // Hide gallery button for new characters (need ID first)
-            if (buttonManageImages != null) {
-                buttonManageImages.setVisibility(View.GONE);
-            }
         }
     }
 
@@ -592,7 +558,6 @@ public class AddEditCharacterActivity extends BaseActivity {
         String maxTokensStr = editTextMaxTokens.getText().toString();
         String contextLimitStr = editTextContextLimit.getText().toString();
         boolean isTimeAware = switchTimeAwareness.isChecked();
-        boolean allowImageInput = switchAllowImageInput.isChecked();
 
         if (name.trim().isEmpty()) {
             Toast.makeText(this, "Please insert a name", Toast.LENGTH_SHORT).show();
@@ -635,7 +600,7 @@ public class AddEditCharacterActivity extends BaseActivity {
         }
         String tags = tagsBuilder.toString();
 
-        Character character = new Character(name, personality, firstMessage, model, currentProfileImagePath, currentVoiceReferenceId, currentVoiceReferenceName, temperature, maxTokens, isTimeAware, allowImageInput, contextLimit, tags, defaultScenario);
+        Character character = new Character(name, personality, firstMessage, model, currentProfileImagePath, currentVoiceReferenceId, currentVoiceReferenceName, temperature, maxTokens, isTimeAware, contextLimit, tags, defaultScenario);
         character.setFavorite(isFavorite);
         character.setHidden(isHidden);
         character.setConversationCount(conversationCount);
