@@ -189,11 +189,16 @@ public class ConversationViewModel extends AndroidViewModel {
 
             conversationRepository.insert(newConversation, newId -> {
                 int id = newId.intValue();
-                if (!TextUtils.isEmpty(finalGreetingText)) {
-                    Message greeting = new Message("assistant", finalGreetingText, id);
-                    messageRepository.insert(greeting);
-                }
+
                 conversationIdInput.postValue(id);
+
+                if (!TextUtils.isEmpty(finalGreetingText)) {
+                    executorService.execute(() -> {
+                        Message greeting = new Message("assistant", finalGreetingText, id);
+                        messageRepository.insertSync(greeting);
+                    });
+                }
+
                 sendMessageWithId(content, id, user, character);
             });
         });
