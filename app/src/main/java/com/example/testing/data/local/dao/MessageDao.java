@@ -1,0 +1,47 @@
+package com.example.testing.data.local.dao;
+
+import androidx.lifecycle.LiveData;
+import androidx.room.Dao;
+import androidx.room.Insert;
+import androidx.room.Query;
+import androidx.room.Update;
+import androidx.room.Delete;
+import androidx.room.OnConflictStrategy;
+
+import com.example.testing.data.local.entity.Message;
+
+import java.util.List;
+
+@Dao
+public interface MessageDao {
+
+    @Insert
+    void insert(Message message);
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    void insertAll(List<Message> messages);
+
+    @Query("SELECT * FROM chat_message")
+    List<Message> getAllMessagesSync();
+
+    @Query("DELETE FROM chat_message")
+    void deleteAll();
+
+    @Update
+    void update(Message message);
+
+    @Delete
+    void delete(Message message);
+
+    @Query("DELETE FROM chat_message WHERE conversation_fk = :conversationId")
+    void deleteMessagesByConversationId(int conversationId);
+
+    @Query("DELETE FROM chat_message WHERE conversation_fk IN (:conversationIds)")
+    void deleteMessagesByConversationIds(List<Integer> conversationIds);
+
+    @Query("SELECT * FROM chat_message WHERE conversation_fk = :conversationId ORDER BY timestamp ASC")
+    LiveData<List<Message>> getMessagesForConversation(int conversationId);
+
+    @Query("SELECT * FROM chat_message WHERE conversation_fk = :conversationId ORDER BY timestamp ASC")
+    List<Message> getMessagesForConversationSync(int conversationId);
+}

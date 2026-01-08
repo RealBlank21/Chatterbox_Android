@@ -25,7 +25,7 @@
         android:theme="@style/Theme.Testing" >
 
         <activity
-            android:name=".MainActivity"
+            android:name=".ui.main.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -34,34 +34,29 @@
         </activity>
 
         <activity
-            android:name=".AddEditCharacterActivity"
-            android:parentActivityName=".MainActivity" />
+            android:name=".ui.character.AddEditCharacterActivity"
+            android:parentActivityName=".ui.main.MainActivity" />
 
         <activity
-            android:name=".AddEditScenarioActivity"
-            android:parentActivityName=".AddEditCharacterActivity" />
+            android:name=".ui.scenario.AddEditScenarioActivity"
+            android:parentActivityName=".ui.character.AddEditCharacterActivity" />
 
         <activity
-            android:name=".ConversationActivity"
-            android:parentActivityName=".MainActivity"
+            android:name=".ui.conversation.ConversationActivity"
+            android:parentActivityName=".ui.main.MainActivity"
             android:windowSoftInputMode="adjustResize"/>
 
         <activity
-            android:name=".SettingsActivity"
-            android:parentActivityName=".MainActivity" />
+            android:name=".ui.settings.SettingsActivity"
+            android:parentActivityName=".ui.main.MainActivity" />
 
         <activity
-            android:name=".ConversationHistoryActivity"
-            android:parentActivityName=".MainActivity" />
+            android:name=".ui.history.ConversationHistoryActivity"
+            android:parentActivityName=".ui.main.MainActivity" />
 
         <activity
             android:name="com.canhub.cropper.CropImageActivity"
             android:theme="@style/Base.Theme.AppCompat" />
-
-        <activity
-            android:name=".GalleryManagementActivity"
-            android:label="Gallery Management"
-            android:parentActivityName=".AddEditCharacterActivity" />
 
     </application>
 
