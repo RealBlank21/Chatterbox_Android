@@ -20,7 +20,7 @@ android {
 
 
     buildTypes {
-        release {
+        getByName("release") {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -29,6 +29,7 @@ android {
         }
     }
     compileOptions {
+
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
@@ -52,10 +53,13 @@ dependencies {
     implementation(libs.markwon.ext.tables)
     implementation(libs.markwon.ext.latex)
     implementation(libs.markwon.inline.parser)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
     implementation(libs.glide)
     implementation(libs.android.image.cropper)
     implementation(libs.photoview)
+
+    implementation(libs.colorwheel)
 }

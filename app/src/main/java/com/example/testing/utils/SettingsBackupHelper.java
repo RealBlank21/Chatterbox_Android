@@ -1,4 +1,4 @@
-package com.example.testing.ui.settings.utils;
+package com.example.testing.utils;
 
 import android.widget.Toast;
 import androidx.activity.ComponentActivity;

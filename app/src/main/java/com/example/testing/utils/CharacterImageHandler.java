@@ -1,4 +1,4 @@
-package com.example.testing.ui.character.utils;
+package com.example.testing.utils;
 
 import android.net.Uri;
 import android.widget.Toast;

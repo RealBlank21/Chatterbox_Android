@@ -1,4 +1,4 @@
-package com.example.testing.data.remote.utils;
+package com.example.testing.utils;
 
 import android.text.TextUtils;
 

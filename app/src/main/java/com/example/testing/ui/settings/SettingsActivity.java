@@ -11,9 +11,9 @@ import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
-import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -24,15 +24,18 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.cardview.widget.CardView;
 import androidx.lifecycle.ViewModelProvider;
 
+import com.github.antonpopoff.colorwheel.ColorWheel;
+import com.github.antonpopoff.colorwheel.gradientseekbar.GradientSeekBar;
+
 import com.example.testing.ui.base.BaseActivity;
 import com.example.testing.data.repository.ModelRepository;
 import com.example.testing.data.local.entity.Persona;
 import com.example.testing.R;
 import com.example.testing.ui.base.ThemeUtils;
 import com.example.testing.data.remote.response.Model;
-import com.example.testing.ui.settings.utils.CreditsManager;
-import com.example.testing.ui.settings.utils.SettingsAppearanceHelper;
-import com.example.testing.ui.settings.utils.SettingsBackupHelper;
+import com.example.testing.utils.CreditsManager;
+import com.example.testing.utils.SettingsAppearanceHelper;
+import com.example.testing.utils.SettingsBackupHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -151,10 +154,10 @@ public class SettingsActivity extends BaseActivity {
         backupHelper = new SettingsBackupHelper(this, settingsViewModel);
 
         appearanceHelper = new SettingsAppearanceHelper(
-                new SeekBar[]{findViewById(R.id.seekbar_primary_r), findViewById(R.id.seekbar_primary_g), findViewById(R.id.seekbar_primary_b)},
-                new SeekBar[]{findViewById(R.id.seekbar_secondary_r), findViewById(R.id.seekbar_secondary_g), findViewById(R.id.seekbar_secondary_b)},
+                findViewById(R.id.color_wheel),
+                findViewById(R.id.gradient_seek_bar),
                 new CardView[]{findViewById(R.id.card_preview_primary), findViewById(R.id.card_preview_secondary)},
-                new EditText[]{findViewById(R.id.edit_text_hex_primary), findViewById(R.id.edit_text_hex_secondary)}
+                new LinearLayout[]{findViewById(R.id.container_preview_primary), findViewById(R.id.container_preview_secondary)}
         );
     }
 

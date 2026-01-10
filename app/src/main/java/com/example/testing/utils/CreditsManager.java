@@ -1,4 +1,4 @@
-package com.example.testing.ui.settings.utils;
+package com.example.testing.utils;
 
 import android.view.View;
 import android.widget.TextView;

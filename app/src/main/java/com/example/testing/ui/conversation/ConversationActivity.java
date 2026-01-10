@@ -19,6 +19,7 @@ import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -38,8 +39,8 @@ import com.example.testing.R;
 import com.example.testing.data.local.entity.Scenario;
 import com.example.testing.ui.base.ThemeUtils;
 import com.example.testing.data.local.entity.User;
-import com.example.testing.ui.conversation.utils.ConversationStatsFormatter;
-import com.example.testing.ui.conversation.utils.MessagePopupHelper;
+import com.example.testing.utils.ConversationStatsFormatter;
+import com.example.testing.utils.MessagePopupHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,6 +56,11 @@ public class ConversationActivity extends BaseActivity {
     private ImageView actionBarImage;
     private TextView actionBarName;
     private TextView actionBarTag;
+
+    // Updated scenario views
+    private LinearLayout layoutScenarioContainer;
+    private TextView textViewScenarioToggle;
+    private TextView textViewScenarioDescription;
 
     private ConversationViewModel conversationViewModel;
     private int conversationId = -1;
@@ -96,7 +102,6 @@ public class ConversationActivity extends BaseActivity {
         setupViewModel(characterId);
         setupObservers();
 
-        // Initialize the helper
         messagePopupHelper = new MessagePopupHelper(this, conversationViewModel, messageAdapter);
     }
 
@@ -134,6 +139,23 @@ public class ConversationActivity extends BaseActivity {
         buttonSend = findViewById(R.id.button_send);
         progressBarGenerating = findViewById(R.id.progress_bar_generating);
 
+        // Scenario Dropdown Initialization
+        layoutScenarioContainer = findViewById(R.id.layout_scenario_container);
+        textViewScenarioToggle = findViewById(R.id.text_view_scenario_toggle);
+        textViewScenarioDescription = findViewById(R.id.text_view_scenario_description);
+
+        if (textViewScenarioToggle != null) {
+            textViewScenarioToggle.setOnClickListener(v -> {
+                if (textViewScenarioDescription.getVisibility() == View.VISIBLE) {
+                    textViewScenarioDescription.setVisibility(View.GONE);
+                    textViewScenarioToggle.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.arrow_down_float, 0);
+                } else {
+                    textViewScenarioDescription.setVisibility(View.VISIBLE);
+                    textViewScenarioToggle.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.arrow_up_float, 0);
+                }
+            });
+        }
+
         buttonSend.setEnabled(false);
 
         recyclerViewMessages = findViewById(R.id.recycler_view_messages);
@@ -145,7 +167,6 @@ public class ConversationActivity extends BaseActivity {
         messageAdapter = new MessageAdapter();
         recyclerViewMessages.setAdapter(messageAdapter);
 
-        // Click listeners
         buttonSend.setOnClickListener(v -> handleSendAction());
 
         editTextMessage.addTextChangedListener(new TextWatcher() {
@@ -204,8 +225,10 @@ public class ConversationActivity extends BaseActivity {
                     updateActionBarImage(scenario.getImagePath());
                 }
                 updateActionBarTag(scenario.getName());
+                updateScenarioDescription(scenario.getDescription());
             } else {
                 updateActionBarTag(null);
+                updateScenarioDescription(null);
                 if (currentCharacter != null && conversationId != -1) {
                     updateActionBarImage(currentCharacter.getCharacterProfileImagePath());
                 }
@@ -257,8 +280,10 @@ public class ConversationActivity extends BaseActivity {
                         updateActionBarImage(scenario.getImagePath());
                     }
                     updateActionBarTag(scenario.getName());
+                    updateScenarioDescription(scenario.getDescription());
                 } else {
                     updateActionBarTag(null);
+                    updateScenarioDescription(null);
                 }
 
                 if (!TextUtils.isEmpty(firstMsg)) {
@@ -310,6 +335,18 @@ public class ConversationActivity extends BaseActivity {
                 actionBarTag.setBackground(shape);
             } else {
                 actionBarTag.setVisibility(View.GONE);
+            }
+        }
+    }
+
+    private void updateScenarioDescription(String description) {
+        if (textViewScenarioDescription != null && layoutScenarioContainer != null) {
+            if (!TextUtils.isEmpty(description)) {
+                textViewScenarioDescription.setText(description);
+                // We show the main container, but keep the description hidden/visible based on its current state (defaults to gone in XML)
+                layoutScenarioContainer.setVisibility(View.VISIBLE);
+            } else {
+                layoutScenarioContainer.setVisibility(View.GONE);
             }
         }
     }

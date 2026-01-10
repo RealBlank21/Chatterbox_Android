@@ -1,4 +1,4 @@
-package com.example.testing.ui.character.utils;
+package com.example.testing.utils;
 
 import android.content.Context;
 import android.content.res.ColorStateList;

@@ -1,4 +1,4 @@
-package com.example.testing.ui.conversation.utils;
+package com.example.testing.utils;
 
 import android.text.TextUtils;
 

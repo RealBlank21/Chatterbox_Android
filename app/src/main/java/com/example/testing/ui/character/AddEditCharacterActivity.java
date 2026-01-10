@@ -30,8 +30,8 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.example.testing.data.local.entity.Character;
-import com.example.testing.ui.character.utils.CharacterImageHandler;
-import com.example.testing.ui.character.utils.TagViewManager;
+import com.example.testing.utils.CharacterImageHandler;
+import com.example.testing.utils.TagViewManager;
 import com.example.testing.ui.scenario.AddEditScenarioActivity;
 import com.example.testing.ui.base.BaseActivity;
 import com.example.testing.data.repository.ModelRepository;

@@ -25,8 +25,8 @@ import com.example.testing.data.remote.api.ApiClient;
 import com.example.testing.data.remote.api.ApiService;
 import com.example.testing.data.remote.request.ApiRequest;
 import com.example.testing.data.remote.request.RequestMessage;
-import com.example.testing.data.remote.utils.ChatStreamHandler;
-import com.example.testing.ui.conversation.utils.ChatPromptGenerator;
+import com.example.testing.utils.ChatStreamHandler;
+import com.example.testing.utils.ChatPromptGenerator;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 

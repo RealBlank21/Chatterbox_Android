@@ -2,6 +2,8 @@
 agp = "8.13.0"
 androidImageCropper = "4.5.0"
 cardview = "1.0.0"
+colorwheel = "1.1.13"
+gradientseekbar = "1.0.1"
 junit = "4.13.2"
 junitVersion = "1.3.0"
 espressoCore = "3.7.0"
@@ -23,6 +25,8 @@ photoview = "2.3.0"
 [libraries]
 android-image-cropper = { module = "com.vanniktech:android-image-cropper", version.ref = "androidImageCropper" }
 cardview = { group = "androidx.cardview", name = "cardview", version.ref = "cardview" }
+colorwheel = { module = "com.github.antonpopoff:colorwheel", version.ref = "colorwheel" }
+gradientseekbar = { module = "com.github.antonpopoff:gradientseekbar", version.ref = "gradientseekbar" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }

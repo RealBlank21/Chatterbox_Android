@@ -280,13 +280,15 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="16dp"
+                android:gravity="center_horizontal">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Character List Style"
                     android:textStyle="bold"
+                    android:layout_gravity="start"
                     android:layout_marginBottom="8dp"/>
 
                 <RadioGroup
@@ -317,128 +319,88 @@
                     android:layout_marginBottom="16dp"/>
 
                 <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Select Color to Edit"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="16dp"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:layout_marginBottom="24dp">
+
+                    <LinearLayout
+                        android:id="@+id/container_preview_primary"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp"
+                        android:background="@drawable/bg_character_message"
+                        android:layout_marginEnd="32dp">
+
+                        <androidx.cardview.widget.CardView
+                            android:id="@+id/card_preview_primary"
+                            android:layout_width="64dp"
+                            android:layout_height="64dp"
+                            app:cardCornerRadius="32dp"
+                            app:cardBackgroundColor="@color/black"
+                            app:cardElevation="4dp"
+                            android:layout_marginBottom="8dp"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Primary"
+                            android:textStyle="bold"/>
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/container_preview_secondary"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp">
+
+                        <androidx.cardview.widget.CardView
+                            android:id="@+id/card_preview_secondary"
+                            android:layout_width="64dp"
+                            android:layout_height="64dp"
+                            app:cardCornerRadius="32dp"
+                            app:cardBackgroundColor="@color/black"
+                            app:cardElevation="4dp"
+                            android:layout_marginBottom="8dp"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Secondary"
+                            android:textStyle="bold"/>
+                    </LinearLayout>
+                </LinearLayout>
+
+                <com.github.antonpopoff.colorwheel.ColorWheel
+                    android:id="@+id/color_wheel"
+                    android:layout_width="250dp"
+                    android:layout_height="250dp"
+                    android:layout_marginBottom="24dp"/>
+
+                <com.github.antonpopoff.colorwheel.gradientseekbar.GradientSeekBar
+                    android:id="@+id/gradient_seek_bar"
+                    android:layout_width="match_parent"
+                    android:layout_height="24dp"
+                    android:layout_marginBottom="24dp"/>
+
+                <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Note: Changes apply after restart."
                     android:textSize="12sp"
-                    android:textStyle="italic"
-                    android:layout_marginBottom="8dp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Primary Color"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="8dp"/>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginBottom="8dp">
-
-                    <androidx.cardview.widget.CardView
-                        android:id="@+id/card_preview_primary"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        app:cardCornerRadius="24dp"
-                        app:cardBackgroundColor="@color/black"
-                        android:layout_marginEnd="16dp"/>
-
-                    <EditText
-                        android:id="@+id/edit_text_hex_primary"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="#000000"
-                        android:inputType="textCapCharacters"
-                        android:enabled="false"/>
-                </LinearLayout>
-
-                <TextView android:text="Red" android:textSize="12sp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                <SeekBar
-                    android:id="@+id/seekbar_primary_r"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:max="255"
-                    android:progressTint="#F44336"/>
-
-                <TextView android:text="Green" android:textSize="12sp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                <SeekBar
-                    android:id="@+id/seekbar_primary_g"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:max="255"
-                    android:progressTint="#4CAF50"/>
-
-                <TextView android:text="Blue" android:textSize="12sp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                <SeekBar
-                    android:id="@+id/seekbar_primary_b"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:max="255"
-                    android:progressTint="#2196F3"/>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?android:attr/listDivider"
-                    android:layout_marginVertical="16dp"/>
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Secondary Color"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="8dp"/>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginBottom="8dp">
-
-                    <androidx.cardview.widget.CardView
-                        android:id="@+id/card_preview_secondary"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        app:cardCornerRadius="24dp"
-                        app:cardBackgroundColor="@color/black"
-                        android:layout_marginEnd="16dp"/>
-
-                    <EditText
-                        android:id="@+id/edit_text_hex_secondary"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="#000000"
-                        android:inputType="textCapCharacters"
-                        android:enabled="false"/>
-                </LinearLayout>
-
-                <TextView android:text="Red" android:textSize="12sp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                <SeekBar
-                    android:id="@+id/seekbar_secondary_r"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:max="255"
-                    android:progressTint="#F44336"/>
-
-                <TextView android:text="Green" android:textSize="12sp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                <SeekBar
-                    android:id="@+id/seekbar_secondary_g"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:max="255"
-                    android:progressTint="#4CAF50"/>
-
-                <TextView android:text="Blue" android:textSize="12sp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                <SeekBar
-                    android:id="@+id/seekbar_secondary_b"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:max="255"
-                    android:progressTint="#2196F3"/>
+                    android:textStyle="italic"/>
 
             </LinearLayout>
         </ScrollView>

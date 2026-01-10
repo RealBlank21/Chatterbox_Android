@@ -1,92 +1,115 @@
-package com.example.testing.ui.settings.utils;
+package com.example.testing.utils;
 
 import android.graphics.Color;
-import android.widget.EditText;
-import android.widget.SeekBar;
+import android.view.View;
+import android.widget.LinearLayout;
+
 import androidx.cardview.widget.CardView;
+
+import com.github.antonpopoff.colorwheel.ColorWheel;
+import com.github.antonpopoff.colorwheel.gradientseekbar.GradientSeekBar;
 
 public class SettingsAppearanceHelper {
 
-    private final SeekBar seekPrimaryR, seekPrimaryG, seekPrimaryB;
-    private final SeekBar seekSecondaryR, seekSecondaryG, seekSecondaryB;
+    private final ColorWheel colorWheel;
+    private final GradientSeekBar gradientSeekBar;
     private final CardView previewPrimary, previewSecondary;
-    private final EditText hexPrimary, hexSecondary;
+    private final LinearLayout containerPrimary, containerSecondary;
 
     private int currentColorPrimary = Color.BLACK;
     private int currentColorSecondary = Color.BLACK;
 
-    public SettingsAppearanceHelper(SeekBar[] primarySeekBars, SeekBar[] secondarySeekBars,
-                                    CardView[] previews, EditText[] hexInputs) {
-        this.seekPrimaryR = primarySeekBars[0];
-        this.seekPrimaryG = primarySeekBars[1];
-        this.seekPrimaryB = primarySeekBars[2];
+    private boolean isEditingPrimary = true;
 
-        this.seekSecondaryR = secondarySeekBars[0];
-        this.seekSecondaryG = secondarySeekBars[1];
-        this.seekSecondaryB = secondarySeekBars[2];
-
+    public SettingsAppearanceHelper(ColorWheel colorWheel, GradientSeekBar gradientSeekBar,
+                                    CardView[] previews, LinearLayout[] containers) {
+        this.colorWheel = colorWheel;
+        this.gradientSeekBar = gradientSeekBar;
         this.previewPrimary = previews[0];
         this.previewSecondary = previews[1];
-
-        this.hexPrimary = hexInputs[0];
-        this.hexSecondary = hexInputs[1];
+        this.containerPrimary = containers[0];
+        this.containerSecondary = containers[1];
 
         setupListeners();
+        updateSelectionUi();
     }
 
     private void setupListeners() {
-        SeekBar.OnSeekBarChangeListener primaryListener = new SeekBar.OnSeekBarChangeListener() {
-            @Override public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) { updatePrimaryColor(); }
-            @Override public void onStartTrackingTouch(SeekBar seekBar) {}
-            @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+        // Selection Listeners
+        View.OnClickListener selectPrimary = v -> {
+            isEditingPrimary = true;
+            updateSelectionUi();
+            syncWheelToCurrentColor();
         };
-        seekPrimaryR.setOnSeekBarChangeListener(primaryListener);
-        seekPrimaryG.setOnSeekBarChangeListener(primaryListener);
-        seekPrimaryB.setOnSeekBarChangeListener(primaryListener);
 
-        SeekBar.OnSeekBarChangeListener secondaryListener = new SeekBar.OnSeekBarChangeListener() {
-            @Override public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) { updateSecondaryColor(); }
-            @Override public void onStartTrackingTouch(SeekBar seekBar) {}
-            @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+        View.OnClickListener selectSecondary = v -> {
+            isEditingPrimary = false;
+            updateSelectionUi();
+            syncWheelToCurrentColor();
         };
-        seekSecondaryR.setOnSeekBarChangeListener(secondaryListener);
-        seekSecondaryG.setOnSeekBarChangeListener(secondaryListener);
-        seekSecondaryB.setOnSeekBarChangeListener(secondaryListener);
+
+        containerPrimary.setOnClickListener(selectPrimary);
+        previewPrimary.setOnClickListener(selectPrimary);
+        containerSecondary.setOnClickListener(selectSecondary);
+        previewSecondary.setOnClickListener(selectSecondary);
+
+        // Color Wheel Listener
+        colorWheel.setColorChangeListener(rgb -> {
+            if (isEditingPrimary) {
+                currentColorPrimary = rgb;
+                previewPrimary.setCardBackgroundColor(rgb);
+            } else {
+                currentColorSecondary = rgb;
+                previewSecondary.setCardBackgroundColor(rgb);
+            }
+            // Update Gradient Bar to match new color
+            gradientSeekBar.setStartColor(Color.BLACK);
+            gradientSeekBar.setEndColor(rgb);
+            return null;
+        });
+
+        // Gradient (Brightness) Listener
+        gradientSeekBar.setColorChangeListener((offset, argb) -> {
+            // Update the preview directly as we slide
+            if (isEditingPrimary) {
+                currentColorPrimary = argb;
+                previewPrimary.setCardBackgroundColor(argb);
+            } else {
+                currentColorSecondary = argb;
+                previewSecondary.setCardBackgroundColor(argb);
+            }
+            return null;
+        });
     }
 
-    private void updatePrimaryColor() {
-        int r = seekPrimaryR.getProgress();
-        int g = seekPrimaryG.getProgress();
-        int b = seekPrimaryB.getProgress();
-        currentColorPrimary = Color.rgb(r, g, b);
-        previewPrimary.setCardBackgroundColor(currentColorPrimary);
-        hexPrimary.setText(String.format("#%02X%02X%02X", r, g, b));
+    private void updateSelectionUi() {
+        float activeAlpha = 1.0f;
+        float inactiveAlpha = 0.3f;
+
+        containerPrimary.setAlpha(isEditingPrimary ? activeAlpha : inactiveAlpha);
+        containerSecondary.setAlpha(!isEditingPrimary ? activeAlpha : inactiveAlpha);
     }
 
-    private void updateSecondaryColor() {
-        int r = seekSecondaryR.getProgress();
-        int g = seekSecondaryG.getProgress();
-        int b = seekSecondaryB.getProgress();
-        currentColorSecondary = Color.rgb(r, g, b);
-        previewSecondary.setCardBackgroundColor(currentColorSecondary);
-        hexSecondary.setText(String.format("#%02X%02X%02X", r, g, b));
+    private void syncWheelToCurrentColor() {
+        int targetColor = isEditingPrimary ? currentColorPrimary : currentColorSecondary;
+
+        // This sets the RGB on the wheel (hue/saturation)
+        colorWheel.setRgb(targetColor);
+
+        // This sets the gradient bar to range from Black -> Target Color
+        gradientSeekBar.setStartColor(Color.BLACK);
+        gradientSeekBar.setEndColor(targetColor);
     }
 
     public void setColors(int primary, int secondary) {
         currentColorPrimary = primary;
         currentColorSecondary = secondary;
 
-        setSeekBarsFromColor(primary, seekPrimaryR, seekPrimaryG, seekPrimaryB);
-        setSeekBarsFromColor(secondary, seekSecondaryR, seekSecondaryG, seekSecondaryB);
+        previewPrimary.setCardBackgroundColor(primary);
+        previewSecondary.setCardBackgroundColor(secondary);
 
-        updatePrimaryColor();
-        updateSecondaryColor();
-    }
-
-    private void setSeekBarsFromColor(int color, SeekBar r, SeekBar g, SeekBar b) {
-        r.setProgress(Color.red(color));
-        g.setProgress(Color.green(color));
-        b.setProgress(Color.blue(color));
+        // Initialize wheel
+        syncWheelToCurrentColor();
     }
 
     public int getPrimaryColor() { return currentColorPrimary; }
