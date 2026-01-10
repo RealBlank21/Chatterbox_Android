@@ -1,6 +1,5 @@
 package com.example.testing.ui.settings;
 
-import android.graphics.Color;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -19,8 +18,6 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
@@ -32,23 +29,13 @@ import com.example.testing.data.repository.ModelRepository;
 import com.example.testing.data.local.entity.Persona;
 import com.example.testing.R;
 import com.example.testing.ui.base.ThemeUtils;
-import com.example.testing.data.remote.api.ApiClient;
-import com.example.testing.data.remote.api.ApiService;
 import com.example.testing.data.remote.response.Model;
+import com.example.testing.ui.settings.utils.CreditsManager;
+import com.example.testing.ui.settings.utils.SettingsAppearanceHelper;
+import com.example.testing.ui.settings.utils.SettingsBackupHelper;
 
-import org.json.JSONObject;
-
-import java.text.DecimalFormat;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
-
-import okhttp3.ResponseBody;
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
 
 public class SettingsActivity extends BaseActivity {
 
@@ -64,84 +51,38 @@ public class SettingsActivity extends BaseActivity {
     private Button buttonSave;
 
     // Backup Buttons
-    private Button buttonExport;
-    private Button buttonImport;
-    private Button buttonExportCharacters;
-    private Button buttonImportCharacters;
+    private Button buttonExport, buttonImport;
+    private Button buttonExportCharacters, buttonImportCharacters;
     private Button buttonClearData;
 
     private View saveContainer;
 
     // Persona Inputs
     private Spinner spinnerPersona;
-    private Button buttonAddPersona;
-    private Button buttonDeletePersona;
-    private EditText editTextPersonaName;
-    private EditText editTextPersonaDescription;
+    private Button buttonAddPersona, buttonDeletePersona;
+    private EditText editTextPersonaName, editTextPersonaDescription;
     private List<Persona> personaList = new ArrayList<>();
     private PersonaAdapter personaAdapter;
     private Persona selectedPersona = null;
-
-    // State tracking for Persona
     private int activePersonaId = -1;
     private boolean initialPersonaLoaded = false;
 
-    // Tabs & Layouts
+    // Tabs
     private View tabContainer;
     private Button tabPersona, tabLlm, tabAppearance, tabBackup;
     private View layoutPersona, layoutLlm, layoutAppearance, layoutBackup;
 
-    // Appearance Inputs
+    // Appearance
     private RadioGroup radioGroupListMode;
     private RadioButton radioModeList, radioModeCard;
-    private CardView previewPrimary, previewSecondary;
-    private EditText hexPrimary, hexSecondary;
-    private SeekBar seekPrimaryR, seekPrimaryG, seekPrimaryB;
-    private SeekBar seekSecondaryR, seekSecondaryG, seekSecondaryB;
-    private int currentColorPrimary = Color.BLACK;
-    private int currentColorSecondary = Color.BLACK;
 
+    // Helpers
     private SettingsViewModel settingsViewModel;
+    private SettingsAppearanceHelper appearanceHelper;
+    private SettingsBackupHelper backupHelper;
+
     private ArrayAdapter<String> modelsAdapter;
     private List<String> modelIds = new ArrayList<>();
-
-    // Full Backup Launchers
-    private final ActivityResultLauncher<String> createDocumentLauncher =
-            registerForActivityResult(new ActivityResultContracts.CreateDocument("application/zip"), uri -> {
-                if (uri != null) {
-                    settingsViewModel.exportBackup(uri, getContentResolver());
-                } else {
-                    Toast.makeText(this, "Export cancelled", Toast.LENGTH_SHORT).show();
-                }
-            });
-
-    private final ActivityResultLauncher<String[]> openDocumentLauncher =
-            registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
-                if (uri != null) {
-                    settingsViewModel.importBackup(uri, getContentResolver());
-                } else {
-                    Toast.makeText(this, "Import cancelled", Toast.LENGTH_SHORT).show();
-                }
-            });
-
-    // Character Export Launchers
-    private final ActivityResultLauncher<String> createCharacterExportLauncher =
-            registerForActivityResult(new ActivityResultContracts.CreateDocument("application/zip"), uri -> {
-                if (uri != null) {
-                    settingsViewModel.exportCharacters(uri, getContentResolver());
-                } else {
-                    Toast.makeText(this, "Character export cancelled", Toast.LENGTH_SHORT).show();
-                }
-            });
-
-    private final ActivityResultLauncher<String[]> openCharacterImportLauncher =
-            registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
-                if (uri != null) {
-                    settingsViewModel.importCharacters(uri, getContentResolver());
-                } else {
-                    Toast.makeText(this, "Character import cancelled", Toast.LENGTH_SHORT).show();
-                }
-            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -149,10 +90,11 @@ public class SettingsActivity extends BaseActivity {
         setContentView(R.layout.activity_settings);
 
         setTitle("Settings");
+        settingsViewModel = new ViewModelProvider(this).get(SettingsViewModel.class);
 
         initViews();
+        initHelpers();
         initTabs();
-        setupColorPickers();
         setupLogic();
         applyDynamicUiColors();
     }
@@ -160,14 +102,12 @@ public class SettingsActivity extends BaseActivity {
     private void applyDynamicUiColors() {
         int primary = ThemeUtils.getPrimaryColor(this);
         int secondary = ThemeUtils.getSecondaryColor(this);
-
         if (tabContainer != null) tabContainer.setBackgroundColor(primary);
         if (textViewCredits != null) textViewCredits.setTextColor(secondary);
     }
 
     private void initViews() {
         tabContainer = findViewById(R.id.layout_tab_container);
-
         tabPersona = findViewById(R.id.tab_persona);
         tabLlm = findViewById(R.id.tab_llm);
         tabAppearance = findViewById(R.id.tab_appearance);
@@ -177,7 +117,6 @@ public class SettingsActivity extends BaseActivity {
         layoutLlm = findViewById(R.id.layout_llm);
         layoutAppearance = findViewById(R.id.layout_appearance);
         layoutBackup = findViewById(R.id.layout_backup);
-
         saveContainer = findViewById(R.id.layout_save_container);
 
         editTextUsername = findViewById(R.id.edit_text_username);
@@ -189,7 +128,6 @@ public class SettingsActivity extends BaseActivity {
         editTextGlobalPrompt = findViewById(R.id.edit_text_global_system_prompt);
         editTextContextLimit = findViewById(R.id.edit_text_context_limit);
 
-        // Persona Views
         spinnerPersona = findViewById(R.id.spinner_persona);
         buttonAddPersona = findViewById(R.id.button_add_persona);
         buttonDeletePersona = findViewById(R.id.button_delete_persona);
@@ -207,17 +145,17 @@ public class SettingsActivity extends BaseActivity {
         radioGroupListMode = findViewById(R.id.radio_group_list_mode);
         radioModeList = findViewById(R.id.radio_mode_list);
         radioModeCard = findViewById(R.id.radio_mode_card);
+    }
 
-        previewPrimary = findViewById(R.id.card_preview_primary);
-        previewSecondary = findViewById(R.id.card_preview_secondary);
-        hexPrimary = findViewById(R.id.edit_text_hex_primary);
-        hexSecondary = findViewById(R.id.edit_text_hex_secondary);
-        seekPrimaryR = findViewById(R.id.seekbar_primary_r);
-        seekPrimaryG = findViewById(R.id.seekbar_primary_g);
-        seekPrimaryB = findViewById(R.id.seekbar_primary_b);
-        seekSecondaryR = findViewById(R.id.seekbar_secondary_r);
-        seekSecondaryG = findViewById(R.id.seekbar_secondary_g);
-        seekSecondaryB = findViewById(R.id.seekbar_secondary_b);
+    private void initHelpers() {
+        backupHelper = new SettingsBackupHelper(this, settingsViewModel);
+
+        appearanceHelper = new SettingsAppearanceHelper(
+                new SeekBar[]{findViewById(R.id.seekbar_primary_r), findViewById(R.id.seekbar_primary_g), findViewById(R.id.seekbar_primary_b)},
+                new SeekBar[]{findViewById(R.id.seekbar_secondary_r), findViewById(R.id.seekbar_secondary_g), findViewById(R.id.seekbar_secondary_b)},
+                new CardView[]{findViewById(R.id.card_preview_primary), findViewById(R.id.card_preview_secondary)},
+                new EditText[]{findViewById(R.id.edit_text_hex_primary), findViewById(R.id.edit_text_hex_secondary)}
+        );
     }
 
     private void initTabs() {
@@ -266,59 +204,12 @@ public class SettingsActivity extends BaseActivity {
         }
     }
 
-    private void setupColorPickers() {
-        SeekBar.OnSeekBarChangeListener primaryListener = new SeekBar.OnSeekBarChangeListener() {
-            @Override public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) { updatePrimaryColor(); }
-            @Override public void onStartTrackingTouch(SeekBar seekBar) {}
-            @Override public void onStopTrackingTouch(SeekBar seekBar) {}
-        };
-        seekPrimaryR.setOnSeekBarChangeListener(primaryListener);
-        seekPrimaryG.setOnSeekBarChangeListener(primaryListener);
-        seekPrimaryB.setOnSeekBarChangeListener(primaryListener);
-
-        SeekBar.OnSeekBarChangeListener secondaryListener = new SeekBar.OnSeekBarChangeListener() {
-            @Override public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) { updateSecondaryColor(); }
-            @Override public void onStartTrackingTouch(SeekBar seekBar) {}
-            @Override public void onStopTrackingTouch(SeekBar seekBar) {}
-        };
-        seekSecondaryR.setOnSeekBarChangeListener(secondaryListener);
-        seekSecondaryG.setOnSeekBarChangeListener(secondaryListener);
-        seekSecondaryB.setOnSeekBarChangeListener(secondaryListener);
-    }
-
-    private void updatePrimaryColor() {
-        int r = seekPrimaryR.getProgress();
-        int g = seekPrimaryG.getProgress();
-        int b = seekPrimaryB.getProgress();
-        currentColorPrimary = Color.rgb(r, g, b);
-        previewPrimary.setCardBackgroundColor(currentColorPrimary);
-        hexPrimary.setText(String.format("#%02X%02X%02X", r, g, b));
-    }
-
-    private void updateSecondaryColor() {
-        int r = seekSecondaryR.getProgress();
-        int g = seekSecondaryG.getProgress();
-        int b = seekSecondaryB.getProgress();
-        currentColorSecondary = Color.rgb(r, g, b);
-        previewSecondary.setCardBackgroundColor(currentColorSecondary);
-        hexSecondary.setText(String.format("#%02X%02X%02X", r, g, b));
-    }
-
-    private void setSeekBarsFromColor(int color, SeekBar r, SeekBar g, SeekBar b) {
-        r.setProgress(Color.red(color));
-        g.setProgress(Color.green(color));
-        b.setProgress(Color.blue(color));
-    }
-
     private void setupLogic() {
-        settingsViewModel = new ViewModelProvider(this).get(SettingsViewModel.class);
-
         // --- Persona Logic ---
         personaAdapter = new PersonaAdapter(this, android.R.layout.simple_spinner_item, personaList);
         personaAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerPersona.setAdapter(personaAdapter);
 
-        // Observer for Personas List
         settingsViewModel.getAllPersonas().observe(this, personas -> {
             personaList.clear();
             if (personas != null && !personas.isEmpty()) {
@@ -331,13 +222,12 @@ public class SettingsActivity extends BaseActivity {
             syncPersonaSelection();
         });
 
-        // Observer for User Config (Active Persona ID)
         settingsViewModel.getUser().observe(this, user -> {
             if (user != null) {
                 if (user.getUsername() != null) editTextUsername.setText(user.getUsername());
                 if (user.getApiKey() != null) {
                     editTextApiKey.setText(user.getApiKey());
-                    if (!user.getApiKey().isEmpty()) fetchCredits(user.getApiKey());
+                    if (!user.getApiKey().isEmpty()) CreditsManager.fetchCredits(user.getApiKey(), textViewCredits);
                 }
                 if (user.getPreferredModel() != null) {
                     editTextPreferredModel.setText(user.getPreferredModel());
@@ -346,40 +236,27 @@ public class SettingsActivity extends BaseActivity {
                 if (user.getGlobalSystemPrompt() != null) editTextGlobalPrompt.setText(user.getGlobalSystemPrompt());
                 editTextContextLimit.setText(String.valueOf(user.getDefaultContextLimit()));
 
-                int p = user.getThemeColorPrimary();
-                int s = user.getThemeColorSecondary();
+                // Colors
+                int p = user.getThemeColorPrimary() != 0 ? user.getThemeColorPrimary() : ThemeUtils.getPrimaryColor(this);
+                int s = user.getThemeColorSecondary() != 0 ? user.getThemeColorSecondary() : ThemeUtils.getSecondaryColor(this);
+                appearanceHelper.setColors(p, s);
 
-                if (p == 0) p = ThemeUtils.getPrimaryColor(this);
-                if (s == 0) s = ThemeUtils.getSecondaryColor(this);
+                // View Mode
+                if ("card".equals(user.getCharacterListMode())) radioModeCard.setChecked(true);
+                else radioModeList.setChecked(true);
 
-                currentColorPrimary = p;
-                currentColorSecondary = s;
-                setSeekBarsFromColor(p, seekPrimaryR, seekPrimaryG, seekPrimaryB);
-                setSeekBarsFromColor(s, seekSecondaryR, seekSecondaryG, seekSecondaryB);
-                updatePrimaryColor();
-                updateSecondaryColor();
-
-                if ("card".equals(user.getCharacterListMode())) {
-                    radioModeCard.setChecked(true);
-                } else {
-                    radioModeList.setChecked(true);
-                }
-
-                // Update Active Persona ID
                 activePersonaId = user.getCurrentPersonaId();
-                personaAdapter.notifyDataSetChanged(); // To update the stars
+                personaAdapter.notifyDataSetChanged();
                 syncPersonaSelection();
             }
         });
 
         spinnerPersona.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+            @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 selectedPersona = personaList.get(position);
                 updatePersonaInputs(selectedPersona);
             }
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {}
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
 
         buttonAddPersona.setOnClickListener(v -> {
@@ -417,10 +294,7 @@ public class SettingsActivity extends BaseActivity {
             ModelRepository.getInstance().refreshModels();
         });
 
-        editTextPreferredModel.setOnItemClickListener((parent, view, position, id) -> {
-            updateModelInfo(modelsAdapter.getItem(position));
-        });
-
+        editTextPreferredModel.setOnItemClickListener((parent, view, position, id) -> updateModelInfo(modelsAdapter.getItem(position)));
         editTextPreferredModel.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
@@ -429,29 +303,12 @@ public class SettingsActivity extends BaseActivity {
 
         buttonSave.setOnClickListener(v -> saveSettings());
 
-        // Full Backup
-        buttonExport.setOnClickListener(v -> {
-            String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
-            String fileName = "chatterbox_backup_" + timeStamp + ".zip";
-            createDocumentLauncher.launch(fileName);
-        });
+        // --- Backup Logic Delegates ---
+        buttonExport.setOnClickListener(v -> backupHelper.launchFullBackupExport());
+        buttonImport.setOnClickListener(v -> backupHelper.launchFullBackupImport());
+        buttonExportCharacters.setOnClickListener(v -> backupHelper.launchCharacterExport());
+        buttonImportCharacters.setOnClickListener(v -> backupHelper.launchCharacterImport());
 
-        buttonImport.setOnClickListener(v -> {
-            openDocumentLauncher.launch(new String[]{"application/zip", "application/octet-stream"});
-        });
-
-        // Character Export
-        buttonExportCharacters.setOnClickListener(v -> {
-            String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
-            String fileName = "characters_export_" + timeStamp + ".zip";
-            createCharacterExportLauncher.launch(fileName);
-        });
-
-        buttonImportCharacters.setOnClickListener(v -> {
-            openCharacterImportLauncher.launch(new String[]{"application/zip", "application/octet-stream"});
-        });
-
-        // Clear Data
         buttonClearData.setOnClickListener(v -> {
             new AlertDialog.Builder(this)
                     .setTitle("Clear All Data")
@@ -462,27 +319,17 @@ public class SettingsActivity extends BaseActivity {
         });
     }
 
-    /**
-     * Synchronizes the Spinner selection with the activePersonaId.
-     * Only auto-selects if we haven't successfully loaded the initial state yet,
-     * to prevent jumping around if the user is editing.
-     */
     private void syncPersonaSelection() {
         if (personaList.isEmpty() || initialPersonaLoaded) return;
-
-        int indexToSelect = 0; // Default to first
-        boolean found = false;
-
+        int indexToSelect = 0;
         if (activePersonaId != -1) {
             for (int i = 0; i < personaList.size(); i++) {
                 if (personaList.get(i).getId() == activePersonaId) {
                     indexToSelect = i;
-                    found = true;
                     break;
                 }
             }
         }
-
         spinnerPersona.setSelection(indexToSelect);
         selectedPersona = personaList.get(indexToSelect);
         updatePersonaInputs(selectedPersona);
@@ -513,48 +360,6 @@ public class SettingsActivity extends BaseActivity {
         }
     }
 
-    private void fetchCredits(String apiKey) {
-        textViewCredits.setVisibility(View.VISIBLE);
-        textViewCredits.setText("Loading credits...");
-
-        ApiService apiService = ApiClient.getClient().create(ApiService.class);
-        apiService.getCredits("Bearer " + apiKey).enqueue(new Callback<ResponseBody>() {
-            @Override
-            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    try {
-                        String jsonString = response.body().string();
-                        JSONObject jsonObject = new JSONObject(jsonString);
-                        JSONObject data = jsonObject.optJSONObject("data");
-
-                        if (data != null) {
-                            double totalCredits = data.optDouble("total_credits", 0.0);
-                            double totalUsage = data.optDouble("total_usage", 0.0);
-                            double remainingCredits = totalCredits - totalUsage;
-
-                            DecimalFormat df = new DecimalFormat("#,##0.00");
-                            String formattedCredits = df.format(remainingCredits);
-
-                            runOnUiThread(() ->
-                                    textViewCredits.setText("Remaining Credits: $" + formattedCredits)
-                            );
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        runOnUiThread(() -> textViewCredits.setText("Error reading credits"));
-                    }
-                } else {
-                    runOnUiThread(() -> textViewCredits.setText("Failed to load credits"));
-                }
-            }
-
-            @Override
-            public void onFailure(Call<ResponseBody> call, Throwable t) {
-                runOnUiThread(() -> textViewCredits.setText("Network error"));
-            }
-        });
-    }
-
     private void saveSettings() {
         String username = editTextUsername.getText().toString().trim();
         String apiKey = editTextApiKey.getText().toString().trim();
@@ -573,7 +378,6 @@ public class SettingsActivity extends BaseActivity {
             return;
         }
 
-        // Save Persona Changes
         if (selectedPersona != null) {
             String pName = editTextPersonaName.getText().toString().trim();
             String pDesc = editTextPersonaDescription.getText().toString().trim();
@@ -586,41 +390,32 @@ public class SettingsActivity extends BaseActivity {
             settingsViewModel.updatePersona(selectedPersona);
         }
 
-        // Get view mode
         String viewMode = radioModeCard.isChecked() ? "card" : "list";
-
-        // Update active persona ID to the one currently selected in the spinner
         int newActivePersonaId = selectedPersona != null ? selectedPersona.getId() : activePersonaId;
+        int pColor = appearanceHelper.getPrimaryColor();
+        int sColor = appearanceHelper.getSecondaryColor();
 
-        // Save immediately to Prefs
-        ThemeUtils.saveColors(this, currentColorPrimary, currentColorSecondary);
-
-        // Save to DB
-        settingsViewModel.saveSettings(username, apiKey, preferredModel, globalPrompt, contextLimit, currentColorPrimary, currentColorSecondary, viewMode, newActivePersonaId);
+        ThemeUtils.saveColors(this, pColor, sColor);
+        settingsViewModel.saveSettings(username, apiKey, preferredModel, globalPrompt, contextLimit, pColor, sColor, viewMode, newActivePersonaId);
         Toast.makeText(this, "Settings saved! Restarting...", Toast.LENGTH_SHORT).show();
 
-        // Restart Activity to apply changes
         finish();
         startActivity(getIntent());
     }
 
-    // --- Custom Adapter for Persona Spinner ---
     private class PersonaAdapter extends ArrayAdapter<Persona> {
-
         public PersonaAdapter(@NonNull android.content.Context context, int resource, @NonNull List<Persona> objects) {
             super(context, resource, objects);
         }
 
-        @NonNull
-        @Override
+        @NonNull @Override
         public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
             View view = super.getView(position, convertView, parent);
             enhanceView(view, getItem(position));
             return view;
         }
 
-        @Override
-        public View getDropDownView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
+        @Override public View getDropDownView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
             View view = super.getDropDownView(position, convertView, parent);
             enhanceView(view, getItem(position));
             return view;
@@ -630,11 +425,7 @@ public class SettingsActivity extends BaseActivity {
             if (view instanceof TextView && persona != null) {
                 TextView textView = (TextView) view;
                 String text = persona.getName();
-
-                // Add star if this is the active persona
-                if (persona.getId() == activePersonaId) {
-                    text += " ★";
-                }
+                if (persona.getId() == activePersonaId) text += " ★";
                 textView.setText(text);
             }
         }

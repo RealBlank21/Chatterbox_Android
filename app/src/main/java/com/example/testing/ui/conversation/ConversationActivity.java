@@ -19,7 +19,6 @@ import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -35,17 +34,15 @@ import com.bumptech.glide.Glide;
 import com.example.testing.data.local.entity.Message;
 import com.example.testing.ui.base.BaseActivity;
 import com.example.testing.data.local.entity.Character;
-import com.example.testing.data.repository.ModelRepository;
 import com.example.testing.R;
 import com.example.testing.data.local.entity.Scenario;
 import com.example.testing.ui.base.ThemeUtils;
 import com.example.testing.data.local.entity.User;
-import com.example.testing.data.remote.response.Model;
+import com.example.testing.ui.conversation.utils.ConversationStatsFormatter;
+import com.example.testing.ui.conversation.utils.MessagePopupHelper;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
-import java.util.concurrent.TimeUnit;
 
 public class ConversationActivity extends BaseActivity {
 
@@ -69,12 +66,41 @@ public class ConversationActivity extends BaseActivity {
 
     private List<Message> currentMessages = new ArrayList<>();
     private String currentActionBarImagePath = null;
+    private MessagePopupHelper messagePopupHelper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_conversation);
 
+        setupActionBar();
+
+        Intent intent = getIntent();
+        int characterId = intent.getIntExtra("CHARACTER_ID", -1);
+        conversationId = intent.getIntExtra("CONVERSATION_ID", -1);
+
+        if (intent.hasExtra("PERSONA_ID")) {
+            selectedPersonaId = intent.getIntExtra("PERSONA_ID", -1);
+        }
+        if (intent.hasExtra("SCENARIO_ID")) {
+            selectedScenarioId = intent.getIntExtra("SCENARIO_ID", -1);
+        }
+
+        if (characterId == -1) {
+            Toast.makeText(this, "Error: Invalid Character ID", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
+        initViews();
+        setupViewModel(characterId);
+        setupObservers();
+
+        // Initialize the helper
+        messagePopupHelper = new MessagePopupHelper(this, conversationViewModel, messageAdapter);
+    }
+
+    private void setupActionBar() {
         ActionBar actionBar = getSupportActionBar();
         if (actionBar != null) {
             actionBar.setDisplayShowCustomEnabled(true);
@@ -101,24 +127,9 @@ public class ConversationActivity extends BaseActivity {
                 }
             });
         }
+    }
 
-        Intent intent = getIntent();
-        int characterId = intent.getIntExtra("CHARACTER_ID", -1);
-        conversationId = intent.getIntExtra("CONVERSATION_ID", -1);
-
-        if (intent.hasExtra("PERSONA_ID")) {
-            selectedPersonaId = intent.getIntExtra("PERSONA_ID", -1);
-        }
-        if (intent.hasExtra("SCENARIO_ID")) {
-            selectedScenarioId = intent.getIntExtra("SCENARIO_ID", -1);
-        }
-
-        if (characterId == -1) {
-            Toast.makeText(this, "Error: Invalid Character ID", Toast.LENGTH_SHORT).show();
-            finish();
-            return;
-        }
-
+    private void initViews() {
         editTextMessage = findViewById(R.id.edit_text_message);
         buttonSend = findViewById(R.id.button_send);
         progressBarGenerating = findViewById(R.id.progress_bar_generating);
@@ -134,12 +145,37 @@ public class ConversationActivity extends BaseActivity {
         messageAdapter = new MessageAdapter();
         recyclerViewMessages.setAdapter(messageAdapter);
 
+        // Click listeners
+        buttonSend.setOnClickListener(v -> handleSendAction());
+
+        editTextMessage.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { checkIfReadyToSend(); }
+            @Override public void afterTextChanged(Editable s) {}
+        });
+
+        messageAdapter.setOnMessageLongClickListener((message, anchorView, position) -> {
+            if ("assistant".equals(message.getRole())) {
+                messagePopupHelper.showCharacterOptions(message, anchorView, position, currentUser, currentCharacter);
+            } else {
+                messagePopupHelper.showUserOptions(message, anchorView, position);
+            }
+        });
+
+        messageAdapter.setOnMessageEditListener(message -> {
+            if (conversationId != -1) {
+                conversationViewModel.update(message);
+            }
+        });
+    }
+
+    private void setupViewModel(int characterId) {
         conversationViewModel = new ViewModelProvider(this).get(ConversationViewModel.class);
         conversationViewModel.loadData(characterId, conversationId);
+    }
 
-        conversationViewModel.getConversationId().observe(this, id -> {
-            this.conversationId = id;
-        });
+    private void setupObservers() {
+        conversationViewModel.getConversationId().observe(this, id -> this.conversationId = id);
 
         conversationViewModel.getIsGenerating().observe(this, isGenerating -> {
             if (isGenerating) {
@@ -155,43 +191,10 @@ public class ConversationActivity extends BaseActivity {
         conversationViewModel.getCurrentCharacter().observe(this, character -> {
             if (character != null) {
                 this.currentCharacter = character;
-
                 if (actionBarName != null) actionBarName.setText(character.getName());
-
                 updateActionBarImage(character.getCharacterProfileImagePath());
-
                 checkIfReadyToSend();
-
-                if (conversationId == -1) {
-                    androidx.lifecycle.LiveData<Scenario> scenarioLiveData;
-                    if (selectedScenarioId != null && selectedScenarioId != -1) {
-                        scenarioLiveData = conversationViewModel.getScenarioByIdLive(selectedScenarioId);
-                    } else {
-                        scenarioLiveData = conversationViewModel.getDefaultScenarioLive(character.getId());
-                    }
-
-                    scenarioLiveData.observe(this, scenario -> {
-                        String firstMsg = character.getFirstMessage();
-                        if (scenario != null) {
-                            if (!TextUtils.isEmpty(scenario.getFirstMessage())) {
-                                firstMsg = scenario.getFirstMessage();
-                            }
-                            if (!TextUtils.isEmpty(scenario.getImagePath())) {
-                                updateActionBarImage(scenario.getImagePath());
-                            }
-                            updateActionBarTag(scenario.getName());
-                        } else {
-                            updateActionBarTag(null);
-                        }
-
-                        if (!TextUtils.isEmpty(firstMsg)) {
-                            List<Message> transientList = new ArrayList<>();
-                            transientList.add(new Message("assistant", firstMsg, -1));
-                            messageAdapter.setMessages(transientList);
-                            currentMessages = transientList;
-                        }
-                    });
-                }
+                handleInitialScenarioLoad(character);
             }
         });
 
@@ -203,10 +206,8 @@ public class ConversationActivity extends BaseActivity {
                 updateActionBarTag(scenario.getName());
             } else {
                 updateActionBarTag(null);
-                if (currentCharacter != null) {
-                    if (conversationId != -1) {
-                        updateActionBarImage(currentCharacter.getCharacterProfileImagePath());
-                    }
+                if (currentCharacter != null && conversationId != -1) {
+                    updateActionBarImage(currentCharacter.getCharacterProfileImagePath());
                 }
             }
         });
@@ -232,34 +233,42 @@ public class ConversationActivity extends BaseActivity {
             if (messages != null && !messages.isEmpty()) {
                 messageAdapter.setMessages(messages);
                 currentMessages = messages;
-
-                recyclerViewMessages.post(() ->
-                        recyclerViewMessages.scrollToPosition(messages.size() - 1)
-                );
+                recyclerViewMessages.post(() -> recyclerViewMessages.scrollToPosition(messages.size() - 1));
             }
         });
+    }
 
-        messageAdapter.setOnMessageLongClickListener((message, anchorView, position) -> {
-            if ("assistant".equals(message.getRole())) {
-                showCharacterMessageOptions(message, anchorView, position);
+    private void handleInitialScenarioLoad(Character character) {
+        if (conversationId == -1) {
+            androidx.lifecycle.LiveData<Scenario> scenarioLiveData;
+            if (selectedScenarioId != null && selectedScenarioId != -1) {
+                scenarioLiveData = conversationViewModel.getScenarioByIdLive(selectedScenarioId);
             } else {
-                showUserMessageOptions(message, anchorView, position);
+                scenarioLiveData = conversationViewModel.getDefaultScenarioLive(character.getId());
             }
-        });
 
-        messageAdapter.setOnMessageEditListener(message -> {
-            if (conversationId != -1) {
-                conversationViewModel.update(message);
-            }
-        });
+            scenarioLiveData.observe(this, scenario -> {
+                String firstMsg = character.getFirstMessage();
+                if (scenario != null) {
+                    if (!TextUtils.isEmpty(scenario.getFirstMessage())) {
+                        firstMsg = scenario.getFirstMessage();
+                    }
+                    if (!TextUtils.isEmpty(scenario.getImagePath())) {
+                        updateActionBarImage(scenario.getImagePath());
+                    }
+                    updateActionBarTag(scenario.getName());
+                } else {
+                    updateActionBarTag(null);
+                }
 
-        editTextMessage.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { checkIfReadyToSend(); }
-            @Override public void afterTextChanged(Editable s) {}
-        });
-
-        buttonSend.setOnClickListener(v -> handleSendAction());
+                if (!TextUtils.isEmpty(firstMsg)) {
+                    List<Message> transientList = new ArrayList<>();
+                    transientList.add(new Message("assistant", firstMsg, -1));
+                    messageAdapter.setMessages(transientList);
+                    currentMessages = transientList;
+                }
+            });
+        }
     }
 
     private void updateActionBarImage(String imagePath) {
@@ -281,9 +290,7 @@ public class ConversationActivity extends BaseActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT
         ));
         view.setScaleType(ImageView.ScaleType.FIT_CENTER);
-
         Glide.with(this).load(imagePath).into(view);
-
         view.setOnClickListener(v -> dialog.dismiss());
         dialog.setContentView(view);
         dialog.show();
@@ -294,15 +301,12 @@ public class ConversationActivity extends BaseActivity {
             if (!TextUtils.isEmpty(tagName)) {
                 actionBarTag.setText(tagName);
                 actionBarTag.setVisibility(View.VISIBLE);
-
                 int secondaryColor = ThemeUtils.getSecondaryColor(this);
                 float radius = 8 * getResources().getDisplayMetrics().density;
-
                 GradientDrawable shape = new GradientDrawable();
                 shape.setShape(GradientDrawable.RECTANGLE);
                 shape.setCornerRadius(radius);
                 shape.setColor(secondaryColor);
-
                 actionBarTag.setBackground(shape);
             } else {
                 actionBarTag.setVisibility(View.GONE);
@@ -333,105 +337,10 @@ public class ConversationActivity extends BaseActivity {
     }
 
     private void showConversationInfo() {
-        if (currentMessages == null || currentMessages.isEmpty() || currentCharacter == null) {
-            Toast.makeText(this, "No information available yet.", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        int userMsgCount = 0;
-        int botMsgCount = 0;
-
-        long totalInputTokens = 0;
-        long totalOutputTokens = 0;
-
-        long firstTimestamp = Long.MAX_VALUE;
-        long lastTimestamp = 0;
-        String lastFinishReason = "N/A";
-
-        for (Message msg : currentMessages) {
-            if ("user".equals(msg.getRole())) {
-                userMsgCount++;
-            } else if ("assistant".equals(msg.getRole())) {
-                botMsgCount++;
-                totalInputTokens += msg.getPromptTokens();
-                totalOutputTokens += msg.getCompletionTokens();
-
-                if (msg.getFinishReason() != null) {
-                    lastFinishReason = msg.getFinishReason();
-                }
-            }
-
-            if (msg.getTimestamp() < firstTimestamp) firstTimestamp = msg.getTimestamp();
-            if (msg.getTimestamp() > lastTimestamp) lastTimestamp = msg.getTimestamp();
-        }
-
-        String durationStr = "N/A";
-        if (firstTimestamp != Long.MAX_VALUE && lastTimestamp != 0) {
-            long diffInMillis = lastTimestamp - firstTimestamp;
-            if (diffInMillis < 0) diffInMillis = 0;
-
-            long minutes = TimeUnit.MILLISECONDS.toMinutes(diffInMillis);
-            long hours = TimeUnit.MILLISECONDS.toHours(diffInMillis);
-
-            if (hours > 0) {
-                durationStr = hours + "h " + (minutes % 60) + "m";
-            } else {
-                durationStr = minutes + "m";
-            }
-        }
-
-        String modelId = currentCharacter.getModel();
-        if (TextUtils.isEmpty(modelId) && currentUser != null) {
-            modelId = currentUser.getPreferredModel();
-        }
-
-        String costStr = "Unknown Model Price";
-        String inputPriceStr = "N/A";
-        String outputPriceStr = "N/A";
-
-        if (modelId != null) {
-            Model model = ModelRepository.getInstance().getModelById(modelId);
-            if (model != null && model.getPricing() != null) {
-                try {
-                    double promptPrice = Double.parseDouble(model.getPricing().getPrompt());
-                    double completionPrice = Double.parseDouble(model.getPricing().getCompletion());
-
-                    double totalCost = (totalInputTokens * promptPrice) + (totalOutputTokens * completionPrice);
-
-                    if (totalCost < 0.0001) {
-                        costStr = String.format(Locale.getDefault(), "$%.6f", totalCost);
-                    } else {
-                        costStr = String.format(Locale.getDefault(), "$%.4f", totalCost);
-                    }
-
-                    inputPriceStr = String.format(Locale.getDefault(), "$%.2f/1M", promptPrice * 1000000);
-                    outputPriceStr = String.format(Locale.getDefault(), "$%.2f/1M", completionPrice * 1000000);
-
-                } catch (Exception e) {
-                    costStr = "Pricing Error";
-                }
-            }
-        }
-
-        StringBuilder info = new StringBuilder();
-        info.append("Model: ").append(modelId != null ? modelId : "Default").append("\n");
-        info.append("Input Price: ").append(inputPriceStr).append("\n");
-        info.append("Output Price: ").append(outputPriceStr).append("\n\n");
-
-        info.append("User Messages: ").append(userMsgCount).append("\n");
-        info.append("Bot Messages: ").append(botMsgCount).append("\n");
-        info.append("Duration: ").append(durationStr).append("\n\n");
-
-        info.append("--- Token Usage ---\n");
-        info.append("Total Input Tokens: ").append(totalInputTokens).append("\n");
-        info.append("Total Output Tokens: ").append(totalOutputTokens).append("\n");
-        info.append("Last Finish Reason: ").append(lastFinishReason).append("\n\n");
-
-        info.append("Total Cost: ").append(costStr);
-
+        String info = ConversationStatsFormatter.generateStatsInfo(currentMessages, currentCharacter, currentUser);
         new AlertDialog.Builder(this)
                 .setTitle("Conversation Stats")
-                .setMessage(info.toString())
+                .setMessage(info)
                 .setPositiveButton("OK", null)
                 .show();
     }
@@ -451,9 +360,7 @@ public class ConversationActivity extends BaseActivity {
     }
 
     private void checkIfReadyToSend() {
-        if (Boolean.TRUE.equals(conversationViewModel.getIsGenerating().getValue())) {
-            return;
-        }
+        if (Boolean.TRUE.equals(conversationViewModel.getIsGenerating().getValue())) return;
 
         String text = editTextMessage.getText().toString().trim();
         boolean hasContent = !TextUtils.isEmpty(text);
@@ -464,7 +371,6 @@ public class ConversationActivity extends BaseActivity {
         } else {
             buttonSend.setImageResource(android.R.drawable.ic_media_play);
         }
-
         buttonSend.setEnabled(hasCreds);
     }
 
@@ -477,84 +383,15 @@ public class ConversationActivity extends BaseActivity {
         String messageContent = editTextMessage.getText().toString().trim();
 
         if (!TextUtils.isEmpty(messageContent)) {
-
             if (conversationId == -1) {
-                // Modified to pass null for image
                 conversationViewModel.createConversationAndSendMessage(messageContent, null, currentUser, currentCharacter, selectedPersonaId, selectedScenarioId);
             } else {
-                // Modified to pass null for image
                 conversationViewModel.sendMessage(messageContent, null, conversationId, currentUser, currentCharacter);
             }
             editTextMessage.setText("");
-
         } else {
             conversationViewModel.continueConversation(conversationId, currentUser, currentCharacter);
             Toast.makeText(this, "Continuing conversation...", Toast.LENGTH_SHORT).show();
         }
-    }
-
-    private void showCharacterMessageOptions(Message message, View anchorView, int position) {
-        if (conversationId == -1) return;
-
-        if (Boolean.TRUE.equals(conversationViewModel.getIsGenerating().getValue())) {
-            Toast.makeText(this, "Please wait for generation to finish", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        PopupMenu popup = new PopupMenu(this, anchorView);
-        popup.getMenuInflater().inflate(R.menu.message_options_menu, popup.getMenu());
-        popup.setOnMenuItemClickListener(item -> {
-            int itemId = item.getItemId();
-            if (itemId == R.id.option_regenerate) {
-                conversationViewModel.regenerateResponse(message, currentUser, currentCharacter);
-                return true;
-            } else if (itemId == R.id.option_copy_message) {
-                copyMessageToClipboard(message);
-                return true;
-            } else if (itemId == R.id.option_edit_message) {
-                messageAdapter.setEditingPosition(position);
-                return true;
-            } else if (itemId == R.id.option_delete_message) {
-                conversationViewModel.deleteMessage(message);
-                return true;
-            }
-            return false;
-        });
-        popup.show();
-    }
-
-    private void showUserMessageOptions(Message message, View anchorView, int position) {
-        if (conversationId == -1) return;
-
-        if (Boolean.TRUE.equals(conversationViewModel.getIsGenerating().getValue())) {
-            Toast.makeText(this, "Please wait for generation to finish", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        PopupMenu popup = new PopupMenu(this, anchorView);
-        popup.getMenuInflater().inflate(R.menu.message_options_menu, popup.getMenu());
-        popup.getMenu().findItem(R.id.option_regenerate).setVisible(false);
-        popup.setOnMenuItemClickListener(item -> {
-            int itemId = item.getItemId();
-            if (itemId == R.id.option_copy_message) {
-                copyMessageToClipboard(message);
-                return true;
-            } else if (itemId == R.id.option_edit_message) {
-                messageAdapter.setEditingPosition(position);
-                return true;
-            } else if (itemId == R.id.option_delete_message) {
-                conversationViewModel.deleteMessage(message);
-                return true;
-            }
-            return false;
-        });
-        popup.show();
-    }
-
-    private void copyMessageToClipboard(Message message) {
-        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-        ClipData clip = ClipData.newPlainText("Chat Message", message.getContent());
-        clipboard.setPrimaryClip(clip);
-        Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show();
     }
 }

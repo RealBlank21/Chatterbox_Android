@@ -22,9 +22,6 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.PickVisualMediaRequest;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.lifecycle.ViewModelProvider;
@@ -32,10 +29,9 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
-import com.canhub.cropper.CropImageContract;
-import com.canhub.cropper.CropImageContractOptions;
-import com.canhub.cropper.CropImageOptions;
 import com.example.testing.data.local.entity.Character;
+import com.example.testing.ui.character.utils.CharacterImageHandler;
+import com.example.testing.ui.character.utils.TagViewManager;
 import com.example.testing.ui.scenario.AddEditScenarioActivity;
 import com.example.testing.ui.base.BaseActivity;
 import com.example.testing.data.repository.ModelRepository;
@@ -49,13 +45,8 @@ import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 public class AddEditCharacterActivity extends BaseActivity {
 
@@ -105,37 +96,18 @@ public class AddEditCharacterActivity extends BaseActivity {
 
     private ArrayAdapter<String> tagsAdapter;
 
-    private final ActivityResultLauncher<CropImageContractOptions> cropImage =
-            registerForActivityResult(new CropImageContract(), result -> {
-                if (result.isSuccessful()) {
-                    Uri uriContent = result.getUriContent();
-                    if (uriContent != null) {
-                        saveImageToInternalStorage(uriContent);
-                        Glide.with(this).load(currentProfileImagePath).into(imageViewProfilePreview);
-                    }
-                } else {
-                    Exception error = result.getError();
-                    Toast.makeText(this, "Crop failed: " + (error != null ? error.getMessage() : "Unknown"), Toast.LENGTH_SHORT).show();
-                }
-            });
-
-    private final ActivityResultLauncher<PickVisualMediaRequest> pickMedia =
-            registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
-                if (uri != null) {
-                    CropImageOptions options = new CropImageOptions();
-                    options.fixAspectRatio = true;
-                    options.aspectRatioX = 1;
-                    options.aspectRatioY = 1;
-                    cropImage.launch(new CropImageContractOptions(uri, options));
-                } else {
-                    Toast.makeText(this, "No image selected.", Toast.LENGTH_SHORT).show();
-                }
-            });
+    private CharacterImageHandler imageHandler;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_edit_character);
+
+        // Initialize Image Handler
+        imageHandler = new CharacterImageHandler(this, newPath -> {
+            currentProfileImagePath = newPath;
+            Glide.with(this).load(currentProfileImagePath).into(imageViewProfilePreview);
+        });
 
         imageViewProfilePreview = findViewById(R.id.image_view_profile_preview);
         buttonSelectImage = findViewById(R.id.button_select_image);
@@ -267,11 +239,7 @@ public class AddEditCharacterActivity extends BaseActivity {
 
         getSupportActionBar().setHomeAsUpIndicator(android.R.drawable.ic_menu_close_clear_cancel);
 
-        buttonSelectImage.setOnClickListener(v -> {
-            pickMedia.launch(new PickVisualMediaRequest.Builder()
-                    .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
-                    .build());
-        });
+        buttonSelectImage.setOnClickListener(v -> imageHandler.launchImagePicker());
 
         scenarioAdapter.setOnScenarioActionListener(new ScenarioAdapter.OnScenarioActionListener() {
             @Override
@@ -380,36 +348,11 @@ public class AddEditCharacterActivity extends BaseActivity {
     }
 
     private void addTagChip(String tag) {
-        Chip chip = new Chip(this);
-        chip.setText(tag);
-        chip.setCloseIconVisible(true);
-        chip.setOnCloseIconClickListener(v -> {
-            chipGroupTags.removeView(chip);
+        Chip chip = TagViewManager.createTagChip(this, tag, v -> {
+            chipGroupTags.removeView((View) v.getParent());
             currentTags.remove(tag);
         });
-
-        int color = getTagColor(tag);
-        chip.setTextColor(color);
-        chip.setChipStrokeColor(ColorStateList.valueOf(color));
-        chip.setChipStrokeWidth(dpToPx(1));
-        chip.setChipBackgroundColor(ColorStateList.valueOf(Color.TRANSPARENT));
-        chip.setCloseIconTint(ColorStateList.valueOf(color));
-
         chipGroupTags.addView(chip);
-    }
-
-    private int getTagColor(String tag) {
-        int hash = tag.hashCode();
-        float[] hsv = new float[3];
-        hsv[0] = Math.abs(hash) % 360;
-        hsv[1] = 0.6f + (Math.abs(hash * 7) % 40) / 100f;
-        hsv[2] = 0.65f + (Math.abs(hash * 13) % 35) / 100f;
-        return Color.HSVToColor(hsv);
-    }
-
-    private float dpToPx(int dp) {
-        return TypedValue.applyDimension(
-                TypedValue.COMPLEX_UNIT_DIP, dp, getResources().getDisplayMetrics());
     }
 
     private void updateModelInfo(String modelId) {
@@ -423,29 +366,6 @@ public class AddEditCharacterActivity extends BaseActivity {
             textViewModelInfo.setText(info);
         } else {
             textViewModelInfo.setVisibility(View.GONE);
-        }
-    }
-
-    private void saveImageToInternalStorage(Uri uri) {
-        try {
-            InputStream inputStream = getContentResolver().openInputStream(uri);
-            File directory = new File(getFilesDir(), "profile_images");
-            if (!directory.exists()) {
-                directory.mkdirs();
-            }
-            File file = new File(directory, UUID.randomUUID().toString() + ".jpg");
-            OutputStream outputStream = new FileOutputStream(file);
-            byte[] buffer = new byte[1024];
-            int length;
-            while ((length = inputStream.read(buffer)) > 0) {
-                outputStream.write(buffer, 0, length);
-            }
-            outputStream.close();
-            inputStream.close();
-            currentProfileImagePath = file.getAbsolutePath();
-        } catch (Exception e) {
-            e.printStackTrace();
-            Toast.makeText(this, "Failed to save image", Toast.LENGTH_SHORT).show();
         }
     }
 
