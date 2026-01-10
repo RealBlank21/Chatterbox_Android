@@ -392,7 +392,9 @@
                 <com.github.antonpopoff.colorwheel.gradientseekbar.GradientSeekBar
                     android:id="@+id/gradient_seek_bar"
                     android:layout_width="match_parent"
-                    android:layout_height="24dp"
+                    android:layout_height="32dp"
+                    app:gsb_offset="1.0"
+                    app:gsb_orientation="horizontal"
                     android:layout_marginBottom="24dp"/>
 
                 <TextView
