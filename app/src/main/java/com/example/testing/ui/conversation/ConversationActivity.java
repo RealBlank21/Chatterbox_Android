@@ -37,6 +37,7 @@ import com.example.testing.ui.base.BaseActivity;
 import com.example.testing.data.local.entity.Character;
 import com.example.testing.R;
 import com.example.testing.data.local.entity.Scenario;
+import com.example.testing.data.local.entity.Persona;
 import com.example.testing.ui.base.ThemeUtils;
 import com.example.testing.data.local.entity.User;
 import com.example.testing.utils.ConversationStatsFormatter;
@@ -69,6 +70,7 @@ public class ConversationActivity extends BaseActivity {
 
     private User currentUser;
     private Character currentCharacter;
+    private Persona currentPersona;
 
     private List<Message> currentMessages = new ArrayList<>();
     private String currentActionBarImagePath = null;
@@ -213,26 +215,24 @@ public class ConversationActivity extends BaseActivity {
             if (character != null) {
                 this.currentCharacter = character;
                 if (actionBarName != null) actionBarName.setText(character.getName());
-                updateActionBarImage(character.getCharacterProfileImagePath());
+
+                // Set initial image if not already set (e.g. by scenario logic later)
+                if (conversationId == -1 && currentActionBarImagePath == null) {
+                    updateActionBarImage(character.getCharacterProfileImagePath());
+                }
+
                 checkIfReadyToSend();
                 handleInitialScenarioLoad(character);
+
+                // If we are in an existing conversation, refresh the scenario UI
+                if (conversationId != -1) {
+                    updateUIForScenario(conversationViewModel.getConversationScenario().getValue());
+                }
             }
         });
 
         conversationViewModel.getConversationScenario().observe(this, scenario -> {
-            if (scenario != null) {
-                if (!TextUtils.isEmpty(scenario.getImagePath())) {
-                    updateActionBarImage(scenario.getImagePath());
-                }
-                updateActionBarTag(scenario.getName());
-                updateScenarioDescription(scenario.getDescription());
-            } else {
-                updateActionBarTag(null);
-                updateScenarioDescription(null);
-                if (currentCharacter != null && conversationId != -1) {
-                    updateActionBarImage(currentCharacter.getCharacterProfileImagePath());
-                }
-            }
+            updateUIForScenario(scenario);
         });
 
         conversationViewModel.getCurrentUser().observe(this, user -> {
@@ -245,10 +245,19 @@ public class ConversationActivity extends BaseActivity {
         });
 
         conversationViewModel.getActivePersona().observe(this, persona -> {
+            this.currentPersona = persona;
             if (persona != null) {
                 editTextMessage.setHint("Chatting as " + persona.getName());
             } else {
                 editTextMessage.setHint("Type a message");
+            }
+
+            // Re-update scenario UI to apply persona name to placeholders
+            updateUIForScenario(conversationViewModel.getConversationScenario().getValue());
+
+            // Re-run initial scenario load logic if in new chat mode to update greeting placeholders
+            if (conversationId == -1 && currentCharacter != null) {
+                handleInitialScenarioLoad(currentCharacter);
             }
         });
 
@@ -259,6 +268,36 @@ public class ConversationActivity extends BaseActivity {
                 recyclerViewMessages.post(() -> recyclerViewMessages.scrollToPosition(messages.size() - 1));
             }
         });
+    }
+
+    private void updateUIForScenario(Scenario scenario) {
+        // If it's a new conversation, handleInitialScenarioLoad manages the initial UI state
+        if (conversationId == -1) return;
+
+        if (scenario != null) {
+            if (!TextUtils.isEmpty(scenario.getImagePath())) {
+                updateActionBarImage(scenario.getImagePath());
+            } else {
+                if (currentCharacter != null) {
+                    updateActionBarImage(currentCharacter.getCharacterProfileImagePath());
+                }
+            }
+            updateActionBarTag(scenario.getName());
+            updateScenarioDescription(replacePlaceholders(scenario.getDescription()));
+        } else {
+            // Scenario is null. Check for default scenario string in Character
+            if (currentCharacter != null && !TextUtils.isEmpty(currentCharacter.getDefaultScenario())) {
+                updateActionBarTag("Default Scenario");
+                updateScenarioDescription(replacePlaceholders(currentCharacter.getDefaultScenario()));
+                updateActionBarImage(currentCharacter.getCharacterProfileImagePath());
+            } else {
+                updateActionBarTag(null);
+                updateScenarioDescription(null);
+                if (currentCharacter != null) {
+                    updateActionBarImage(currentCharacter.getCharacterProfileImagePath());
+                }
+            }
+        }
     }
 
     private void handleInitialScenarioLoad(Character character) {
@@ -272,21 +311,33 @@ public class ConversationActivity extends BaseActivity {
 
             scenarioLiveData.observe(this, scenario -> {
                 String firstMsg = character.getFirstMessage();
+                String desc = "";
+                String tag = null;
+                String img = character.getCharacterProfileImagePath();
+
                 if (scenario != null) {
                     if (!TextUtils.isEmpty(scenario.getFirstMessage())) {
                         firstMsg = scenario.getFirstMessage();
                     }
                     if (!TextUtils.isEmpty(scenario.getImagePath())) {
-                        updateActionBarImage(scenario.getImagePath());
+                        img = scenario.getImagePath();
                     }
-                    updateActionBarTag(scenario.getName());
-                    updateScenarioDescription(scenario.getDescription());
+                    tag = scenario.getName();
+                    desc = scenario.getDescription();
                 } else {
-                    updateActionBarTag(null);
-                    updateScenarioDescription(null);
+                    // Scenario entity is null. Check for default string in character.
+                    if (!TextUtils.isEmpty(character.getDefaultScenario())) {
+                        tag = "Default Scenario";
+                        desc = character.getDefaultScenario();
+                    }
                 }
 
+                updateActionBarImage(img);
+                updateActionBarTag(tag);
+                updateScenarioDescription(replacePlaceholders(desc));
+
                 if (!TextUtils.isEmpty(firstMsg)) {
+                    firstMsg = replacePlaceholders(firstMsg);
                     List<Message> transientList = new ArrayList<>();
                     transientList.add(new Message("assistant", firstMsg, -1));
                     messageAdapter.setMessages(transientList);
@@ -294,6 +345,13 @@ public class ConversationActivity extends BaseActivity {
                 }
             });
         }
+    }
+
+    private String replacePlaceholders(String text) {
+        if (text == null) return "";
+        String userName = (currentPersona != null && !TextUtils.isEmpty(currentPersona.getName())) ? currentPersona.getName() : "User";
+        String charName = (currentCharacter != null && !TextUtils.isEmpty(currentCharacter.getName())) ? currentCharacter.getName() : "Character";
+        return text.replace("{{user}}", userName).replace("{{character}}", charName);
     }
 
     private void updateActionBarImage(String imagePath) {

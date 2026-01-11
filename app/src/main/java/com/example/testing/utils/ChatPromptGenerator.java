@@ -51,6 +51,9 @@ public class ChatPromptGenerator {
             }
         }
 
+        String characterName = character.getName() != null ? character.getName() : "Character";
+        String userName = "User";
+
         String globalPrompt = user.getGlobalSystemPrompt() != null ? user.getGlobalSystemPrompt() : "";
         String characterPersonality = character.getPersonality() != null ? character.getPersonality() : "";
 
@@ -63,6 +66,9 @@ public class ChatPromptGenerator {
         if (personaIdToUse != -1) {
             Persona persona = personaDao.getPersonaById(personaIdToUse);
             if (persona != null) {
+                if (persona.getName() != null && !persona.getName().isEmpty()) {
+                    userName = persona.getName();
+                }
                 personaPromptBuilder.append("User Persona:\n");
                 if (persona.getName() != null && !persona.getName().isEmpty()) {
                     personaPromptBuilder.append("Name: ").append(persona.getName()).append("\n");
@@ -93,6 +99,11 @@ public class ChatPromptGenerator {
         }
         String scenarioPrompt = scenarioPromptBuilder.toString();
 
+        globalPrompt = replacePlaceholders(globalPrompt, userName, characterName);
+        characterPersonality = replacePlaceholders(characterPersonality, userName, characterName);
+        personaPrompt = replacePlaceholders(personaPrompt, userName, characterName);
+        scenarioPrompt = replacePlaceholders(scenarioPrompt, userName, characterName);
+
         globalPrompt = globalPrompt.replace("{day}", formattedDay).replace("{time}", formattedTime);
         characterPersonality = characterPersonality.replace("{day}", formattedDay).replace("{time}", formattedTime);
 
@@ -111,7 +122,8 @@ public class ChatPromptGenerator {
                 String msgTime = dayFormatter.format(msgDate) + " at " + timeFormatter.format(msgDate);
                 requestMessages.add(new RequestMessage("system", "Current time: " + msgTime));
             }
-            requestMessages.add(new RequestMessage(msg.getRole(), msg.getContent()));
+            String content = replacePlaceholders(msg.getContent(), userName, characterName);
+            requestMessages.add(new RequestMessage(msg.getRole(), content));
         }
 
         if (!messagesToSend.isEmpty()) {
@@ -122,5 +134,11 @@ public class ChatPromptGenerator {
         }
 
         return requestMessages;
+    }
+
+    private String replacePlaceholders(String text, String userName, String characterName) {
+        if (text == null) return "";
+        return text.replace("{{user}}", userName)
+                .replace("{{character}}", characterName);
     }
 }

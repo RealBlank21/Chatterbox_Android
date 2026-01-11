@@ -150,6 +150,23 @@ public class ConversationViewModel extends AndroidViewModel {
             }
 
             Conversation newConversation = new Conversation(character.getId(), title);
+
+            // Prepare strings for replacement
+            String characterName = character.getName();
+            String userName = "User";
+            if (personaId != null && personaId != -1) {
+                Persona p = personaDao.getPersonaById(personaId);
+                if (p != null) {
+                    userName = p.getName();
+                }
+            } else if (user.getCurrentPersonaId() != -1) {
+                // Fallback to current user preference if not explicitly passed
+                Persona p = personaDao.getPersonaById(user.getCurrentPersonaId());
+                if (p != null) {
+                    userName = p.getName();
+                }
+            }
+
             String greetingText = character.getFirstMessage();
 
             if (scenarioId == null || scenarioId == -1) {
@@ -174,6 +191,12 @@ public class ConversationViewModel extends AndroidViewModel {
                 newConversation.setPersonaId(personaId);
             } else {
                 newConversation.setPersonaId(null);
+            }
+
+            // Apply replacements
+            if (greetingText != null) {
+                greetingText = greetingText.replace("{{user}}", userName)
+                        .replace("{{character}}", characterName);
             }
 
             final String finalGreetingText = greetingText;
