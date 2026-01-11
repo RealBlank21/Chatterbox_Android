@@ -36,6 +36,24 @@ public class User implements Serializable {
     @ColumnInfo(name = "default_context_limit", defaultValue = "0")
     private int defaultContextLimit = 0;
 
+    @ColumnInfo(name = "default_temperature", defaultValue = "1.0")
+    private float defaultTemperature = 1.0f;
+
+    @ColumnInfo(name = "default_top_p", defaultValue = "1.0")
+    private float defaultTopP = 1.0f;
+
+    @ColumnInfo(name = "default_top_k", defaultValue = "0")
+    private int defaultTopK = 0;
+
+    @ColumnInfo(name = "default_frequency_penalty", defaultValue = "0.0")
+    private float defaultFrequencyPenalty = 0.0f;
+
+    @ColumnInfo(name = "default_presence_penalty", defaultValue = "0.0")
+    private float defaultPresencePenalty = 0.0f;
+
+    @ColumnInfo(name = "default_repetition_penalty", defaultValue = "1.0")
+    private float defaultRepetitionPenalty = 1.0f;
+
     @ColumnInfo(name = "theme_color_primary", defaultValue = "0")
     private int themeColorPrimary = 0;
 
@@ -121,4 +139,22 @@ public class User implements Serializable {
     public void setThemeColorSecondary(int themeColorSecondary) { this.themeColorSecondary = themeColorSecondary; }
     public void setCharacterListMode(String characterListMode) { this.characterListMode = characterListMode; }
     public void setCurrentPersonaId(int currentPersonaId) { this.currentPersonaId = currentPersonaId; }
+
+    public float getDefaultTemperature() { return defaultTemperature; }
+    public void setDefaultTemperature(float defaultTemperature) { this.defaultTemperature = defaultTemperature; }
+
+    public float getDefaultTopP() { return defaultTopP; }
+    public void setDefaultTopP(float defaultTopP) { this.defaultTopP = defaultTopP; }
+
+    public int getDefaultTopK() { return defaultTopK; }
+    public void setDefaultTopK(int defaultTopK) { this.defaultTopK = defaultTopK; }
+
+    public float getDefaultFrequencyPenalty() { return defaultFrequencyPenalty; }
+    public void setDefaultFrequencyPenalty(float defaultFrequencyPenalty) { this.defaultFrequencyPenalty = defaultFrequencyPenalty; }
+
+    public float getDefaultPresencePenalty() { return defaultPresencePenalty; }
+    public void setDefaultPresencePenalty(float defaultPresencePenalty) { this.defaultPresencePenalty = defaultPresencePenalty; }
+
+    public float getDefaultRepetitionPenalty() { return defaultRepetitionPenalty; }
+    public void setDefaultRepetitionPenalty(float defaultRepetitionPenalty) { this.defaultRepetitionPenalty = defaultRepetitionPenalty; }
 }

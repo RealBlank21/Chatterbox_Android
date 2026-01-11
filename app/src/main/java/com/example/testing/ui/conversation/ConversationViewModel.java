@@ -296,7 +296,29 @@ public class ConversationViewModel extends AndroidViewModel {
 
                 String apiKey = "Bearer " + user.getApiKey();
 
-                ApiRequest apiRequest = new ApiRequest(model, requestMessages, character.getTemperature(), character.getMaxTokens(), true);
+                // Determine parameters (Character override > User Default)
+                Float temperature = character.getTemperature() != null ? character.getTemperature() : user.getDefaultTemperature();
+
+                // Use User defaults for extended parameters
+                Float topP = user.getDefaultTopP();
+                Integer topK = user.getDefaultTopK();
+                Float freqPen = user.getDefaultFrequencyPenalty();
+                Float presPen = user.getDefaultPresencePenalty();
+                Float repPen = user.getDefaultRepetitionPenalty();
+
+                ApiRequest apiRequest = new ApiRequest(
+                        model,
+                        requestMessages,
+                        temperature,
+                        character.getMaxTokens(),
+                        true,
+                        topP,
+                        topK,
+                        freqPen,
+                        presPen,
+                        repPen
+                );
+
                 Call<ResponseBody> call = apiService.getChatCompletionStream(apiKey, apiRequest);
 
                 Message aiMessage = new Message("assistant", "", conversationId);

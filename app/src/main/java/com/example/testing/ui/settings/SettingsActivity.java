@@ -50,6 +50,12 @@ public class SettingsActivity extends BaseActivity {
     private TextView textViewModelInfo;
     private EditText editTextGlobalPrompt;
     private EditText editTextContextLimit;
+    private EditText editTextTemperature;
+    private EditText editTextTopP;
+    private EditText editTextTopK;
+    private EditText editTextFreqPenalty;
+    private EditText editTextPresPenalty;
+    private EditText editTextRepPenalty;
     private TextView textViewCredits;
     private Button buttonSave;
 
@@ -130,6 +136,12 @@ public class SettingsActivity extends BaseActivity {
         textViewModelInfo = findViewById(R.id.text_view_model_info);
         editTextGlobalPrompt = findViewById(R.id.edit_text_global_system_prompt);
         editTextContextLimit = findViewById(R.id.edit_text_context_limit);
+        editTextTemperature = findViewById(R.id.edit_text_temperature);
+        editTextTopP = findViewById(R.id.edit_text_top_p);
+        editTextTopK = findViewById(R.id.edit_text_top_k);
+        editTextFreqPenalty = findViewById(R.id.edit_text_freq_penalty);
+        editTextPresPenalty = findViewById(R.id.edit_text_pres_penalty);
+        editTextRepPenalty = findViewById(R.id.edit_text_rep_penalty);
 
         spinnerPersona = findViewById(R.id.spinner_persona);
         buttonAddPersona = findViewById(R.id.button_add_persona);
@@ -238,6 +250,13 @@ public class SettingsActivity extends BaseActivity {
                 }
                 if (user.getGlobalSystemPrompt() != null) editTextGlobalPrompt.setText(user.getGlobalSystemPrompt());
                 editTextContextLimit.setText(String.valueOf(user.getDefaultContextLimit()));
+
+                editTextTemperature.setText(String.valueOf(user.getDefaultTemperature()));
+                editTextTopP.setText(String.valueOf(user.getDefaultTopP()));
+                editTextTopK.setText(String.valueOf(user.getDefaultTopK()));
+                editTextFreqPenalty.setText(String.valueOf(user.getDefaultFrequencyPenalty()));
+                editTextPresPenalty.setText(String.valueOf(user.getDefaultPresencePenalty()));
+                editTextRepPenalty.setText(String.valueOf(user.getDefaultRepetitionPenalty()));
 
                 // Colors
                 int p = user.getThemeColorPrimary() != 0 ? user.getThemeColorPrimary() : ThemeUtils.getPrimaryColor(this);
@@ -369,8 +388,22 @@ public class SettingsActivity extends BaseActivity {
         String preferredModel = editTextPreferredModel.getText().toString().trim();
         String globalPrompt = editTextGlobalPrompt.getText().toString().trim();
 
+        float temp = 1.0f;
+        float topP = 1.0f;
+        int topK = 0;
+        float freqPen = 0.0f;
+        float presPen = 0.0f;
+        float repPen = 1.0f;
+
         int contextLimit = 0;
         try {
+            if (!editTextTemperature.getText().toString().isEmpty()) temp = Float.parseFloat(editTextTemperature.getText().toString());
+            if (!editTextTopP.getText().toString().isEmpty()) topP = Float.parseFloat(editTextTopP.getText().toString());
+            if (!editTextTopK.getText().toString().isEmpty()) topK = Integer.parseInt(editTextTopK.getText().toString());
+            if (!editTextFreqPenalty.getText().toString().isEmpty()) freqPen = Float.parseFloat(editTextFreqPenalty.getText().toString());
+            if (!editTextPresPenalty.getText().toString().isEmpty()) presPen = Float.parseFloat(editTextPresPenalty.getText().toString());
+            if (!editTextRepPenalty.getText().toString().isEmpty()) repPen = Float.parseFloat(editTextRepPenalty.getText().toString());
+
             contextLimit = Integer.parseInt(editTextContextLimit.getText().toString().trim());
         } catch (NumberFormatException e) {
             contextLimit = 0;
@@ -399,7 +432,8 @@ public class SettingsActivity extends BaseActivity {
         int sColor = appearanceHelper.getSecondaryColor();
 
         ThemeUtils.saveColors(this, pColor, sColor);
-        settingsViewModel.saveSettings(username, apiKey, preferredModel, globalPrompt, contextLimit, pColor, sColor, viewMode, newActivePersonaId);
+        settingsViewModel.saveSettings(username, apiKey, preferredModel, globalPrompt, contextLimit, pColor, sColor, viewMode, newActivePersonaId,
+                temp, topP, topK, freqPen, presPen, repPen);
         Toast.makeText(this, "Settings saved! Restarting...", Toast.LENGTH_SHORT).show();
 
         finish();

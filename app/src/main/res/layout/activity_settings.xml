@@ -256,6 +256,81 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
+                    android:text="Temperature (Default)"
+                    android:textAppearance="?attr/textAppearanceListItem" />
+                <EditText
+                    android:id="@+id/edit_text_temperature"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="0.0 - 2.0 (Default: 1.0)"
+                    android:inputType="numberDecimal" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Top P"
+                    android:textAppearance="?attr/textAppearanceListItem" />
+                <EditText
+                    android:id="@+id/edit_text_top_p"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="0.0 - 1.0 (Default: 1.0)"
+                    android:inputType="numberDecimal" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Top K"
+                    android:textAppearance="?attr/textAppearanceListItem" />
+                <EditText
+                    android:id="@+id/edit_text_top_k"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="0 (Default: 0 / Unlimited)"
+                    android:inputType="number" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Frequency Penalty"
+                    android:textAppearance="?attr/textAppearanceListItem" />
+                <EditText
+                    android:id="@+id/edit_text_freq_penalty"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="-2.0 - 2.0 (Default: 0.0)"
+                    android:inputType="numberDecimal|numberSigned" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Presence Penalty"
+                    android:textAppearance="?attr/textAppearanceListItem" />
+                <EditText
+                    android:id="@+id/edit_text_pres_penalty"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="-2.0 - 2.0 (Default: 0.0)"
+                    android:inputType="numberDecimal|numberSigned" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Repetition Penalty"
+                    android:textAppearance="?attr/textAppearanceListItem" />
+                <EditText
+                    android:id="@+id/edit_text_rep_penalty"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="1.0 - 2.0 (Default: 1.0)"
+                    android:inputType="numberDecimal" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
                     android:text="@string/global_system_prompt"
                     android:textAppearance="?attr/textAppearanceListItem" />
 

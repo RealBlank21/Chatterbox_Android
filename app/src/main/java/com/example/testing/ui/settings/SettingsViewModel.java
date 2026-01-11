@@ -97,10 +97,13 @@ public class SettingsViewModel extends AndroidViewModel {
         }
     }
 
-    public void saveSettings(String username, String apiKey, String preferredModel, String globalPrompt, int contextLimit, int colorPrimary, int colorSecondary, String viewMode, int currentPersonaId) {
+    public void saveSettings(String username, String apiKey, String preferredModel, String globalPrompt, int contextLimit,
+                             int colorPrimary, int colorSecondary, String viewMode, int currentPersonaId,
+                             float temp, float topP, int topK, float freqPen, float presPen, float repPen) {
         User currentUser = user.getValue();
 
         if (currentUser == null) {
+            // Handle creation if needed, though usually currentUser exists here
             currentUser = new User(username, "", "", apiKey, preferredModel, globalPrompt, contextLimit, colorPrimary, colorSecondary, viewMode, currentPersonaId);
         } else {
             currentUser.setUsername(username);
@@ -113,6 +116,14 @@ public class SettingsViewModel extends AndroidViewModel {
             currentUser.setCharacterListMode(viewMode);
             currentUser.setCurrentPersonaId(currentPersonaId);
         }
+
+        // Set new fields
+        currentUser.setDefaultTemperature(temp);
+        currentUser.setDefaultTopP(topP);
+        currentUser.setDefaultTopK(topK);
+        currentUser.setDefaultFrequencyPenalty(freqPen);
+        currentUser.setDefaultPresencePenalty(presPen);
+        currentUser.setDefaultRepetitionPenalty(repPen);
 
         repository.insertOrUpdate(currentUser);
     }

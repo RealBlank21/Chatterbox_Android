@@ -11,18 +11,39 @@ public class ApiRequest {
     @SerializedName("max_tokens")
     private final Integer maxTokens;
 
-    private final Boolean stream; // Add this field
+    private final Boolean stream;
 
-    public ApiRequest(String model, List<RequestMessage> messages, Float temperature, Integer maxTokens, Boolean stream) {
+    @SerializedName("top_p")
+    private final Float topP;
+
+    @SerializedName("top_k")
+    private final Integer topK;
+
+    @SerializedName("frequency_penalty")
+    private final Float frequencyPenalty;
+
+    @SerializedName("presence_penalty")
+    private final Float presencePenalty;
+
+    @SerializedName("repetition_penalty")
+    private final Float repetitionPenalty;
+
+    public ApiRequest(String model, List<RequestMessage> messages, Float temperature, Integer maxTokens, Boolean stream,
+                      Float topP, Integer topK, Float frequencyPenalty, Float presencePenalty, Float repetitionPenalty) {
         this.model = model;
         this.messages = messages;
         this.temperature = temperature;
         this.maxTokens = maxTokens;
         this.stream = stream;
+        this.topP = topP;
+        this.topK = topK;
+        this.frequencyPenalty = frequencyPenalty;
+        this.presencePenalty = presencePenalty;
+        this.repetitionPenalty = repetitionPenalty;
     }
 
-    // Keep old constructor for backward compatibility if needed, or just update calls
-    public ApiRequest(String model, List<RequestMessage> messages, Float temperature, Integer maxTokens) {
-        this(model, messages, temperature, maxTokens, false);
+    // Constructor for backward compatibility if strictly needed (optional)
+    public ApiRequest(String model, List<RequestMessage> messages, Float temperature, Integer maxTokens, Boolean stream) {
+        this(model, messages, temperature, maxTokens, stream, null, null, null, null, null);
     }
 }
