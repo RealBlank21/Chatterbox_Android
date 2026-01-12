@@ -405,7 +405,7 @@
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center"
-                    android:layout_marginBottom="24dp">
+                    android:layout_marginBottom="16dp">
 
                     <LinearLayout
                         android:id="@+id/container_preview_primary"
@@ -415,21 +415,22 @@
                         android:gravity="center"
                         android:padding="8dp"
                         android:background="@drawable/bg_character_message"
-                        android:layout_marginEnd="32dp">
+                        android:layout_marginEnd="16dp">
 
                         <androidx.cardview.widget.CardView
                             android:id="@+id/card_preview_primary"
-                            android:layout_width="64dp"
-                            android:layout_height="64dp"
-                            app:cardCornerRadius="32dp"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            app:cardCornerRadius="24dp"
                             app:cardBackgroundColor="@color/black"
                             app:cardElevation="4dp"
-                            android:layout_marginBottom="8dp"/>
+                            android:layout_marginBottom="4dp"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Primary"
+                            android:textSize="12sp"
                             android:textStyle="bold"/>
                     </LinearLayout>
 
@@ -443,25 +444,85 @@
 
                         <androidx.cardview.widget.CardView
                             android:id="@+id/card_preview_secondary"
-                            android:layout_width="64dp"
-                            android:layout_height="64dp"
-                            app:cardCornerRadius="32dp"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            app:cardCornerRadius="24dp"
                             app:cardBackgroundColor="@color/black"
                             app:cardElevation="4dp"
-                            android:layout_marginBottom="8dp"/>
+                            android:layout_marginBottom="4dp"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Secondary"
+                            android:textSize="12sp"
+                            android:textStyle="bold"/>
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:layout_marginBottom="24dp">
+
+                    <LinearLayout
+                        android:id="@+id/container_preview_narrative"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp"
+                        android:layout_marginEnd="16dp">
+
+                        <androidx.cardview.widget.CardView
+                            android:id="@+id/card_preview_narrative"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            app:cardCornerRadius="24dp"
+                            app:cardBackgroundColor="@android:color/darker_gray"
+                            app:cardElevation="4dp"
+                            android:layout_marginBottom="4dp"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="*Text*"
+                            android:textSize="12sp"
+                            android:textStyle="bold"/>
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/container_preview_dialogue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp">
+
+                        <androidx.cardview.widget.CardView
+                            android:id="@+id/card_preview_dialogue"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            app:cardCornerRadius="24dp"
+                            app:cardBackgroundColor="@android:color/white"
+                            app:cardElevation="4dp"
+                            android:layout_marginBottom="4dp"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="&quot;Text&quot;"
+                            android:textSize="12sp"
                             android:textStyle="bold"/>
                     </LinearLayout>
                 </LinearLayout>
 
                 <com.github.antonpopoff.colorwheel.ColorWheel
                     android:id="@+id/color_wheel"
-                    android:layout_width="250dp"
-                    android:layout_height="250dp"
+                    android:layout_width="200dp"
+                    android:layout_height="200dp"
                     android:layout_marginBottom="24dp"/>
 
                 <com.github.antonpopoff.colorwheel.gradientseekbar.GradientSeekBar
@@ -470,6 +531,49 @@
                     android:layout_height="32dp"
                     app:gsb_offset="1.0"
                     app:gsb_orientation="horizontal"
+                    android:layout_marginBottom="24dp"/>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="?android:attr/listDivider"
+                    android:layout_marginBottom="16dp"/>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Chat Layout"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="16dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Bubble Width"
+                    android:textSize="12sp"
+                    android:layout_gravity="start"/>
+
+                <SeekBar
+                    android:id="@+id/seekbar_bubble_width"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="50"
+                    android:progress="40"
+                    android:layout_marginBottom="16dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Line Spacing"
+                    android:textSize="12sp"
+                    android:layout_gravity="start"/>
+
+                <SeekBar
+                    android:id="@+id/seekbar_line_spacing"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="20"
+                    android:progress="0"
                     android:layout_marginBottom="24dp"/>
 
                 <TextView

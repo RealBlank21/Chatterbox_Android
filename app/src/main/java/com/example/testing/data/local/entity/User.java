@@ -9,7 +9,7 @@ import java.io.Serializable;
 @Entity(tableName = "user_config")
 public class User implements Serializable {
 
-    private static final long serialVersionUID = 6L;
+    private static final long serialVersionUID = 7L;
 
     @PrimaryKey
     @ColumnInfo(name = "config_id")
@@ -66,6 +66,18 @@ public class User implements Serializable {
     @ColumnInfo(name = "current_persona_id", defaultValue = "-1")
     private int currentPersonaId = -1;
 
+    @ColumnInfo(name = "narrative_text_color", defaultValue = "-7829368")
+    private int narrativeTextColor = 0xFF888888;
+
+    @ColumnInfo(name = "dialogue_text_color", defaultValue = "-1")
+    private int dialogueTextColor = 0xFFFFFFFF;
+
+    @ColumnInfo(name = "chat_bubble_width", defaultValue = "0.9")
+    private float chatBubbleWidth = 0.9f;
+
+    @ColumnInfo(name = "chat_line_spacing", defaultValue = "1.0")
+    private float chatLineSpacing = 1.0f;
+
     @Ignore
     public User(String username, String email, String profileImagePath,
                 String apiKey, String preferredModel, String globalSystemPrompt) {
@@ -112,7 +124,6 @@ public class User implements Serializable {
     public User() {
     }
 
-    // --- Getters ---
     public int getConfigId() { return configId; }
     public String getUsername() { return username; }
     public String getEmail() { return email; }
@@ -126,7 +137,6 @@ public class User implements Serializable {
     public String getCharacterListMode() { return characterListMode; }
     public int getCurrentPersonaId() { return currentPersonaId; }
 
-    // --- Setters ---
     public void setConfigId(int configId) { this.configId = configId; }
     public void setUsername(String username) { this.username = username; }
     public void setEmail(String email) { this.email = email; }
@@ -157,4 +167,16 @@ public class User implements Serializable {
 
     public float getDefaultRepetitionPenalty() { return defaultRepetitionPenalty; }
     public void setDefaultRepetitionPenalty(float defaultRepetitionPenalty) { this.defaultRepetitionPenalty = defaultRepetitionPenalty; }
+
+    public int getNarrativeTextColor() { return narrativeTextColor; }
+    public void setNarrativeTextColor(int narrativeTextColor) { this.narrativeTextColor = narrativeTextColor; }
+
+    public int getDialogueTextColor() { return dialogueTextColor; }
+    public void setDialogueTextColor(int dialogueTextColor) { this.dialogueTextColor = dialogueTextColor; }
+
+    public float getChatBubbleWidth() { return chatBubbleWidth; }
+    public void setChatBubbleWidth(float chatBubbleWidth) { this.chatBubbleWidth = chatBubbleWidth; }
+
+    public float getChatLineSpacing() { return chatLineSpacing; }
+    public void setChatLineSpacing(float chatLineSpacing) { this.chatLineSpacing = chatLineSpacing; }
 }

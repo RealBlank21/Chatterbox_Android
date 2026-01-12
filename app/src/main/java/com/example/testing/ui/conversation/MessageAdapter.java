@@ -2,23 +2,32 @@ package com.example.testing.ui.conversation;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.text.TextUtils;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.StyleSpan;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
+import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.testing.R;
 import com.example.testing.data.local.entity.Message;
+import com.example.testing.data.local.entity.User;
 
+import io.noties.markwon.AbstractMarkwonPlugin;
 import io.noties.markwon.Markwon;
+import io.noties.markwon.MarkwonSpansFactory;
 import io.noties.markwon.ext.tables.TablePlugin;
 import io.noties.markwon.ext.latex.JLatexMathPlugin;
 import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin;
+import org.commonmark.node.Emphasis;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,11 +45,28 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
     private int editingPosition = -1;
     private OnMessageEditListener editListener;
 
+    private int narrativeColor = Color.GRAY;
+    private int dialogueColor = Color.WHITE;
+    private float bubbleWidth = 0.9f;
+    private float lineSpacing = 1.0f;
+
     public interface OnMessageEditListener {
         void onMessageEdited(Message message);
     }
 
     public MessageAdapter() {
+    }
+
+    public void updateSettings(User user) {
+        if (user == null) return;
+        this.narrativeColor = user.getNarrativeTextColor();
+        this.dialogueColor = user.getDialogueTextColor();
+        this.bubbleWidth = user.getChatBubbleWidth();
+        this.lineSpacing = user.getChatLineSpacing();
+
+        markwonUser = null;
+        markwonCharacter = null;
+        notifyDataSetChanged();
     }
 
     public void setOnMessageEditListener(OnMessageEditListener listener) {
@@ -72,25 +98,38 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
     @NonNull
     @Override
     public MessageViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        Context context = parent.getContext();
+
         if (markwonUser == null) {
-            float textSize = parent.getContext().getResources().getDisplayMetrics().scaledDensity * 16;
-            Context context = parent.getContext();
+            float textSize = context.getResources().getDisplayMetrics().scaledDensity * 16;
+
+            AbstractMarkwonPlugin stylePlugin = new AbstractMarkwonPlugin() {
+                @Override
+                public void configureSpansFactory(@NonNull MarkwonSpansFactory.Builder builder) {
+                    builder.setFactory(Emphasis.class, (configuration, props) -> new Object[]{
+                            new StyleSpan(Typeface.ITALIC),
+                            new ForegroundColorSpan(narrativeColor)
+                    });
+                }
+            };
 
             markwonUser = Markwon.builder(context)
                     .usePlugin(TablePlugin.create(context))
                     .usePlugin(MarkwonInlineParserPlugin.create())
+                    .usePlugin(stylePlugin)
                     .usePlugin(JLatexMathPlugin.create(textSize, builder -> {
                         builder.inlinesEnabled(true);
-                        builder.theme().textColor(Color.WHITE);
+                        builder.theme().textColor(dialogueColor);
                     }))
                     .build();
 
             markwonCharacter = Markwon.builder(context)
                     .usePlugin(TablePlugin.create(context))
                     .usePlugin(MarkwonInlineParserPlugin.create())
+                    .usePlugin(stylePlugin)
                     .usePlugin(JLatexMathPlugin.create(textSize, builder -> {
                         builder.inlinesEnabled(true);
-                        builder.theme().textColor(Color.BLACK);
+                        builder.theme().textColor(dialogueColor);
                     }))
                     .build();
         }
@@ -107,6 +146,8 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
     @Override
     public void onBindViewHolder(@NonNull MessageViewHolder holder, int position) {
         Message message = messages.get(position);
+
+        holder.applyAppearance(bubbleWidth, lineSpacing, dialogueColor);
 
         if (position == editingPosition) {
             holder.showEditMode(message);
@@ -163,6 +204,7 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
         View layoutEditMessage;
         EditText editTextMessageContent;
         Button buttonSaveEdit;
+        View layoutMessageContainer;
 
         public MessageViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -170,6 +212,7 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
             layoutEditMessage = itemView.findViewById(R.id.layout_edit_message);
             editTextMessageContent = itemView.findViewById(R.id.edit_text_message_content);
             buttonSaveEdit = itemView.findViewById(R.id.button_save_edit);
+            layoutMessageContainer = itemView.findViewById(R.id.layout_message_container);
 
             OnMessageLongClickListener listener = longClickListener;
             View.OnLongClickListener longClick = v -> {
@@ -182,6 +225,18 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
 
             itemView.setOnLongClickListener(longClick);
             textViewMessage.setOnLongClickListener(longClick);
+        }
+
+        public void applyAppearance(float widthPercent, float spacingMult, int baseColor) {
+            ViewGroup.LayoutParams params = layoutMessageContainer.getLayoutParams();
+            if (params instanceof ConstraintLayout.LayoutParams) {
+                ConstraintLayout.LayoutParams constraintParams = (ConstraintLayout.LayoutParams) params;
+                constraintParams.matchConstraintPercentWidth = widthPercent;
+                layoutMessageContainer.setLayoutParams(constraintParams);
+            }
+
+            textViewMessage.setLineSpacing(0f, spacingMult);
+            textViewMessage.setTextColor(baseColor);
         }
 
         public void showDisplayMode(Message message, Markwon markwon) {

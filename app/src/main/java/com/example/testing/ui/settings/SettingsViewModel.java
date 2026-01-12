@@ -99,11 +99,11 @@ public class SettingsViewModel extends AndroidViewModel {
 
     public void saveSettings(String username, String apiKey, String preferredModel, String globalPrompt, int contextLimit,
                              int colorPrimary, int colorSecondary, String viewMode, int currentPersonaId,
-                             float temp, float topP, int topK, float freqPen, float presPen, float repPen) {
+                             float temp, float topP, int topK, float freqPen, float presPen, float repPen,
+                             int narrativeColor, int dialogueColor, float bubbleWidth, float lineSpacing) {
         User currentUser = user.getValue();
 
         if (currentUser == null) {
-            // Handle creation if needed, though usually currentUser exists here
             currentUser = new User(username, "", "", apiKey, preferredModel, globalPrompt, contextLimit, colorPrimary, colorSecondary, viewMode, currentPersonaId);
         } else {
             currentUser.setUsername(username);
@@ -117,13 +117,17 @@ public class SettingsViewModel extends AndroidViewModel {
             currentUser.setCurrentPersonaId(currentPersonaId);
         }
 
-        // Set new fields
         currentUser.setDefaultTemperature(temp);
         currentUser.setDefaultTopP(topP);
         currentUser.setDefaultTopK(topK);
         currentUser.setDefaultFrequencyPenalty(freqPen);
         currentUser.setDefaultPresencePenalty(presPen);
         currentUser.setDefaultRepetitionPenalty(repPen);
+
+        currentUser.setNarrativeTextColor(narrativeColor);
+        currentUser.setDialogueTextColor(dialogueColor);
+        currentUser.setChatBubbleWidth(bubbleWidth);
+        currentUser.setChatLineSpacing(lineSpacing);
 
         repository.insertOrUpdate(currentUser);
     }
@@ -137,7 +141,6 @@ public class SettingsViewModel extends AndroidViewModel {
                     db.scenarioDao().deleteAll();
                     db.characterDao().deleteAll();
                     db.personaDao().deleteAll();
-                    // We do NOT delete the User table to preserve API keys and settings
                 });
                 showToast("All data cleared successfully");
             } catch (Exception e) {
@@ -157,11 +160,9 @@ public class SettingsViewModel extends AndroidViewModel {
                 List<Persona> personas = db.personaDao().getAllPersonasSync();
                 List<Scenario> scenarios = db.scenarioDao().getAllScenariosSync();
 
-                // Prepare data for JSON by converting absolute paths to relative 'images/' paths
                 for (com.example.testing.data.local.entity.Character c : characters) {
                     if (c.getCharacterProfileImagePath() != null && !c.getCharacterProfileImagePath().isEmpty()) {
                         File imgFile = new File(c.getCharacterProfileImagePath());
-                        // Store only filename in the backup JSON, prefixed with folder
                         c.setCharacterProfileImagePath("images/" + imgFile.getName());
                     }
                 }
@@ -175,20 +176,16 @@ public class SettingsViewModel extends AndroidViewModel {
 
                 BackupData backupData = new BackupData(user, characters, conversations, messages, personas, scenarios);
 
-                // Use GsonBuilder to enable pretty printing
                 String json = new GsonBuilder().setPrettyPrinting().create().toJson(backupData);
 
                 try (OutputStream outputStream = resolver.openOutputStream(uri);
                      ZipOutputStream zipOut = new ZipOutputStream(new BufferedOutputStream(outputStream))) {
 
-                    // 1. Write JSON file
                     ZipEntry jsonEntry = new ZipEntry("backup.json");
                     zipOut.putNextEntry(jsonEntry);
                     zipOut.write(json.getBytes());
                     zipOut.closeEntry();
 
-                    // 2. Write Images
-                    // We need to re-query or iterate the ORIGINAL lists from DB to get the actual file paths
                     List<Character> rawCharacters = db.characterDao().getAllCharactersSync();
                     List<Scenario> rawScenarios = db.scenarioDao().getAllScenariosSync();
 
@@ -245,7 +242,6 @@ public class SettingsViewModel extends AndroidViewModel {
                 File cacheDir = getApplication().getCacheDir();
                 File tempZip = new File(cacheDir, "temp_restore.zip");
 
-                // Copy stream to temp file first
                 try (InputStream in = resolver.openInputStream(uri);
                      OutputStream out = new FileOutputStream(tempZip)) {
                     byte[] buffer = new byte[4096];
@@ -265,7 +261,6 @@ public class SettingsViewModel extends AndroidViewModel {
                         String entryName = entry.getName();
 
                         if (entryName.equals("backup.json")) {
-                            // Read JSON
                             StringBuilder sb = new StringBuilder();
                             int len;
                             while ((len = zipIn.read(buffer)) > 0) {
@@ -273,7 +268,6 @@ public class SettingsViewModel extends AndroidViewModel {
                             }
                             jsonContent = sb.toString();
                         } else if (entryName.startsWith("images/")) {
-                            // Extract Image
                             File destFile = new File(imagesDir, new File(entryName).getName());
                             try (FileOutputStream fos = new FileOutputStream(destFile)) {
                                 int len;
@@ -298,7 +292,6 @@ public class SettingsViewModel extends AndroidViewModel {
                     return;
                 }
 
-                // Restore Data
                 db.runInTransaction(() -> {
                     db.messageDao().deleteAll();
                     db.conversationDao().deleteAll();
@@ -314,7 +307,6 @@ public class SettingsViewModel extends AndroidViewModel {
                         }
                     }
 
-                    // Fix Image Paths for Characters
                     if (backupData.characters != null) {
                         for (Character c : backupData.characters) {
                             String relPath = c.getCharacterProfileImagePath();
@@ -326,7 +318,6 @@ public class SettingsViewModel extends AndroidViewModel {
                         }
                     }
 
-                    // Fix Image Paths for Scenarios
                     if (backupData.scenarios != null) {
                         for (Scenario s : backupData.scenarios) {
                             String relPath = s.getImagePath();
@@ -342,7 +333,6 @@ public class SettingsViewModel extends AndroidViewModel {
                     if (backupData.messages != null) db.messageDao().insertAll(backupData.messages);
                 });
 
-                // Cleanup
                 tempZip.delete();
 
                 showToast("Backup Restored Successfully");
@@ -360,31 +350,26 @@ public class SettingsViewModel extends AndroidViewModel {
                 List<Character> characters = db.characterDao().getAllCharactersSync();
                 List<ScenarioExportData> exportList = new ArrayList<>();
 
-                // Helper set to track which images we actually need to zip to avoid duplicates
                 Set<String> imagesToZip = new HashSet<>();
 
                 for (Character c : characters) {
                     List<Scenario> scenarios = db.scenarioDao().getScenariosForCharacterSync(c.getId());
 
-                    // Handle Character Image
                     String originalCharImg = c.getCharacterProfileImagePath();
                     if (originalCharImg != null && !originalCharImg.isEmpty()) {
                         File imgFile = new File(originalCharImg);
                         if (imgFile.exists()) {
                             imagesToZip.add(originalCharImg);
-                            // Set relative path for export object
                             c.setCharacterProfileImagePath("images/" + imgFile.getName());
                         }
                     }
 
-                    // Handle Scenario Images
                     for (Scenario s : scenarios) {
                         String originalScenImg = s.getImagePath();
                         if (originalScenImg != null && !originalScenImg.isEmpty()) {
                             File imgFile = new File(originalScenImg);
                             if (imgFile.exists()) {
                                 imagesToZip.add(originalScenImg);
-                                // Set relative path for export object
                                 s.setImagePath("images/" + imgFile.getName());
                             }
                         }
@@ -398,13 +383,11 @@ public class SettingsViewModel extends AndroidViewModel {
                 try (OutputStream outputStream = resolver.openOutputStream(uri);
                      ZipOutputStream zipOut = new ZipOutputStream(new BufferedOutputStream(outputStream))) {
 
-                    // Write JSON
                     ZipEntry jsonEntry = new ZipEntry("characters.json");
                     zipOut.putNextEntry(jsonEntry);
                     zipOut.write(json.getBytes());
                     zipOut.closeEntry();
 
-                    // Write Images
                     byte[] buffer = new byte[4096];
                     for (String path : imagesToZip) {
                         File file = new File(path);
@@ -437,7 +420,6 @@ public class SettingsViewModel extends AndroidViewModel {
                 File cacheDir = getApplication().getCacheDir();
                 File tempZip = new File(cacheDir, "temp_char_restore.zip");
 
-                // Copy stream to file
                 try (InputStream in = resolver.openInputStream(uri);
                      OutputStream out = new FileOutputStream(tempZip)) {
                     byte[] buffer = new byte[4096];
@@ -489,22 +471,19 @@ public class SettingsViewModel extends AndroidViewModel {
                         Character c = data.character;
                         List<Scenario> scenarios = data.scenarios;
 
-                        // Fix Image Path
                         if (c.getCharacterProfileImagePath() != null && c.getCharacterProfileImagePath().startsWith("images/")) {
                             File img = new File(imagesDir, new File(c.getCharacterProfileImagePath()).getName());
                             c.setCharacterProfileImagePath(img.getAbsolutePath());
                         }
 
-                        // Reset ID for insertion (Append mode)
                         c.setId(0);
                         long newCharId = db.characterDao().insert(c);
 
                         if (scenarios != null) {
                             for (Scenario s : scenarios) {
-                                s.setId(0); // Reset ID
-                                s.setCharacterId((int) newCharId); // Link to new character
+                                s.setId(0);
+                                s.setCharacterId((int) newCharId);
 
-                                // Fix Scenario Image Path
                                 if (s.getImagePath() != null && s.getImagePath().startsWith("images/")) {
                                     File img = new File(imagesDir, new File(s.getImagePath()).getName());
                                     s.setImagePath(img.getAbsolutePath());

@@ -21,7 +21,7 @@ import com.example.testing.data.local.entity.User;
 import com.example.testing.data.local.dao.UserDao;
 import com.example.testing.data.local.entity.Message;
 
-@Database(entities = {User.class, Character.class, Conversation.class, Message.class, Persona.class, Scenario.class}, version = 21, exportSchema = false)
+@Database(entities = {User.class, Character.class, Conversation.class, Message.class, Persona.class, Scenario.class}, version = 22, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
 
     public abstract UserDao userDao();
@@ -219,13 +219,23 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    static final Migration MIGRATION_21_22 = new Migration(21, 22) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE user_config ADD COLUMN narrative_text_color INTEGER NOT NULL DEFAULT -7829368");
+            database.execSQL("ALTER TABLE user_config ADD COLUMN dialogue_text_color INTEGER NOT NULL DEFAULT -1");
+            database.execSQL("ALTER TABLE user_config ADD COLUMN chat_bubble_width REAL NOT NULL DEFAULT 0.9");
+            database.execSQL("ALTER TABLE user_config ADD COLUMN chat_line_spacing REAL NOT NULL DEFAULT 1.0");
+        }
+    };
+
     public static AppDatabase getInstance(final Context context) {
         if (INSTANCE == null) {
             synchronized (AppDatabase.class) {
                 if (INSTANCE == null) {
                     INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
                                     AppDatabase.class, DATABASE_NAME)
-                            .addMigrations(MIGRATION_6_7, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21)
+                            .addMigrations(MIGRATION_6_7, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
                             .fallbackToDestructiveMigration()
                             .build();
                 }

@@ -14,6 +14,7 @@ import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
+import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -42,7 +43,6 @@ import java.util.List;
 
 public class SettingsActivity extends BaseActivity {
 
-    // Inputs
     private EditText editTextUsername;
     private EditText editTextApiKey;
     private AutoCompleteTextView editTextPreferredModel;
@@ -59,14 +59,12 @@ public class SettingsActivity extends BaseActivity {
     private TextView textViewCredits;
     private Button buttonSave;
 
-    // Backup Buttons
     private Button buttonExport, buttonImport;
     private Button buttonExportCharacters, buttonImportCharacters;
     private Button buttonClearData;
 
     private View saveContainer;
 
-    // Persona Inputs
     private Spinner spinnerPersona;
     private Button buttonAddPersona, buttonDeletePersona;
     private EditText editTextPersonaName, editTextPersonaDescription;
@@ -76,16 +74,15 @@ public class SettingsActivity extends BaseActivity {
     private int activePersonaId = -1;
     private boolean initialPersonaLoaded = false;
 
-    // Tabs
     private View tabContainer;
     private Button tabPersona, tabLlm, tabAppearance, tabBackup;
     private View layoutPersona, layoutLlm, layoutAppearance, layoutBackup;
 
-    // Appearance
     private RadioGroup radioGroupListMode;
     private RadioButton radioModeList, radioModeCard;
+    private SeekBar seekBubbleWidth;
+    private SeekBar seekLineSpacing;
 
-    // Helpers
     private SettingsViewModel settingsViewModel;
     private SettingsAppearanceHelper appearanceHelper;
     private SettingsBackupHelper backupHelper;
@@ -160,6 +157,9 @@ public class SettingsActivity extends BaseActivity {
         radioGroupListMode = findViewById(R.id.radio_group_list_mode);
         radioModeList = findViewById(R.id.radio_mode_list);
         radioModeCard = findViewById(R.id.radio_mode_card);
+
+        seekBubbleWidth = findViewById(R.id.seekbar_bubble_width);
+        seekLineSpacing = findViewById(R.id.seekbar_line_spacing);
     }
 
     private void initHelpers() {
@@ -168,8 +168,18 @@ public class SettingsActivity extends BaseActivity {
         appearanceHelper = new SettingsAppearanceHelper(
                 findViewById(R.id.color_wheel),
                 findViewById(R.id.gradient_seek_bar),
-                new CardView[]{findViewById(R.id.card_preview_primary), findViewById(R.id.card_preview_secondary)},
-                new LinearLayout[]{findViewById(R.id.container_preview_primary), findViewById(R.id.container_preview_secondary)}
+                new CardView[]{
+                        findViewById(R.id.card_preview_primary),
+                        findViewById(R.id.card_preview_secondary),
+                        findViewById(R.id.card_preview_narrative),
+                        findViewById(R.id.card_preview_dialogue)
+                },
+                new LinearLayout[]{
+                        findViewById(R.id.container_preview_primary),
+                        findViewById(R.id.container_preview_secondary),
+                        findViewById(R.id.container_preview_narrative),
+                        findViewById(R.id.container_preview_dialogue)
+                }
         );
     }
 
@@ -220,7 +230,6 @@ public class SettingsActivity extends BaseActivity {
     }
 
     private void setupLogic() {
-        // --- Persona Logic ---
         personaAdapter = new PersonaAdapter(this, android.R.layout.simple_spinner_item, personaList);
         personaAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerPersona.setAdapter(personaAdapter);
@@ -258,14 +267,20 @@ public class SettingsActivity extends BaseActivity {
                 editTextPresPenalty.setText(String.valueOf(user.getDefaultPresencePenalty()));
                 editTextRepPenalty.setText(String.valueOf(user.getDefaultRepetitionPenalty()));
 
-                // Colors
                 int p = user.getThemeColorPrimary() != 0 ? user.getThemeColorPrimary() : ThemeUtils.getPrimaryColor(this);
                 int s = user.getThemeColorSecondary() != 0 ? user.getThemeColorSecondary() : ThemeUtils.getSecondaryColor(this);
-                appearanceHelper.setColors(p, s);
+                int n = user.getNarrativeTextColor();
+                int d = user.getDialogueTextColor();
+                appearanceHelper.setColors(p, s, n, d);
 
-                // View Mode
                 if ("card".equals(user.getCharacterListMode())) radioModeCard.setChecked(true);
                 else radioModeList.setChecked(true);
+
+                int widthProgress = (int) ((user.getChatBubbleWidth() - 0.5f) * 100);
+                seekBubbleWidth.setProgress(Math.max(0, widthProgress));
+
+                int spacingProgress = (int) ((user.getChatLineSpacing() - 1.0f) * 20);
+                seekLineSpacing.setProgress(Math.max(0, spacingProgress));
 
                 activePersonaId = user.getCurrentPersonaId();
                 personaAdapter.notifyDataSetChanged();
@@ -297,7 +312,6 @@ public class SettingsActivity extends BaseActivity {
             }
         });
 
-        // --- LLM Logic ---
         modelsAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, modelIds);
         editTextPreferredModel.setAdapter(modelsAdapter);
 
@@ -325,7 +339,6 @@ public class SettingsActivity extends BaseActivity {
 
         buttonSave.setOnClickListener(v -> saveSettings());
 
-        // --- Backup Logic Delegates ---
         buttonExport.setOnClickListener(v -> backupHelper.launchFullBackupExport());
         buttonImport.setOnClickListener(v -> backupHelper.launchFullBackupImport());
         buttonExportCharacters.setOnClickListener(v -> backupHelper.launchCharacterExport());
@@ -430,10 +443,15 @@ public class SettingsActivity extends BaseActivity {
         int newActivePersonaId = selectedPersona != null ? selectedPersona.getId() : activePersonaId;
         int pColor = appearanceHelper.getPrimaryColor();
         int sColor = appearanceHelper.getSecondaryColor();
+        int nColor = appearanceHelper.getNarrativeColor();
+        int dColor = appearanceHelper.getDialogueColor();
+
+        float bubbleWidth = 0.5f + (seekBubbleWidth.getProgress() / 100f);
+        float lineSpacing = 1.0f + (seekLineSpacing.getProgress() / 20f);
 
         ThemeUtils.saveColors(this, pColor, sColor);
         settingsViewModel.saveSettings(username, apiKey, preferredModel, globalPrompt, contextLimit, pColor, sColor, viewMode, newActivePersonaId,
-                temp, topP, topK, freqPen, presPen, repPen);
+                temp, topP, topK, freqPen, presPen, repPen, nColor, dColor, bubbleWidth, lineSpacing);
         Toast.makeText(this, "Settings saved! Restarting...", Toast.LENGTH_SHORT).show();
 
         finish();

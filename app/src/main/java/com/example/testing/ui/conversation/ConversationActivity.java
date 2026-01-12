@@ -58,7 +58,6 @@ public class ConversationActivity extends BaseActivity {
     private TextView actionBarName;
     private TextView actionBarTag;
 
-    // Updated scenario views
     private LinearLayout layoutScenarioContainer;
     private TextView textViewScenarioToggle;
     private TextView textViewScenarioDescription;
@@ -141,7 +140,6 @@ public class ConversationActivity extends BaseActivity {
         buttonSend = findViewById(R.id.button_send);
         progressBarGenerating = findViewById(R.id.progress_bar_generating);
 
-        // Scenario Dropdown Initialization
         layoutScenarioContainer = findViewById(R.id.layout_scenario_container);
         textViewScenarioToggle = findViewById(R.id.text_view_scenario_toggle);
         textViewScenarioDescription = findViewById(R.id.text_view_scenario_description);
@@ -216,7 +214,6 @@ public class ConversationActivity extends BaseActivity {
                 this.currentCharacter = character;
                 if (actionBarName != null) actionBarName.setText(character.getName());
 
-                // Set initial image if not already set (e.g. by scenario logic later)
                 if (conversationId == -1 && currentActionBarImagePath == null) {
                     updateActionBarImage(character.getCharacterProfileImagePath());
                 }
@@ -224,7 +221,6 @@ public class ConversationActivity extends BaseActivity {
                 checkIfReadyToSend();
                 handleInitialScenarioLoad(character);
 
-                // If we are in an existing conversation, refresh the scenario UI
                 if (conversationId != -1) {
                     updateUIForScenario(conversationViewModel.getConversationScenario().getValue());
                 }
@@ -238,6 +234,7 @@ public class ConversationActivity extends BaseActivity {
         conversationViewModel.getCurrentUser().observe(this, user -> {
             if (user != null && !TextUtils.isEmpty(user.getApiKey())) {
                 this.currentUser = user;
+                messageAdapter.updateSettings(user);
                 checkIfReadyToSend();
             } else {
                 buttonSend.setEnabled(false);
@@ -252,10 +249,8 @@ public class ConversationActivity extends BaseActivity {
                 editTextMessage.setHint("Type a message");
             }
 
-            // Re-update scenario UI to apply persona name to placeholders
             updateUIForScenario(conversationViewModel.getConversationScenario().getValue());
 
-            // Re-run initial scenario load logic if in new chat mode to update greeting placeholders
             if (conversationId == -1 && currentCharacter != null) {
                 handleInitialScenarioLoad(currentCharacter);
             }
@@ -271,7 +266,6 @@ public class ConversationActivity extends BaseActivity {
     }
 
     private void updateUIForScenario(Scenario scenario) {
-        // If it's a new conversation, handleInitialScenarioLoad manages the initial UI state
         if (conversationId == -1) return;
 
         if (scenario != null) {
@@ -285,7 +279,6 @@ public class ConversationActivity extends BaseActivity {
             updateActionBarTag(scenario.getName());
             updateScenarioDescription(replacePlaceholders(scenario.getDescription()));
         } else {
-            // Scenario is null. Check for default scenario string in Character
             if (currentCharacter != null && !TextUtils.isEmpty(currentCharacter.getDefaultScenario())) {
                 updateActionBarTag("Default Scenario");
                 updateScenarioDescription(replacePlaceholders(currentCharacter.getDefaultScenario()));
@@ -325,7 +318,6 @@ public class ConversationActivity extends BaseActivity {
                     tag = scenario.getName();
                     desc = scenario.getDescription();
                 } else {
-                    // Scenario entity is null. Check for default string in character.
                     if (!TextUtils.isEmpty(character.getDefaultScenario())) {
                         tag = "Default Scenario";
                         desc = character.getDefaultScenario();
@@ -401,7 +393,6 @@ public class ConversationActivity extends BaseActivity {
         if (textViewScenarioDescription != null && layoutScenarioContainer != null) {
             if (!TextUtils.isEmpty(description)) {
                 textViewScenarioDescription.setText(description);
-                // We show the main container, but keep the description hidden/visible based on its current state (defaults to gone in XML)
                 layoutScenarioContainer.setVisibility(View.VISIBLE);
             } else {
                 layoutScenarioContainer.setVisibility(View.GONE);
