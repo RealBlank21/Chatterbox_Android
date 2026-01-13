@@ -129,7 +129,7 @@ public class ChatPromptGenerator {
         if (!messagesToSend.isEmpty()) {
             Message lastMessage = messagesToSend.get(messagesToSend.size() - 1);
             if ("assistant".equals(lastMessage.getRole()) && "length".equals(lastMessage.getFinishReason())) {
-                requestMessages.add(new RequestMessage("system", "Continue from where you stopped."));
+                requestMessages.add(new RequestMessage("system", "Continue from where you stopped, continue with the next logical action."));
             }
         }
 
