@@ -192,7 +192,7 @@ public class ConversationActivity extends BaseActivity {
 
     private void setupViewModel(int characterId) {
         conversationViewModel = new ViewModelProvider(this).get(ConversationViewModel.class);
-        conversationViewModel.loadData(characterId, conversationId);
+        conversationViewModel.loadData(characterId, conversationId, selectedPersonaId);
     }
 
     private void setupObservers() {

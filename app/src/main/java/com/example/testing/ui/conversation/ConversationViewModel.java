@@ -5,6 +5,7 @@ import android.text.TextUtils;
 import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MediatorLiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.Transformations;
 
@@ -54,6 +55,7 @@ public class ConversationViewModel extends AndroidViewModel {
     private final ChatPromptGenerator chatPromptGenerator;
 
     private final MutableLiveData<Integer> conversationIdInput = new MutableLiveData<>();
+    private final MutableLiveData<Integer> selectedPersonaIdInput = new MutableLiveData<>();
     private final LiveData<List<Message>> messages;
 
     private LiveData<Character> currentCharacter;
@@ -109,14 +111,53 @@ public class ConversationViewModel extends AndroidViewModel {
     }
 
     public void loadData(int characterId, int conversationId) {
+        loadData(characterId, conversationId, null);
+    }
+
+    public void loadData(int characterId, int conversationId, Integer selectedPersonaId) {
         this.currentCharacter = characterRepository.getCharacterById(characterId);
         this.currentUser = userRepository.getUser();
 
-        this.activePersona = Transformations.switchMap(currentUser, user -> {
-            if (user == null || user.getCurrentPersonaId() == -1) {
+        selectedPersonaIdInput.setValue(selectedPersonaId);
+
+        // Mediator to determine the correct Persona ID based on priority:
+        // 1. Current Conversation's Persona (if exists)
+        // 2. Selected Persona (from Intent/Setup)
+        // 3. User's Default Persona
+        MediatorLiveData<Integer> targetPersonaId = new MediatorLiveData<>();
+
+        Runnable updateId = () -> {
+            Integer resultId = -1;
+
+            Conversation conv = currentConversation.getValue();
+            User user = currentUser.getValue();
+            Integer selected = selectedPersonaIdInput.getValue();
+
+            if (conv != null) {
+                if (conv.getPersonaId() != null) {
+                    resultId = conv.getPersonaId();
+                } else {
+                    if (user != null) resultId = user.getCurrentPersonaId();
+                }
+            } else {
+                if (selected != null && selected != -1) {
+                    resultId = selected;
+                } else {
+                    if (user != null) resultId = user.getCurrentPersonaId();
+                }
+            }
+            targetPersonaId.setValue(resultId);
+        };
+
+        targetPersonaId.addSource(currentConversation, v -> updateId.run());
+        targetPersonaId.addSource(currentUser, v -> updateId.run());
+        targetPersonaId.addSource(selectedPersonaIdInput, v -> updateId.run());
+
+        this.activePersona = Transformations.switchMap(targetPersonaId, id -> {
+            if (id == null || id == -1) {
                 return new MutableLiveData<>(null);
             }
-            return personaDao.getPersonaByIdLive(user.getCurrentPersonaId());
+            return personaDao.getPersonaByIdLive(id);
         });
 
         conversationIdInput.setValue(conversationId);
